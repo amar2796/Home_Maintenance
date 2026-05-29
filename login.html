@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title id="loginPageTitle">Login — Mandir System</title>
+  <meta name="description" id="loginMetaDesc" content="Login to the temple management system."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <link rel="stylesheet" href="login.css">
+</head>
+<body>
+
+<div class="container">
+  <!-- LOGIN CARD -->
+  <div class="card">
+
+    <!-- Cream header -->
+    <div class="card-header">
+      <div class="header-icon-wrap" id="hdrIconWrap">
+        <img src="Image/logo.PNG" alt="Mandir" class="login-logo" style="width:48px;height:48px;border-radius:50%;display:block;" onerror="this.style.display='none';document.getElementById('hdrIcon').style.display='inline-flex';">
+        <i id="hdrIcon" class="fa-solid fa-place-of-worship" style="display:none;color:#f7a01a;font-size:1.4rem;"></i>
+      </div>
+      <h2>Mandir Login</h2>
+      <span class="card-subtitle" id="loginSubtitle"></span>
+    </div>
+
+    <!-- Form body -->
+    <div class="card-body">
+      <div class="msg-box" id="loginMsg"></div>
+
+      <div class="input-group">
+        <i class="icon fa-solid fa-phone"></i>
+        <input type="text" id="mobile" placeholder="Mobile Number" maxlength="10" inputmode="numeric" autocomplete="username"/>
+      </div>
+
+      <div class="input-group">
+        <i class="icon fa-solid fa-lock"></i>
+        <input type="password" id="password" placeholder="Password" autocomplete="current-password"/>
+        <i class="fa-solid fa-eye pwd-eye" id="togglePassword"></i>
+      </div>
+
+      <span class="forgot" onclick="openForgotModal()">Forgot password?</span>
+
+      <label class="remember-row">
+        <input type="checkbox" id="rememberMe"> Remember me for 24 hours
+      </label>
+
+      <button class="main-btn" id="loginBtn" onclick="doLogin()">
+        <i class="fa-solid fa-right-to-bracket"></i> Secure Login
+      </button>
+      <button class="retry-btn" id="retryBtn" onclick="doLogin()">
+        <i class="fa-solid fa-rotate-right"></i> Retry Login
+      </button>
+
+      <!-- Register inline card -->
+      <div class="reg-row-card">
+        <div>
+          <div class="reg-text">New here? Register here</div>
+          <div class="reg-sub">Takes less than 2 minutes</div>
+        </div>
+        <button class="reg-btn" onclick="openRegisterModal()">
+          <i class="fa-solid fa-user-plus"></i> Register →
+        </button>
+      </div>
+    </div>
+
+    <!-- Card footer -->
+    <div class="card-footer">
+      <a href="index.html" class="back-home">
+        <div class="back-home-icon"><i class="fa-solid fa-arrow-left"></i></div>
+        Back to Home
+      </a>
+      <div class="version-footer" id="versionFooter"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ FORGOT PASSWORD MODAL ══ -->
+<div id="forgotModal" class="modal-overlay">
+  <div class="modal-card" style="max-width:400px;">
+
+    <!-- Step 1 header: enter mobile -->
+    <div class="modal-header" id="forgotHeader1">
+      <button class="close-btn" onclick="closeForgotModal()">×</button>
+      <div class="modal-icon"><i class="fa-solid fa-mobile-screen-button" style="color:#f7a01a;"></i></div>
+      <h2>Forgot Password</h2>
+      <span class="card-subtitle">Enter your registered mobile number</span>
+    </div>
+    <!-- Step 2 header: confirm masked email -->
+    <div class="modal-header" id="forgotHeader2" style="display:none;">
+      <button class="close-btn" onclick="closeForgotModal()">×</button>
+      <div class="modal-icon"><i class="fa-solid fa-envelope-circle-check" style="color:#f7a01a;"></i></div>
+      <h2>Confirm Your Email</h2>
+      <span class="card-subtitle" id="forgotMaskedEmailSub">We found your account</span>
+    </div>
+    <!-- Step 3 header: OTP + new password -->
+    <div class="modal-header" id="forgotHeader3" style="display:none;">
+      <button class="close-btn" onclick="closeForgotModal()">×</button>
+      <div class="modal-icon"><i class="fa-solid fa-key" style="color:#f7a01a;"></i></div>
+      <h2>Reset Password</h2>
+      <span class="card-subtitle">Enter the OTP sent to your email</span>
+    </div>
+
+    <div class="modal-body">
+
+      <!-- Step 1: mobile lookup -->
+      <div id="resetStep1">
+        <div class="msg-box" id="resetMsg1"></div>
+        <!-- Step pill -->
+        <div style="display:flex;gap:6px;justify-content:center;margin-bottom:16px;">
+          <span id="fpPill1" style="height:6px;width:40px;border-radius:3px;background:#f7a01a;"></span>
+          <span id="fpPill2" style="height:6px;width:40px;border-radius:3px;background:#eee;"></span>
+          <span id="fpPill3" style="height:6px;width:40px;border-radius:3px;background:#eee;"></span>
+        </div>
+        <div class="input-group">
+          <i class="icon fa-solid fa-phone"></i>
+          <input type="text" id="resetMobile" placeholder="Registered mobile number" maxlength="10" inputmode="numeric"/>
+        </div>
+        <button class="main-btn" id="fpLookupBtn" onclick="fpLookupMobile()">
+          <i class="fa-solid fa-magnifying-glass"></i> Find My Account
+        </button>
+      </div>
+
+      <!-- Step 2: masked email confirmation -->
+      <div id="resetStep2" style="display:none;">
+        <div class="msg-box" id="resetMsg2"></div>
+        <div style="display:flex;gap:6px;justify-content:center;margin-bottom:16px;">
+          <span style="height:6px;width:40px;border-radius:3px;background:#27ae60;"></span>
+          <span id="fpPill2b" style="height:6px;width:40px;border-radius:3px;background:#f7a01a;"></span>
+          <span style="height:6px;width:40px;border-radius:3px;background:#eee;"></span>
+        </div>
+        <!-- Masked email display -->
+        <div style="background:#fffbf5;border:1.5px solid #fde68a;border-radius:10px;padding:14px 16px;margin-bottom:16px;text-align:center;">
+          <div style="font-size:11px;color:#a16207;font-weight:600;margin-bottom:4px;">OTP will be sent to</div>
+          <div id="fpMaskedEmailDisplay" style="font-size:15px;font-weight:700;color:#78350f;letter-spacing:.5px;"></div>
+        </div>
+        <p style="font-size:12px;color:#666;text-align:center;margin:0 0 16px;line-height:1.55;">Is this your email? Tap <b>Send OTP</b> to receive a 6-digit verification code.</p>
+        <button class="main-btn" id="fpSendOtpBtn" onclick="fpSendOtp()">
+          <i class="fa-solid fa-paper-plane"></i> Send OTP to This Email
+        </button>
+        <button class="retry-btn" style="display:block;" onclick="fpGoBack()">
+          <i class="fa-solid fa-arrow-left"></i> That's not my email — go back
+        </button>
+      </div>
+
+      <!-- Step 3: OTP boxes + new password -->
+      <div id="resetStep3" style="display:none;">
+        <div class="msg-box" id="resetMsg3"></div>
+        <div style="display:flex;gap:6px;justify-content:center;margin-bottom:16px;">
+          <span style="height:6px;width:40px;border-radius:3px;background:#27ae60;"></span>
+          <span style="height:6px;width:40px;border-radius:3px;background:#27ae60;"></span>
+          <span id="fpPill3b" style="height:6px;width:40px;border-radius:3px;background:#f7a01a;"></span>
+        </div>
+        <!-- 6-box OTP -->
+        <div style="font-size:11.5px;font-weight:600;color:#666;margin-bottom:8px;">Verification code</div>
+        <div id="fpOtpBoxes" style="display:flex;gap:6px;justify-content:center;margin-bottom:6px;">
+          <input class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" style="height:48px;"/>
+          <input class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" style="height:48px;"/>
+          <input class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" style="height:48px;"/>
+          <input class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" style="height:48px;"/>
+          <input class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" style="height:48px;"/>
+          <input class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" style="height:48px;"/>
+        </div>
+        <!-- Resend row -->
+        <div style="text-align:center;margin-bottom:16px;">
+          <button id="fpResendBtn" onclick="fpResendOtp()" style="background:none;border:none;font-family:'Poppins',sans-serif;font-size:12.5px;color:#a16207;cursor:pointer;padding:4px 10px;border-radius:6px;font-weight:600;transition:color .2s;display:none;">
+            <i class="fa-solid fa-rotate-right" style="font-size:11px;"></i> Resend OTP
+          </button>
+          <span id="fpResendTimer" style="font-size:12px;color:#888;"></span>
+        </div>
+        <!-- New password -->
+        <span class="field-label">New password</span>
+        <div class="input-group" style="margin-bottom:4px;">
+          <i class="icon fa-solid fa-lock"></i>
+          <input type="password" id="newPassword" placeholder="Min 8 chars" autocomplete="new-password" oninput="checkPwdStrength(this.value,'resetStrengthFill','resetStrengthLabel')"/>
+          <i class="fa-solid fa-eye pwd-eye" id="toggleNewPwd"></i>
+        </div>
+        <div class="strength-bar"><div class="strength-fill" id="resetStrengthFill"></div></div>
+        <div class="strength-label" id="resetStrengthLabel"></div>
+        <span class="field-label" style="margin-top:8px;display:block;">Confirm new password</span>
+        <div class="input-group" style="margin-bottom:16px;">
+          <i class="icon fa-solid fa-lock"></i>
+          <input type="password" id="newPasswordConfirm" placeholder="Re-enter password" autocomplete="new-password"/>
+          <i class="fa-solid fa-eye pwd-eye" id="toggleNewPwdConfirm"></i>
+        </div>
+        <button class="main-btn" id="fpResetBtn" onclick="fpVerifyAndReset()">
+          <i class="fa-solid fa-check-circle"></i> Update Password
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══ REGISTER MODAL ══ -->
+<div id="registerModal" class="modal-overlay">
+  <div class="modal-card">
+
+    <!-- Step 1 header: fill details -->
+    <div class="modal-header" id="regHeader1">
+      <button class="close-btn" onclick="closeRegisterModal()">×</button>
+      <div class="modal-icon">
+        <img src="Image/logo.PNG" alt="Mandir" style="width:38px;height:38px;border-radius:50%;display:block;" onerror="this.style.display='none';document.getElementById('regIconFallback').style.display='flex';">
+        <i id="regIconFallback" class="fa-solid fa-user-plus" style="display:none;color:#f7a01a;font-size:1.2rem;"></i>
+      </div>
+      <h2>Create Account</h2>
+      <span class="card-subtitle">Fill your details — takes less than 2 minutes</span>
+    </div>
+    <!-- Step 2 header: verify OTP -->
+    <div class="modal-header" id="regHeader2" style="display:none;">
+      <button class="close-btn" onclick="closeRegisterModal()">×</button>
+      <div class="modal-icon"><i class="fa-solid fa-envelope-circle-check" style="color:#f7a01a;font-size:1.2rem;"></i></div>
+      <h2>Verify Your Email</h2>
+      <span class="card-subtitle" id="regOtpSub">Enter the 6-digit code sent to your email</span>
+    </div>
+
+    <div class="modal-body">
+
+      <!-- ── Step 1: Registration form ── -->
+      <div id="regForm">
+        <div class="msg-box" id="regMsg"></div>
+        <!-- Step pill -->
+        <div style="display:flex;gap:6px;justify-content:center;margin-bottom:16px;">
+          <span style="height:6px;width:60px;border-radius:3px;background:#f7a01a;"></span>
+          <span style="height:6px;width:60px;border-radius:3px;background:#eee;"></span>
+        </div>
+
+
+
+        <div class="reg-row">
+          <div>
+            <span class="field-label">Full Name *</span>
+            <div class="input-group" style="margin-bottom:4px;">
+              <i class="icon fa-solid fa-user"></i>
+              <input type="text" id="reg_name" placeholder="Your full name" maxlength="100" oninput="regValidateField('reg_name')"/>
+            </div>
+          </div>
+          <div>
+            <span class="field-label">Mobile Number *</span>
+            <div class="input-group" style="margin-bottom:4px;">
+              <i class="icon fa-solid fa-phone"></i>
+              <input type="text" id="reg_mobile" placeholder="10-digit mobile" maxlength="10" inputmode="numeric" oninput="regValidateField('reg_mobile')"/>
+            </div>
+          </div>
+        </div>
+        <span class="field-label">Email Address *</span>
+        <div class="input-group" style="margin-bottom:4px;">
+          <i class="icon fa-solid fa-at"></i>
+          <input type="email" id="reg_email" placeholder="OTP will be sent here" maxlength="200" oninput="regValidateField('reg_email')"/>
+        </div>
+        <div class="reg-row">
+          <div>
+            <span class="field-label">Password *</span>
+            <div class="input-group" style="margin-bottom:4px;">
+              <i class="icon fa-solid fa-lock"></i>
+              <input type="password" id="reg_password" placeholder="Min 8 chars" autocomplete="new-password" oninput="checkPwdStrength(this.value,'regStrengthFill','regStrengthLabel');regValidateField('reg_password');regValidateField('reg_confirm');"/>
+              <i class="fa-solid fa-eye pwd-eye" id="toggleRegPwd"></i>
+            </div>
+            <div class="strength-bar"><div class="strength-fill" id="regStrengthFill"></div></div>
+            <div class="strength-label" id="regStrengthLabel"></div>
+          </div>
+          <div>
+            <span class="field-label">Confirm Password *</span>
+            <div class="input-group" style="margin-bottom:14px;">
+              <i class="icon fa-solid fa-lock"></i>
+              <input type="password" id="reg_confirm" placeholder="Re-enter password" autocomplete="new-password" oninput="regValidateField('reg_confirm')"/>
+              <i class="fa-solid fa-eye pwd-eye" id="toggleRegConfirm"></i>
+            </div>
+          </div>
+        </div>
+        <span class="field-label">Village / Town *</span>
+        <div class="input-group" style="margin-bottom:4px;">
+          <i class="icon fa-solid fa-house"></i>
+          <input type="text" id="reg_village" placeholder="Your village or town" maxlength="100" oninput="regValidateField('reg_village')"/>
+        </div>
+        <span class="field-label">Full Address <span style="color:#bbb;font-weight:400;">(optional)</span></span>
+        <div class="input-group" style="margin-bottom:4px;">
+          <i class="icon fa-solid fa-map-pin" style="top:18px;transform:none;"></i>
+          <input type="text" id="reg_address" placeholder="Street, locality, district..." maxlength="300" style="padding-left:44px;"/>
+        </div>
+        <span class="field-label">Date of Birth <span style="color:#bbb;font-weight:400;">(optional — for birthday alerts)</span></span>
+        <div class="input-group" style="margin-bottom:16px;">
+          <i class="icon fa-solid fa-cake-candles" style="top:50%;transform:translateY(-50%);"></i>
+          <input type="date" id="reg_dob" style="padding-left:44px;cursor:pointer;" max=""/>
+        </div>
+        <!-- T&C checkbox — collapsed into step 1 -->
+        <div id="tcRow" style="display:flex;align-items:flex-start;gap:9px;margin-bottom:16px;background:#fffbf5;border:1.5px solid #fde68a;border-radius:10px;padding:10px 12px;">
+          <input type="checkbox" id="reg_tc" style="width:16px;height:16px;accent-color:#f7a01a;cursor:pointer;flex-shrink:0;margin-top:2px;" disabled/>
+          <span style="font-size:12px;color:#78350f;line-height:1.55;">
+            I have read and agree to the
+            <span onclick="openTCModal()" style="color:#f7a01a;font-weight:700;cursor:pointer;text-decoration:underline;">Terms &amp; Conditions</span>
+            <span style="color:#e74c3c;"> *</span>
+          </span>
+        </div>
+        <div id="tcErrMsg" style="display:none;font-size:11px;color:#e74c3c;margin:-10px 0 12px;text-align:left;">Please read and accept the Terms &amp; Conditions to continue.</div>
+        <!-- Send OTP button — validates all fields + T&C, then sends OTP -->
+        <button class="main-btn" id="regSendOtpBtn" onclick="regSendOtp()">
+          <i class="fa-solid fa-paper-plane"></i> Next — Verify Email
+        </button>
+        <p style="font-size:11.5px;color:#888;margin:0;line-height:1.5;">
+          <i class="fa-solid fa-shield-halved" style="color:#f7a01a;"></i>
+          A 6-digit code will be sent to your email to confirm and submit.
+        </p>
+      </div>
+
+      <!-- ── Step 2: OTP verify = final submit ── -->
+      <div id="regOtpStep" style="display:none;">
+        <div class="msg-box" id="regOtpMsg"></div>
+        <!-- Step pill -->
+        <div style="display:flex;gap:6px;justify-content:center;margin-bottom:16px;">
+          <span style="height:6px;width:60px;border-radius:3px;background:#27ae60;"></span>
+          <span style="height:6px;width:60px;border-radius:3px;background:#f7a01a;"></span>
+        </div>
+        <!-- Locked email display -->
+        <div style="background:#fffbf5;border:1.5px solid #fde68a;border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;">
+          <i class="fa-solid fa-circle-check" style="color:#27ae60;font-size:13px;flex-shrink:0;"></i>
+          <span style="font-size:12px;color:#78350f;font-weight:600;" id="regLockedEmail"></span>
+        </div>
+        <!-- 6-box OTP input -->
+        <div style="font-size:11.5px;font-weight:600;color:#666;margin-bottom:8px;">Verification code</div>
+        <div id="regOtpBoxes" style="display:flex;gap:6px;justify-content:center;margin-bottom:6px;">
+          <input class="otp-box reg-otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" style="height:48px;"/>
+          <input class="otp-box reg-otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" style="height:48px;"/>
+          <input class="otp-box reg-otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" style="height:48px;"/>
+          <input class="otp-box reg-otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" style="height:48px;"/>
+          <input class="otp-box reg-otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" style="height:48px;"/>
+          <input class="otp-box reg-otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" style="height:48px;"/>
+        </div>
+        <!-- Resend -->
+        <div style="text-align:center;margin-bottom:16px;">
+          <button id="regResendBtn" onclick="regResendOtp()" style="background:none;border:none;font-family:'Poppins',sans-serif;font-size:12.5px;color:#a16207;cursor:pointer;padding:4px 10px;border-radius:6px;font-weight:600;transition:color .2s;display:none;">
+            <i class="fa-solid fa-rotate-right" style="font-size:11px;"></i> Resend OTP
+          </button>
+          <span id="regResendTimer" style="font-size:12px;color:#888;"></span>
+        </div>
+        <!-- Submit = OTP verified → registerUser POST -->
+        <button class="main-btn" id="regVerifyBtn" onclick="regVerifyAndSubmit()">
+          <i class="fa-solid fa-check-circle"></i> Verify &amp; Complete Registration
+        </button>
+        <button class="retry-btn" style="display:block;" onclick="regGoBackToForm()">
+          <i class="fa-solid fa-arrow-left"></i> Edit details
+        </button>
+      </div>
+
+      <!-- ── Step 3: Success ── -->
+      <div id="regSuccess" style="display:none;">
+        <div class="reg-pending">
+          <div class="pend-icon">🙏</div>
+          <h3>Registration Submitted!</h3>
+          <p id="regSuccessMsg">Your request has been sent to the temple admin for review.<br/><br/>
+            You will receive an email once approved. You can then login with your mobile and password.</p>
+        </div>
+        <div style="margin-top:20px;">
+          <button class="main-btn" onclick="closeRegisterModal()"><i class="fa-solid fa-check"></i> Got it, Back to Login</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══ TERMS & CONDITIONS MODAL ══ -->
+<div id="tcModal" class="modal-overlay" style="display:none;">
+  <div class="modal-card" style="max-width:420px;">
+    <div class="modal-header">
+      <button class="close-btn" onclick="closeTCModal()">×</button>
+      <div class="modal-icon"><i class="fa-solid fa-file-shield" style="color:#f7a01a;"></i></div>
+      <h2>Terms &amp; Conditions</h2>
+      <span class="card-subtitle">Please read carefully before registering</span>
+    </div>
+    <div class="modal-body" style="padding:0;">
+      <!-- Scrollable content -->
+      <div id="tcScrollArea" style="max-height:300px;overflow-y:auto;padding:20px 24px 12px;border-bottom:1px solid #fde68a;" onscroll="checkTCScroll()">
+        <div style="display:flex;align-items:center;gap:9px;background:#fffbf5;border:1.5px solid #fde68a;border-radius:10px;padding:11px 14px;margin-bottom:16px;">
+          <i class="fa-solid fa-shield-halved" style="color:#f7a01a;font-size:1.1rem;"></i>
+          <span style="font-size:12.5px;font-weight:700;color:#78350f;" id="tcModalTitle">Shree Hanuman Mandir — Privacy &amp; Usage Policy</span>
+        </div>
+        <div style="font-size:13px;color:#444;line-height:1.75;display:flex;flex-direction:column;gap:14px;">
+          <div>
+            <div style="font-weight:700;color:#78350f;margin-bottom:4px;display:flex;align-items:center;gap:7px;"><i class="fa-solid fa-user-shield" style="color:#f7a01a;"></i> Your Personal Data</div>
+            <p style="margin:0;">Your personal information (name, mobile, email, address) is collected <b>only</b> for temple record-keeping and communication. We do <b>not</b> share, sell, or disclose your personal details to any third party outside the temple trust.</p>
+          </div>
+          <div>
+            <div style="font-weight:700;color:#78350f;margin-bottom:4px;display:flex;align-items:center;gap:7px;"><i class="fa-solid fa-lock" style="color:#f7a01a;"></i> Password Security</div>
+            <p style="margin:0;">Your password is stored in <b>encrypted form</b> (SHA-256 hash). It is never stored or transmitted as plain text. No admin or staff member can view your password. Keep your password private.</p>
+          </div>
+          <div>
+            <div style="font-weight:700;color:#78350f;margin-bottom:4px;display:flex;align-items:center;gap:7px;"><i class="fa-solid fa-people-arrows" style="color:#f7a01a;"></i> Member Privacy</div>
+            <p style="margin:0;">Member details are <b>not shared</b> between members. You can only see your own contribution history and profile. Other members' personal or financial details are strictly confidential.</p>
+          </div>
+          <div>
+            <div style="font-weight:700;color:#78350f;margin-bottom:4px;display:flex;align-items:center;gap:7px;"><i class="fa-solid fa-envelope-open-text" style="color:#f7a01a;"></i> Communication</div>
+            <p style="margin:0;">Your email may be used to send you receipts, OTP verification codes, and important temple announcements. You will not receive spam or unrelated messages.</p>
+          </div>
+          <div>
+            <div style="font-weight:700;color:#78350f;margin-bottom:4px;display:flex;align-items:center;gap:7px;"><i class="fa-solid fa-circle-check" style="color:#f7a01a;"></i> Account Approval</div>
+            <p style="margin:0;">Registration requests are reviewed by the temple admin. Accounts are activated only after approval. The temple trust reserves the right to approve or decline any registration request.</p>
+          </div>
+          <div style="background:#fffbf5;border-radius:9px;padding:10px 13px;font-size:12px;color:#92400e;font-weight:600;margin-top:4px;">
+            🙏 By accepting, you confirm you have read, understood, and agree to these terms. — <span id="tcTagline">Jai Shree Ram</span>
+          </div>
+        </div>
+      </div>
+      <!-- Scroll hint -->
+      <div id="tcScrollHint" style="text-align:center;font-size:11px;color:#a16207;padding:8px 0 4px;background:#fffbf5;display:flex;align-items:center;justify-content:center;gap:5px;">
+        <i class="fa-solid fa-angles-down" style="animation:tcBounce 1.2s ease-in-out infinite;"></i> Scroll down to read all terms
+      </div>
+      <!-- Accept button — hidden until scrolled to bottom -->
+      <div id="tcAcceptArea" style="display:none;padding:14px 24px 18px;text-align:center;">
+        <button onclick="acceptTC()" style="width:100%;padding:12px;background:#78350f;color:#fff;border:none;border-radius:10px;font-family:'Poppins',sans-serif;font-size:14px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(247,160,26,0.35);">
+          <i class="fa-solid fa-circle-check"></i> I Accept the Terms &amp; Conditions
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+<div id="_tw"></div>
+
+<script src="constants.js"></script>
+<script>
+  // ── Populate dynamic fields from constants.js (APP object) ──
+  (function() {
+    if (typeof APP === 'undefined') return;
+    var name    = APP.name    || 'Mandir';
+    var loc     = APP.village || APP.location || '';
+    var tagline = APP.tagline || 'Jai Shree Ram';
+    // Page title & meta
+    document.title = 'Login — ' + name;
+    var lpt = document.getElementById('loginPageTitle'); if (lpt) lpt.textContent = 'Login — ' + name;
+    var lmd = document.getElementById('loginMetaDesc'); if (lmd) lmd.setAttribute('content', 'Login to ' + name + ' management system.');
+    // Login card subtitle
+    var sub = document.getElementById('loginSubtitle');
+    if (sub) sub.textContent = name + (loc ? ', ' + loc : '');
+    // T&C modal title & tagline
+    var tct = document.getElementById('tcModalTitle');
+    if (tct) tct.textContent = name + ' — Privacy & Usage Policy';
+    var tcTag = document.getElementById('tcTagline');
+    if (tcTag) tcTag.textContent = tagline;
+    // Version footer
+    if (typeof APP !== 'undefined' && APP.version) {
+      var vf = document.getElementById('versionFooter'); if (vf) vf.textContent = 'v' + APP.version;
+    }
+  })();
+</script>
+<script src="config.js"></script>
+<script src="login.js"></script>
+</body>
+</html>

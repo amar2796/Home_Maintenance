@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- CSP: restricts framing and object embeds; script/style remain open for JSONP + CDN -->
+  <meta http-equiv="Content-Security-Policy" content="frame-ancestors 'self'; object-src 'none'; base-uri 'self';">
+  <!-- Favicon — fixes 404 on every page load -->
+  <link rel="icon" href="Image/logo.PNG" type="image/png" />
+  <!-- DNS prefetch + preconnect declared once each (was duplicated) -->
+  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com" />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+  <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <!-- Preload local JS files so browser fetches them early while HTML parses -->
+  <link rel="preload" href="constants.js" as="script" />
+  <link rel="preload" href="config.js" as="script" />
+  <link rel="preload" href="app.js" as="script" />
+
+  <title>My Dashboard</title>
+  <!-- Browser chrome color matches app theme -->
+  <meta name="theme-color" content="#ffffff" id="metaThemeColor">
+  <meta name="color-scheme" content="light dark"><!-- Title is set dynamically via APP.name in _setUserVersion() -->
+  <!-- Google Fonts: async load (non-render-blocking) -->
+  <link rel="preload"
+    href="https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap"
+    as="style" onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript>
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" />
+  </noscript>
+  <!-- Font Awesome: preload then load both sheets together -->
+  <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/fontawesome.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/solid.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/fontawesome.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/solid.min.css" />
+  </noscript>
+
+  <link rel="stylesheet" href="user.css">
+  <!-- ── Anti-FOUC: apply dark class BEFORE first paint to prevent white flash ── -->
+  <script>
+    (function() {
+      try {
+        // Set language immediately from stored preference so lang attr is correct before paint
+        var storedLang = localStorage.getItem('mandir_lang');
+        if (storedLang === 'HI') document.documentElement.lang = 'hi';
+
+        var stored = localStorage.getItem('mandir_user_dark');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (stored === '1' || (stored === null && prefersDark)) {
+          document.documentElement.classList.add('user-dark-init');
+          document.body && document.body.classList.add('user-dark');
+          // Also set body style directly as body may not exist yet
+          var s = document.createElement('style');
+          s.textContent = 'body{background:#08090f!important;color:#e2e8f0!important;}';
+          s.id = '_dark_fouc';
+          document.head.appendChild(s);
+        }
+      } catch(e) {}
+    })();
+  </script>
+</head>
+
+<body>
+
+  <!-- _initialsAvatar defined early so onerror on avatar <img> tags can call it
+       before app.js and the main inline <script> block have loaded. -->
+  <script>
+    function _initialsAvatar(name, size) {
+      const parts = (name || "?").trim().split(/\s+/);
+      const initials = (parts[0][0] + (parts[1] ? parts[1][0] : "")).toUpperCase();
+      const colors = ["#c2410c","#b45309","#15803d","#1d4ed8","#7c3aed","#be185d","#0f766e"];
+      const col = colors[(name || "").charCodeAt(0) % colors.length];
+      const fs = Math.round(size * 0.38);
+      return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}'><circle cx='${size/2}' cy='${size/2}' r='${size/2}' fill='${col}'/><text x='${size/2}' y='${size/2+fs*0.36}' text-anchor='middle' fill='white' font-size='${fs}' font-family='Arial' font-weight='700'>${initials}</text></svg>`)}`;
+    }
+  </script>
+
+  <!-- TOAST (pre-rendered so aria-live is registered before first message) -->
+  <div id="toast" role="status" aria-live="polite" aria-atomic="true" style="display:none;"></div>
+
+  <!-- PAGE SCROLL PROGRESS BAR -->
+  <div id="page-progress" aria-hidden="true"></div>
+
+  <!-- HEADER -->
+  <header class="header" role="banner">
+    <div class="header-left">
+      <div class="hdr-icon" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top" style="cursor:pointer;">
+        <img src="Image/logo.PNG" alt="Mandir Logo" class="header-logo" fetchpriority="high" decoding="async" width="40" height="40"
+          onerror="this.style.display='none';document.getElementById('hdrIcon').style.display='inline';">
+        <i id="hdrIcon" class="fa-solid fa-place-of-worship"
+          style="display:none;color:#f7a01a;font-size:1.4rem;filter:drop-shadow(0 0 6px rgba(247,160,26,0.6));"></i>
+      </div>
+      <div class="hdr-text" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top" style="cursor:pointer;">
+        <div class="hdr-welcome">Welcome back,</div>
+        <span class="hdr-name" id="hdr_name">Loading…</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <!-- Dark mode toggle switch -->
+      <div class="dm-toggle" id="userDarkBtn" onclick="toggleUserDarkMode()" role="button" tabindex="0" title="Toggle dark mode"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleUserDarkMode();}">
+        <span class="dm-icon dm-icon-sun">☀️</span>
+        <span class="dm-knob"></span>
+        <span class="dm-icon dm-icon-moon">🌙</span>
+      </div>
+      <div class="hdr-avatar-wrap">
+        <img id="hdr_photo" class="hdr-avatar" src="Image/logo.PNG" loading="eager" decoding="async"
+          onerror="this.onerror=null;this.src='Image/logo.PNG';"
+          onclick="toggleUserDropdown()" title="Account" alt="User avatar" role="button" aria-haspopup="true" aria-expanded="false" aria-controls="userDropdown" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleUserDropdown();}" />
+        <div id="userDropdown" class="hdr-dropdown" role="menu" aria-label="Account menu">
+          <div class="hdr-drop-head">
+            <img id="hdr_drop_photo" src="data:," loading="lazy" decoding="async"
+              onerror="this.onerror=null;this.src='Image/logo.PNG';"
+              alt="" />
+            <div>
+              <div class="hdr-drop-head-name" id="hdr_drop_name">—</div>
+              <div class="hdr-drop-head-sub" id="hdr_drop_role">Member</div>
+            </div>
+          </div>
+          <div class="hdr-drop-item" onclick="closeDropdown();openMyProfile()" role="menuitem" tabindex="0" onkeydown="if(event.key==='Enter'){closeDropdown();openMyProfile();}">
+            <i class="fa-solid fa-id-card"></i> My Profile
+          </div>
+          <div class="hdr-drop-item" onclick="closeDropdown();openEditProfileDirect()" role="menuitem" tabindex="0" onkeydown="if(event.key==='Enter'){closeDropdown();openEditProfileDirect();}">
+            <i class="fa-solid fa-pen-to-square"></i> Edit Profile
+          </div>
+          <div class="hdr-drop-item" id="hdr_idcard_btn" onclick="closeDropdown();_btnLoad(this);downloadMemberIDCard().finally(()=>_btnDone(document.getElementById('hdr_idcard_btn')))" role="menuitem" tabindex="0" onkeydown="if(event.key==='Enter'){closeDropdown();_btnLoad(this);downloadMemberIDCard().finally(()=>_btnDone(document.getElementById('hdr_idcard_btn')));}">
+            <i class="fa-solid fa-address-card"></i> ID Card
+          </div>
+          <div class="hdr-drop-item danger" onclick="logout()" role="menuitem" tabindex="0" onkeydown="if(event.key==='Enter'){logout();}">
+            <i class="fa-solid fa-power-off"></i> Logout
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="main" role="main">
+
+    <!-- HERO -->
+    <div class="hero">
+    <!-- Skeleton shown while data loads -->
+    <div id="heroSkeleton" aria-hidden="true">
+        <div class="hero-row">
+          <div>
+            <!-- label line -->
+            <div class="skel" style="height:10px;width:130px;border-radius:5px;margin-bottom:10px;opacity:.45;"></div>
+            <!-- big amount -->
+            <div class="skel skel-hero-amt"></div>
+            <!-- last donation row -->
+            <div class="skel" style="height:9px;width:180px;border-radius:5px;margin-top:8px;opacity:.35;"></div>
+          </div>
+          <div style="text-align:right;">
+            <!-- pill -->
+            <div class="skel skel-hero-pill" style="margin-left:auto;"></div>
+            <!-- all time label -->
+            <div class="skel" style="height:8px;width:50px;border-radius:4px;margin:10px 0 5px auto;opacity:.3;"></div>
+            <!-- all time amount -->
+            <div class="skel" style="height:18px;width:80px;border-radius:6px;margin-left:auto;opacity:.4;"></div>
+          </div>
+        </div>
+        <div class="hero-stats">
+          <div class="skel skel-hero-stat"></div>
+          <div class="skel skel-hero-stat"></div>
+        </div>
+      </div>
+      <!-- Real content hidden until data arrives -->
+      <div id="heroContent" style="display:none;" role="region" aria-label="Your contribution summary">
+        <div class="hero-row">
+          <div>
+            <div class="hero-label">Donated This Year (<span id="heroYearLabel">2025</span>)</div>
+            <div class="hero-amount">₹ <span id="thisYearAmount">0</span></div>
+            <div id="lastDonationRow" style="display:none;margin-top:9px;align-items:center;gap:5px;flex-wrap:wrap;background:rgba(247,160,26,0.10);border:1px solid rgba(247,160,26,0.22);border-radius:20px;padding:4px 11px;width:fit-content;">
+              <i class="fa-solid fa-clock-rotate-left" style="font-size:10px;color:var(--gold);opacity:0.85;"></i>
+              <span style="font-size:10.5px;color:var(--ink-faint);letter-spacing:.2px;">Last:</span>
+              <span id="lastDonationAmt" style="font-size:12.5px;font-weight:700;color:var(--gold-lt);font-family:var(--font-h);"></span>
+              <span style="font-size:11px;color:rgba(255,255,255,0.35);">·</span>
+              <span id="lastDonationDate" style="font-size:10.5px;color:rgba(255,255,255,0.55);"></span>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div class="hero-pill" id="heroPill" style="display:none;"></div>
+            <div style="margin-top:8px;font-size:10px;color:var(--ink-faint);letter-spacing:.5px;text-transform:uppercase;">All time</div>
+            <div style="font-family:var(--font-h);font-size:1.1rem;font-weight:700;color:rgba(255,255,255,0.6);">₹ <span id="totalAmount">0</span></div>
+          </div>
+        </div>
+        <div class="hero-stats" id="quickStats"></div>
+      </div>
+    </div>
+
+    <!-- QUICK ACTIONS -->
+    <div class="qa-row-wrap">
+    <div class="qa-row">
+      <button class="qa-btn qa-green" id="btnSubmitNewPayment"
+        onclick="_toggleAccordion('panelPayment');setTimeout(function(){var el=document.getElementById('accBtn-panelPayment');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},120);" aria-label="Submit new payment">
+        <i class="fa-solid fa-hand-holding-dollar"></i> Submit Payment
+      </button>
+      <button class="qa-btn qa-gold" id="btnAnnualReceipt"
+        onclick="_confirmPdfDownload('annual')" title="Download your annual contribution statement — useful for tax records" aria-label="Download annual receipt PDF">
+        <i class="fa-solid fa-file-invoice"></i> Annual Report
+      </button>
+      <button class="qa-btn qa-ghost" id="btnFullPDF"
+        onclick="_confirmPdfDownload('full')" aria-label="Download full contributions PDF">
+        <i class="fa-solid fa-file-pdf"></i> Full History PDF
+      </button>
+    </div><!-- /.qa-row -->
+    </div><!-- /.qa-row-wrap -->
+
+    <!-- GOALS (always visible — small, injected by JS) -->
+    <div id="goalsContainer"></div>
+
+    <!-- BROADCASTS / NOTICES (always visible) -->
+    <div id="broadcastContainer"></div>
+
+    <!-- RECENT ACTIVITY -->
+    <div class="sec-lbl"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Recent Activity</div>
+    <div class="card" style="margin-bottom:14px;overflow:hidden;" role="region" aria-label="Recent activity">
+      <div class="ra-list" id="recentActivityList">
+        <div style="padding:28px 20px;text-align:center;">
+          <div style="width:36px;height:36px;border:3px solid var(--gold-dim);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px;"></div>
+          <div style="font-size:12px;color:var(--ink-faint);font-weight:500;">Loading activity…</div>
+        </div>
+      </div>
+      <div class="ra-view-all" style="cursor:default;color:var(--ink-faint);font-size:11px;font-weight:400;gap:4px;">
+        <i class="fa-solid fa-circle-info" style="font-size:10px;color:var(--ink-faint);opacity:0.7;"></i>
+        To see complete data, click <strong style="color:var(--ink-soft);font-weight:600;">My Contribution</strong> in the menu below
+      </div>
+    </div>
+
+    <!-- MENU -->
+    <div class="sec-lbl"><i class="fa-solid fa-list-ul" aria-hidden="true"></i> Menu</div>
+    <div class="menu-grid" id="mainMenu">
+
+      <!-- My Contributions -->
+      <div class="menu-acc-wrap">
+        <div class="menu-item" id="accBtn-panelRecords" onclick="_toggleAccordion('panelRecords')" tabindex="0" role="button" aria-expanded="false" aria-controls="accBody-panelRecords" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_toggleAccordion('panelRecords');}"  >
+          <div class="menu-item-left">
+            <div class="menu-icon" style="background:rgba(34,197,94,0.12);">💳</div>
+            <div>
+              <div class="menu-title">My Contributions</div>
+              <div class="menu-desc">Full history · filter by year, month, type</div>
+            </div>
+          </div>
+          <div class="menu-right">
+            <span class="menu-badge mb-green" id="menuBadgeRecords" style="display:none;"></span>
+            <span class="menu-arrow">›</span>
+          </div>
+        </div>
+        <div class="acc-body" id="accBody-panelRecords">
+          <div class="acc-body-inner" id="accInner-panelRecords"></div>
+        </div>
+      </div>
+
+      <!-- Submit Payment -->
+      <div class="menu-acc-wrap">
+        <div class="menu-item" id="accBtn-panelPayment" onclick="_toggleAccordion('panelPayment')" tabindex="0" role="button" aria-expanded="false" aria-controls="accBody-panelPayment" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_toggleAccordion('panelPayment');}" >
+          <div class="menu-item-left">
+            <div class="menu-icon" style="background:rgba(247,160,26,0.12);">📋</div>
+            <div>
+              <div class="menu-title">Submit Payment</div>
+              <div class="menu-desc">Submit &amp; track your payment requests</div>
+            </div>
+          </div>
+          <div class="menu-right">
+            <span class="menu-badge mb-amber" id="menuBadgePending" style="display:none;"></span>
+            <span class="menu-arrow">›</span>
+          </div>
+        </div>
+        <div class="acc-body" id="accBody-panelPayment">
+          <div class="acc-body-inner" id="accInner-panelPayment"></div>
+        </div>
+      </div>
+
+      <!-- Statistics -->
+      <div class="menu-acc-wrap">
+        <div class="menu-item" id="accBtn-panelStats" onclick="_toggleAccordion('panelStats')" tabindex="0" role="button" aria-expanded="false" aria-controls="accBody-panelStats" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_toggleAccordion('panelStats');}" >
+          <div class="menu-item-left">
+            <div class="menu-icon" style="background:rgba(99,102,241,0.1);">📊</div>
+            <div>
+              <div class="menu-title">Statistics</div>
+              <div class="menu-desc">Month-wise &amp; type breakdown</div>
+            </div>
+          </div>
+          <div class="menu-right"><span class="menu-arrow">›</span></div>
+        </div>
+        <div class="acc-body" id="accBody-panelStats">
+          <div class="acc-body-inner" id="accInner-panelStats"></div>
+        </div>
+      </div>
+
+      <!-- Events & Festivals -->
+      <div class="menu-acc-wrap">
+        <div class="menu-item" id="accBtn-panelEvents" onclick="_toggleAccordion('panelEvents')" tabindex="0" role="button" aria-expanded="false" aria-controls="accBody-panelEvents" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_toggleAccordion('panelEvents');}" >
+          <div class="menu-item-left">
+            <div class="menu-icon" style="background:rgba(247,160,26,0.1);">📅</div>
+            <div>
+              <div class="menu-title">Events &amp; Festivals</div>
+              <div class="menu-desc">Upcoming · ongoing temple events</div>
+            </div>
+          </div>
+          <div class="menu-right">
+            <span class="menu-badge mb-amber" id="menuBadgeEvents" style="display:none;"></span>
+            <span class="menu-arrow">›</span>
+          </div>
+        </div>
+        <div class="acc-body" id="accBody-panelEvents">
+          <div class="acc-body-inner" id="accInner-panelEvents"></div>
+        </div>
+      </div>
+
+      <!-- Feedback -->
+      <div class="menu-acc-wrap">
+        <div class="menu-item" id="accBtn-panelFeedback" onclick="_toggleAccordion('panelFeedback')" tabindex="0" role="button" aria-expanded="false" aria-controls="accBody-panelFeedback" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_toggleAccordion('panelFeedback');}" >
+          <div class="menu-item-left">
+            <div class="menu-icon" style="background:rgba(59,130,246,0.1);">💬</div>
+            <div>
+              <div class="menu-title">Feedback</div>
+              <div class="menu-desc">Share suggestions with temple admin</div>
+            </div>
+          </div>
+          <div class="menu-right"><span class="menu-arrow">›</span></div>
+        </div>
+        <div class="acc-body" id="accBody-panelFeedback">
+          <div class="acc-body-inner" id="accInner-panelFeedback"></div>
+        </div>
+      </div>
+
+      <!-- Temple Contact -->
+      <div class="menu-acc-wrap">
+        <div class="menu-item" id="accBtn-panelContact" onclick="_toggleAccordion('panelContact')" tabindex="0" role="button" aria-expanded="false" aria-controls="accBody-panelContact" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_toggleAccordion('panelContact');}" >
+          <div class="menu-item-left">
+            <div class="menu-icon" style="background:rgba(34,197,94,0.1);">📞</div>
+            <div>
+              <div class="menu-title">Temple Contact</div>
+              <div class="menu-desc">Phone, email &amp; address</div>
+            </div>
+          </div>
+          <div class="menu-right"><span class="menu-arrow">›</span></div>
+        </div>
+        <div class="acc-body" id="accBody-panelContact">
+          <div class="acc-body-inner" id="accInner-panelContact"></div>
+        </div>
+      </div>
+
+    </div><!-- /menu-grid -->
+
+    <!-- ═══ SECTION PANELS (hidden, revealed on menu tap) ═══ -->
+
+    <!-- PANEL: Records + Filter -->
+    <div class="sec-panel" id="panelRecords">
+      <button class="sec-panel-back" onclick="_closeMenuSection('panelRecords')">
+        <i class="fa-solid fa-arrow-left"></i> Back
+      </button>
+      <div class="sec-lbl" id="filterSection" style="cursor:pointer;" onclick="_toggleFilter()">
+        <i class="fa-solid fa-filter"></i> Filter & Search
+        <span id="filterToggleIcon" style="margin-left:auto;font-size:13px;color:var(--gold);font-family:var(--font-b);font-weight:700;">▾</span>
+      </div>
+      <div id="filterBody" class="card" style="margin-bottom:14px;">
+        <div class="card-body">
+          <div class="f-grid">
+            <div class="f-grp"><label>Year</label><select id="filterYear" onchange="applyFilter()"></select></div>
+            <div class="f-grp"><label>Month</label><select id="filterMonth" onchange="applyFilter()"></select></div>
+            <div class="f-grp"><label>Type</label><select id="filterType" onchange="applyFilter()"></select></div>
+            <div class="f-grp"><label>Search</label><input type="text" id="searchInput" placeholder="Amount, …" onkeyup="searchData()" /></div><!-- placeholder set from APP.receiptPrefix in _setUserVersion() -->
+          </div>
+          <div class="f-actions">
+            <button class="btn-secondary btn-sm" onclick="applyFilter()"><i class="fa-solid fa-magnifying-glass"></i> Apply</button>
+            <button class="btn-ghost btn-sm" onclick="resetFilter()"><i class="fa-solid fa-rotate-right"></i> Reset</button>
+          </div>
+        </div>
+      </div>
+      <div class="sec-lbl"><i class="fa-solid fa-list-ul"></i> Contribution Records</div>
+      <div class="card">
+        <div class="card-hdr">
+          <div class="card-title"><i class="fa-solid fa-receipt"></i> Records <span class="c-badge" id="recordsCount">0</span></div>
+          <span style="font-size:11.5px;color:var(--ink-faint);">Tap row for receipt</span>
+        </div>
+        <div class="card-body" style="padding:0;">
+          <div class="t-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Amount (₹)</th>
+                  <th>Month</th>
+                  <th class="col-year">Year</th>
+                  <th>Tracking / Type</th>
+                  <th>Date</th>
+                  <th class="col-rcpt">Receipt</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+          <div class="mob-card-list" id="mobCardList"></div>
+          <div id="paginationBar"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL: Stats -->
+    <div class="sec-panel" id="panelStats">
+      <button class="sec-panel-back" onclick="_closeMenuSection('panelStats')">
+        <i class="fa-solid fa-arrow-left"></i> Back
+      </button>
+      <div class="sec-lbl"><i class="fa-solid fa-chart-bar"></i> Statistics</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-hdr" style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="card-title"><i class="fa-solid fa-calendar-days"></i> Month-wise</div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <label for="summaryYear" style="font-size:12px; font-weight:700; color:var(--ink-soft);">Select Year:</label>
+              <div style="position:relative;">
+                <select id="summaryYear" class="inl-sel" onchange="renderSummaries()" 
+                        style="padding:6px 24px 6px 10px; border:2px solid var(--gold); background:#fff; font-weight:bold;">
+                </select>
+                <i class="fa-solid fa-caret-down" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); pointer-events:none; color:var(--gold);"></i>
+              </div>
+            </div>
+          </div>
+          <div class="card-body" style="padding-top:10px;padding-bottom:8px;">
+            <div id="monthSummary"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hdr">
+            <div class="card-title"><i class="fa-solid fa-chart-pie"></i> By Type</div>
+            <span style="font-size:11px;color:var(--ink-faint);">same year</span>
+          </div>
+          <div class="card-body" style="padding-top:10px;padding-bottom:8px;">
+            <div id="typeSummary"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL: Events -->
+    <div class="sec-panel" id="panelEvents">
+      <button class="sec-panel-back" onclick="_closeMenuSection('panelEvents')">
+        <i class="fa-solid fa-arrow-left"></i> Back
+      </button>
+      <div class="sec-lbl"><i class="fa-solid fa-calendar-star"></i> Upcoming Events</div>
+      <div id="eventsContainer">
+        <div class="card" style="text-align:center;color:var(--ink-faint);padding:24px;font-size:13px;">
+          <i class="fa-solid fa-spinner fa-spin"></i> Loading events…
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL: Payment + My Requests -->
+    <div class="sec-panel" id="panelPayment">
+      <button class="sec-panel-back" onclick="_closeMenuSection('panelPayment')">
+        <i class="fa-solid fa-arrow-left"></i> Back
+      </button>
+
+      <!-- Section header -->
+      <div class="sec-lbl" id="submitPaymentSection"><i class="fa-solid fa-hand-holding-dollar"></i> Submit Payment Request</div>
+
+      <!-- Info banner -->
+      <div style="background:linear-gradient(135deg,#fffbf2,#fff8e8);border:1.5px solid rgba(247,160,26,0.28);border-radius:14px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:flex-start;gap:11px;">
+        <div style="width:34px;height:34px;background:rgba(247,160,26,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">
+          <i class="fa-solid fa-circle-info" style="color:#f7a01a;font-size:0.95rem;"></i>
+        </div>
+        <div>
+          <div style="font-size:12.5px;font-weight:700;color:#78350f;margin-bottom:2px;">Already paid? Submit for verification</div>
+          <div style="font-size:11.5px;color:#a16207;line-height:1.55;">Paid via UPI or Cash? Submit your payment details below — temple admin will verify and record it officially.</div>
+        </div>
+      </div>
+
+      <!-- Payment form card -->
+      <div class="card" style="margin-bottom:14px;border-radius:16px;overflow:hidden;box-shadow:var(--sh-md);">
+
+        <!-- Card gradient header -->
+        <div style="background:linear-gradient(135deg,#2a0f00 0%,#3c1a00 60%,#2a0f00 100%);padding:14px 16px;display:flex;align-items:center;gap:10px;border-bottom:2px solid rgba(247,160,26,0.35);">
+          <div style="width:30px;height:30px;background:rgba(247,160,26,0.18);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <i class="fa-solid fa-receipt" style="color:#f7a01a;font-size:0.85rem;"></i>
+          </div>
+          <span style="font-family:var(--font-h);font-weight:700;font-size:14px;color:#fff;">Payment Details</span>
+        </div>
+
+        <div class="card-body" style="padding:16px;">
+
+          <!-- Row 1: Month + Amount side by side -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+            <div>
+              <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:5px;margin-bottom:5px;">
+                <i class="fa-solid fa-calendar-days" class="_u-gold-icon-xs"></i> Month <span style="color:#ef4444;">*</span>
+              </label>
+              <select id="pr_month" class="f-input-gold" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;background:var(--bg);color:var(--ink);font-family:var(--font-b);transition:border-color .2s;">
+                <option value="">Select Month</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:5px;margin-bottom:5px;">
+                <i class="fa-solid fa-calendar" class="_u-gold-icon-xs"></i> Year <span style="color:#ef4444;">*</span>
+              </label>
+              <select id="pr_year" class="f-input-gold" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;background:var(--bg);color:var(--ink);font-family:var(--font-b);transition:border-color .2s;">
+              </select>
+            </div>
+          </div>
+          <div style="margin-bottom:12px;">
+            <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:5px;margin-bottom:5px;">
+              <i class="fa-solid fa-indian-rupee-sign" class="_u-gold-icon-xs"></i> Amount <span style="color:#ef4444;">*</span>
+            </label>
+            <div style="position:relative;">
+              <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;font-weight:700;color:#78350f;">₹</span>
+              <input type="number" id="pr_amount" placeholder="0" min="1" class="f-input-gold"
+                style="width:100%;padding:10px 12px 10px 26px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:700;outline:none;background:var(--bg);color:var(--ink);font-family:var(--font-b);transition:border-color .2s;box-sizing:border-box;"/>
+            </div>
+          </div>
+
+          <!-- Row 2: Payment Mode — pill selector -->
+          <div style="margin-bottom:12px;">
+            <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:5px;margin-bottom:8px;">
+              <i class="fa-solid fa-wallet" class="_u-gold-icon-xs"></i> Payment Mode
+            </label>
+            <select id="pr_mode" class="f-input-gold" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;background:var(--bg);color:var(--ink);font-family:var(--font-b);transition:border-color .2s;">
+            </select>
+          </div>
+
+          <!-- Row 3: UTR Reference -->
+          <div style="margin-bottom:12px;">
+            <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:5px;margin-bottom:5px;">
+              <i class="fa-solid fa-hashtag" class="_u-gold-icon-xs"></i> UTR / Reference No.
+              <span style="font-size:10px;color:#94a3b8;font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span>
+            </label>
+            <input type="text" id="pr_utr" placeholder="UPI transaction ID or cheque number" class="f-input-gold"
+              style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;background:var(--bg);color:var(--ink);font-family:var(--font-b);transition:border-color .2s;box-sizing:border-box;"/>
+          </div>
+
+          <!-- Row 4: Note -->
+          <div style="margin-bottom:14px;">
+            <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:5px;margin-bottom:5px;">
+              <i class="fa-solid fa-pen-to-square" class="_u-gold-icon-xs"></i> Note
+              <span style="font-size:10px;color:#94a3b8;font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span>
+            </label>
+            <input type="text" id="pr_note" placeholder="Any additional info for admin..." maxlength="200" class="f-input-gold"
+              style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;background:var(--bg);color:var(--ink);font-family:var(--font-b);transition:border-color .2s;box-sizing:border-box;"/>
+          </div>
+
+          <!-- Row 5: Payment Slip upload -->
+          <div style="margin-bottom:16px;">
+            <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:5px;margin-bottom:6px;">
+              <i class="fa-solid fa-image" class="_u-gold-icon-xs"></i> Payment Slip / Screenshot
+              <span style="font-size:10px;color:#94a3b8;font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span>
+            </label>
+            <div onclick="document.getElementById('pr_slip').click()"
+              style="border:2px dashed rgba(247,160,26,0.4);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;background:var(--bg);cursor:pointer;transition:border-color .2s,background .2s;"
+              onmouseover="this.style.borderColor='var(--gold)';this.style.background=document.body.classList.contains('user-dark')?'rgba(247,160,26,0.09)':' #fff8e8'" onmouseout="this.style.borderColor='rgba(247,160,26,0.4)';this.style.background='var(--bg)'">
+              <div style="width:38px;height:38px;background:rgba(247,160,26,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="fa-solid fa-cloud-arrow-up" style="color:#f7a01a;font-size:1.1rem;"></i>
+              </div>
+              <div class="_u-flex-1">
+                <div id="pr_slip_name" style="font-size:13px;color:#64748b;font-weight:500;">Tap to attach payment slip</div>
+                <div style="font-size:10.5px;color:#94a3b8;margin-top:1px;">JPG, PNG · Max 5 MB</div>
+                <div id="pr_slip_preview_wrap" style="display:none;margin-top:6px;">
+                  <img id="pr_slip_preview" style="max-height:60px;border-radius:6px;border:1px solid #e2e8f0;" src="data:," />
+                </div>
+              </div>
+              <input type="file" id="pr_slip" accept="image/*" style="display:none;" onchange="handlePrSlip(this)" />
+            </div>
+          </div>
+
+          <!-- Submit button -->
+          <button id="btnSubmitPayment"
+            onclick="_btnLoad(this);submitPaymentRequest().finally(()=>_btnDone(document.getElementById('btnSubmitPayment')))"
+            style="width:100%;padding:13px;background:linear-gradient(135deg,#f7a01a,#e8920a);color:#fff;border:none;border-radius:11px;font-family:var(--font-b);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(247,160,26,0.4);transition:opacity .2s,transform .2s;letter-spacing:.2px;">
+            <i class="fa-solid fa-paper-plane"></i> Submit to Admin for Verification
+          </button>
+
+          <!-- Status message -->
+          <div id="prMsg" style="font-size:12.5px;margin:10px 0 0;display:none;padding:11px 14px;border-radius:9px;border-left:3px solid;font-weight:600;"></div>
+
+        </div>
+      </div>
+
+      <!-- My Requests section -->
+      <div id="myContribRequestsSection" style="display:none;">
+        <div class="sec-lbl"><i class="fa-solid fa-clock-rotate-left"></i> My Payment Requests</div>
+        <div id="myContribRequestsList"></div>
+      </div>
+    </div>
+
+    <!-- PANEL: Feedback -->
+    <div class="sec-panel" id="panelFeedback">
+      <button class="sec-panel-back" onclick="_closeMenuSection('panelFeedback')">
+        <i class="fa-solid fa-arrow-left"></i> Back
+      </button>
+      <div class="sec-lbl"><i class="fa-solid fa-comment-dots"></i> Submit Feedback</div>
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-body">
+          <div style="font-size:12px;color:var(--ink-soft);margin-bottom:12px;">Share your suggestions or concerns with the temple admin.</div>
+          <div class="f-grid" style="grid-template-columns:1fr;gap:10px;">
+            <div class="f-grp">
+              <label>Subject</label>
+              <input type="text" id="fb_subject" placeholder="e.g. Suggestion about prasad timing" maxlength="200" />
+            </div>
+            <div class="f-grp">
+              <label>Message</label>
+              <textarea id="fb_message" placeholder="Write your feedback here…" maxlength="1000" class="f-input-gold" style="width:100%;min-height:80px;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:var(--font-b);font-size:13px;resize:vertical;outline:none;box-sizing:border-box;"></textarea>
+            </div>
+          </div>
+          <div id="fbMsg" style="font-size:12px;margin:8px 0;display:none;"></div>
+          <button id="btnSubmitFeedback" onclick="_btnLoad(this);submitFeedback().finally(()=>_btnDone(document.getElementById('btnSubmitFeedback')))" style="background:var(--gold);color:#fff;border:none;padding:10px 24px;border-radius:10px;font-family:var(--font-b);font-size:13px;font-weight:600;cursor:pointer;margin-top:6px;">
+            <i class="fa-solid fa-paper-plane"></i> Submit Feedback
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL: Contact -->
+    <div class="sec-panel" id="panelContact">
+      <button class="sec-panel-back" onclick="_closeMenuSection('panelContact')">
+        <i class="fa-solid fa-arrow-left"></i> Back
+      </button>
+      <div class="sec-lbl"><i class="fa-solid fa-phone"></i> Temple Contact</div>
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-body" style="padding:14px 16px;">
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <i class="fa-solid fa-phone" style="color:var(--gold);font-size:1.2rem;width:22px;text-align:center;"></i>
+              <div>
+                <div style="font-size:11px;color:var(--ink-faint);font-weight:600;text-transform:uppercase;letter-spacing:.4px;">Phone</div>
+                <a id="templePhone" href="" style="font-size:14px;font-weight:600;color:var(--gold);text-decoration:none;"></a>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <i class="fa-solid fa-envelope" style="color:var(--gold);font-size:1.2rem;width:22px;text-align:center;"></i>
+              <div>
+                <div style="font-size:11px;color:var(--ink-faint);font-weight:600;text-transform:uppercase;letter-spacing:.4px;">Email</div>
+                <a id="templeEmail" href="" style="font-size:14px;font-weight:600;color:var(--gold);text-decoration:none;"></a>
+              </div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:12px;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <i class="fa-solid fa-location-dot" style="color:var(--gold); font-size:1.2rem; width:22px; text-align:center;"></i>
+                <div>
+                  <div style="font-size:11px; color:var(--ink-faint); font-weight:600; text-transform:uppercase;">Address</div>
+                  <div id="templeAddressText" style="font-size:13px; color:var(--ink-mid); font-weight:500;"></div>
+                </div>
+              </div>
+            
+              <div class="map-container" style="width:100%; border-radius:12px; overflow:hidden; border:1.5px solid var(--gold-dim); box-shadow:var(--sh-sm); height:220px; position:relative; background:#eee;">
+                <!-- Map iframe injected lazily when Contact panel opens — see _lazyLoadPanel -->
+                <div id="mapPlaceholder" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;gap:8px;">
+                  <i class="fa-solid fa-map-location-dot" style="color:var(--gold);"></i> Map loads on open…
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VERSION FOOTER -->
+    <div id="userVersionFooter" style="text-align:center;font-size:10px;color:var(--ink-faint);padding:8px 0 20px;"></div>
+
+  </div><!-- /main -->
+
+  <!-- ═══ BOTTOM SHEET ═══ -->
+  <div class="bs-overlay" id="bsOverlay" onclick="_closeSheet()" aria-hidden="true"></div>
+  <div class="bs-sheet" id="bsSheet" role="dialog" aria-modal="true" aria-labelledby="bsTitle">
+    <div class="bs-handle-bar" id="bsHandle" aria-hidden="true"></div>
+    <div class="bs-header">
+      <div class="bs-title" id="bsTitle"><i class="fa-solid fa-list-ul"></i> Menu</div>
+      <button class="bs-close" onclick="_closeSheet()" title="Close" aria-label="Close panel">✕</button>
+    </div>
+    <div class="bs-body" id="bsBody">
+      <!-- panel content injected here dynamically -->
+    </div>
+  </div>
+
+  <!-- ══ Full-page loading / error overlay ══
+       Shown during init(), transitions to error state on failure.
+       _doUserRetry() is defined in the retry engine below. -->
+  <div id="userLoadingOverlay" role="status" aria-live="polite">
+    <div class="ulo-inner">
+      <!-- Normal loading state — Premium Temple Edition -->
+      <div id="ulo_loading">
+        <!-- Body -->
+        <div class="ulo-card-body">
+          <!-- Double-ring arc spinner -->
+          <div class="ulo-arc-wrap">
+            <svg viewBox="0 0 76 76" xmlns="http://www.w3.org/2000/svg">
+              <circle class="ulo-arc-track-outer" cx="38" cy="38" r="34"/>
+              <circle class="ulo-arc-fill-outer"  cx="38" cy="38" r="34" transform="rotate(-90 38 38)"/>
+              <circle class="ulo-arc-track-inner" cx="38" cy="38" r="24"/>
+              <circle class="ulo-arc-fill-inner"  cx="38" cy="38" r="24" transform="rotate(90 38 38)"/>
+            </svg>
+            <div class="ulo-namaskar">🙏</div>
+          </div>
+          <!-- Step label -->
+          <div class="ulo-loading-label" id="ulo_step_label">Connecting…</div>
+          <!-- Pill-style step indicators -->
+          <div class="ulo-steps-dots" id="ulo_step_dots">
+            <div class="ulo-sdot active" data-step="0"></div>
+            <div class="ulo-sdot" data-step="1"></div>
+            <div class="ulo-sdot" data-step="2"></div>
+            <div class="ulo-sdot" data-step="3"></div>
+            <div class="ulo-sdot" data-step="4"></div>
+            <div class="ulo-sdot" data-step="5"></div>
+          </div>
+          <!-- Progress track — enhanced with border + inner highlight -->
+          <div class="ulo-progress-wrap">
+            <div class="ulo-progress-bar active" id="ulo_prog_bar"></div>
+          </div>
+          <!-- Counter row -->
+          <div class="ulo-step-row">
+            <span class="ulo-step-done"   id="ulo_step_done">0 of 6 done</span>
+            <span class="ulo-pct-badge"   id="ulo_pct_badge">0%</span>
+            <span class="ulo-step-remain" id="ulo_step_remain">6 remaining</span>
+          </div>
+        </div>
+      </div>
+      <!-- Error / retry state (hidden until an error occurs) -->
+      <div id="ulo_error">
+        <!-- Coloured header strip -->
+        <div class="ulo-err-header">
+          <div class="ulo-err-icon-wrap" id="ulo_err_icon">⚠️</div>
+          <div class="ulo-err-hdr-text">
+            <div class="ulo-err-title" id="ulo_err_title">Could Not Load Data</div>
+            <div class="ulo-err-subtitle" id="ulo_err_subtitle">Tap Retry to try again</div>
+          </div>
+        </div>
+        <!-- Body -->
+        <div class="ulo-err-body">
+          <!-- Attempt badge + history dots -->
+          <div class="ulo-err-meta">
+            <span id="ulo_attempt_pill">
+              <span class="ulo-err-dot"></span>
+              <span id="ulo_pill_text">Attempt 1 failed</span>
+            </span>
+            <div id="ulo_attempt_dots"></div>
+          </div>
+          <!-- Error detail box -->
+          <div id="ulo_reason">Checking connection…</div>
+          <!-- Auto-retry countdown bar -->
+          <div class="ulo-countdown-wrap" id="ulo_countdown_wrap">
+            <div class="ulo-countdown-label">
+              <span>Auto-retrying…</span>
+              <span id="ulo_countdown_txt">5s</span>
+            </div>
+            <div class="ulo-countdown-track">
+              <div class="ulo-countdown-bar" id="ulo_countdown_bar"></div>
+            </div>
+          </div>
+          <!-- Action buttons -->
+          <div style="display:flex;flex-direction:column;gap:8px;width:100%;margin-top:2px;">
+            <button class="ulo-retry-btn" id="ulo_retryBtn" onclick="_doUserRetry(this)">
+              <i class="fa-solid fa-rotate-right"></i> Retry Now
+            </button>
+            <button class="ulo-login-btn" onclick="_doBackToLogin()">
+              <i class="fa-solid fa-right-to-bracket"></i> Back to Login
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pull to refresh indicator -->
+  <div id="ptr-indicator" aria-hidden="true">
+    <div class="ptr-spin" id="ptrSpinner"></div>
+    <span id="ptrText">Pull to refresh</span>
+  </div>
+
+  <!-- Scroll to top button -->
+  <button id="scrollTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top" aria-label="Scroll back to top">
+    <i class="fa-solid fa-chevron-up"></i>
+  </button>
+
+
+  <script src="constants.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+  <script src="user.js"></script>
+</body>
+
+</html>
