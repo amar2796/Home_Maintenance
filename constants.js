@@ -44,9 +44,9 @@
                      e.g. "SHM" → keys: shm_remember_token, shm_lang …
          nameHindi : Hindi name — used in hero section and member bios.
          ✔ SYNC name with CFG.name in appscript.txt. */
-      name:      "Shree Hanuman Mandir",
-      shortName: "SHM",
-      nameHindi: "श्री हनुमान मंदिर",
+      name:      "The Vishwakarma Home",
+      shortName: "TVH",
+      nameHindi: "विश्वकर्मा निवास",
     
     
       /* ── LOCATION ──────────────────────────────────────────────────────
@@ -67,8 +67,8 @@
          Displayed in emails, chatbot, and admin settings panel.
          These are NOT synced to appscript — frontend-only. */
       phone:   "+918127991402",
-      email:   "hanumanmandirpaliya@gmail.com",
-      website: "https://amar2796.github.io/Mandir_Contribution_System/",
+      email:   "vishwakarmahome@gmail.com",
+      website: "https://amar2796.github.io/Home_Maintenance_System/",
     
     
       /* ── HOMEPAGE DISPLAY ──────────────────────────────────────────────
@@ -83,10 +83,10 @@
          committee  : Managing trust / committee name — shown in the donate
                       modal declaration ("managed by ...").
          ✔ SYNC splashText, heroText, heroSub, committee with appscript CFG. */
-      splashText: "॥ जय श्री राम ॥",
-      heroText:   "|| श्री हनुमत आश्रम ||",
-      heroSub:    "राम जग विश्‍वकर्मा",
-      committee:  "Ram Jag Vishwakarma Committee",
+      splashText: "Welcome Home",
+      heroText:   "The Vishwakarma Home",
+      heroSub:    "Every contribution, tracked together",
+      committee:  "Vishwakarma Household",
     
     
       /* ── BRANDING & MESSAGES ───────────────────────────────────────────
@@ -99,10 +99,10 @@
                       Used in PDF receipt header and WhatsApp messages.
                       e.g. "🕉️" (Om), "✡️" (Star of David), "☪️" (Crescent)
          ✔ SYNC tagline and thankYouMsg with appscript CFG. */
-      tagline:    "Jai Shree Ram",
-      thankYouMsg: "Thank you for your generous contribution",
+      tagline:    "Home, together",
+      thankYouMsg: "Thank you for your contribution to the household",
       footerNote: "This is a system-generated receipt.",
-      symbol:     "🕉️",
+      symbol:     "🏠",
     
     
       /* ── RECEIPT & FINANCE ─────────────────────────────────────────────
@@ -115,7 +115,7 @@
          currency            : Currency symbol shown on receipts and UI.
          currencyCode        : ISO 4217 currency code (informational).
          ✔ SYNC receiptPrefix and legacyReceiptPrefix with appscript CFG. */
-      receiptPrefix:       "MNR",
+      receiptPrefix:       "HOM",
       legacyReceiptPrefix: "TRX",
       currency:     "₹",          // Symbol used in HTML/UI display
       currencyText: "Rs.",         // Text form used in jsPDF (Helvetica can't render ₹). SYNC with CFG.currencyText in appscript.txt
@@ -145,8 +145,8 @@
          signatory   : Name or title of the signing authority.
          designation : Their role / title.
          ✔ SYNC both with appscript CFG. */
-      signatory:   "Temple Trust",
-      designation: "Authorized Signatory",
+      signatory:   "Vishwakarma Household",
+      designation: "Household Head",
     
     
       /* ── EMAIL QUOTA ───────────────────────────────────────────────────

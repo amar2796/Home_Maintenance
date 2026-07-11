@@ -230,7 +230,7 @@ async function doLogin(){
         location.href=user.Role==="Admin"?"admin.html":"user.html";
       });
     }else if(res.status==="pending"){
-      setMsg("loginMsg","Your account is awaiting approval. You'll receive an email once the temple admin reviews your request.","pending");
+      setMsg("loginMsg","Your account is awaiting approval. You'll receive an email once the household admin reviews your request.","pending");
     }else if(res.status==="error"){
       // Use server's errorCode to highlight the exact field — no guessing
       const code = res.errorCode || "";
@@ -784,7 +784,7 @@ async function regVerifyAndSubmit(){
       document.getElementById('regHeader2').style.display='none';
       document.getElementById('regSuccess').style.display='block';
       document.getElementById('regSuccessMsg').innerHTML=
-        'Hi <b>'+escapeHtml(name)+'</b>, your request has been sent to the temple admin for review.<br/><br/>'+
+        'Hi <b>'+escapeHtml(name)+'</b>, your request has been sent to the household admin for review.<br/><br/>'+
         'You will receive an email at <b>'+escapeHtml(email)+'</b> once approved.';
     }else if(res&&res.message&&(res.message.toLowerCase().includes('mobile')||res.message.toLowerCase().includes('otp'))){
       if(res.message.toLowerCase().includes('otp')||res.message.toLowerCase().includes('invalid')||res.message.toLowerCase().includes('expired')){
