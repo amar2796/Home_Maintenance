@@ -179,10 +179,10 @@
          How to get a folder ID:
            Open the folder in Google Drive → copy the ID from the URL:
            https://drive.google.com/drive/folders/<<THIS_PART>> */
-      folderMain:    "1fw9No8nevduhe1yeILZUrbJHdDH_Lt9f",  // Legacy main upload folder
-      folderProfile: "1z9vb3mPu8DVB7htuB_vku0cC2dTc7Pa7",  // Drive > ProfilePhotos/
-      folderExpense: "1YY55xNxs5_LNCNjYYkq0oeEzoZBg5qKv",  // Drive > ExpenseReceipts/
-      folderGallery: "1ecYdcFZrSF2mKX15mDYh8vi4Oat9jF2n",  // Drive > GalleryPhotos/
-      folderSlip:    "1c60FzCP3ECU_XBckWfBVkcWyNb-ikNIk",   // Drive > PaymentSlips/
+      folderMain:    "1DXMdV62cbwuxzKSYMuxjCP6pXkCMMaYs",  // Legacy main upload folder
+      folderProfile: "1AdK1kHQ5g6ADBD31RCbDTHvYhQV9wL4d",  // Drive > ProfilePhotos/
+      folderExpense: "1GPZQMwYRukg-Th60aReVFeju_l8wHmJv",  // Drive > ExpenseReceipts/
+      folderGallery: "1xIIFG2i3_DA7F2OXQUHPT1Gm1ToD95-i",  // Drive > GalleryPhotos/
+      folderSlip:    "1SjbhXqzcwi0Ucvag8IxgVI4OQZVr_eds",   // Drive > PaymentSlips/
     
     };
