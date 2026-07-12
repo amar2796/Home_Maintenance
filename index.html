@@ -6,6 +6,7 @@
 
     <title id="pageTitle">Household System</title>
     <meta name="description" id="metaDesc" content="Household management system — contributions, expenses, members and more."/>
+    <link rel="icon" type="image/svg+xml" href="Image/logo.svg">
     <link rel="icon" type="image/png" href="Image/logo.PNG">
     <link rel="apple-touch-icon" href="Image/logo.PNG">
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -20,6 +21,8 @@
     />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Swiper/11.0.5/swiper-bundle.min.css" />
     <link rel="stylesheet" href="index.css">
+    <!-- HOME FEATURES: dark mode, FAQ, contacts, quick-pay FAB (frontend-only, safe to remove) -->
+    <link rel="stylesheet" href="home-features.css">
   </head>
   <body>
     <!-- ══ SITE TOP: banner + header stacked in one fixed wrapper ══ -->
@@ -32,6 +35,10 @@
         <span class="ann-text" id="annText"></span>
         <span class="ann-badge" id="annBadge" style="display:none;"></span>
       </div>
+      <!-- HOME FEATURES: share this announcement on WhatsApp -->
+      <button class="hf-ann-share" onclick="hfShareAnnouncement()" aria-label="Share on WhatsApp" title="Share on WhatsApp">
+        <i class="fa-brands fa-whatsapp"></i>
+      </button>
       <button class="ann-close" onclick="dismissBanner()" aria-label="Close">✕</button>
     </div>
 
@@ -42,7 +49,7 @@
           <img src="Image/logo.PNG" alt="Home Logo" class="header-logo"
             onerror="this.style.display='none';document.getElementById('hdrIcon').style.display='inline';">
           <i id="hdrIcon" class="fa-solid fa-house"
-            style="display:none;color:#2563EB;font-size:1.4rem;filter:drop-shadow(0 0 6px rgba(37, 99, 235,0.6));"></i>
+            style="display:none;color:#0F766E;font-size:1.4rem;filter:drop-shadow(0 0 6px rgba(15, 118, 110,0.6));"></i>
           <div class="header-brand-text">
             <span class="brand-main" id="hdrBrandName">…</span>
             <span class="brand-sub" id="hdrBrandSub">…</span>
@@ -58,12 +65,17 @@
           <!-- FINANCES NAV LINK — disabled until Household Finances section is re-enabled
           <a href="#financesSection">Finances</a>
           -->
+          <a href="#hfFaq">FAQ</a>
           <a href="#feedbackSection">Feedback</a>
          
         </nav>
        </div>
        <div class="login-nav-links">
-        <a href="#" onclick="openPayModal();return false;" class="login-donate-btn"><i class="fa-solid fa-hand-holding-heart"></i> Donate</a>
+        <!-- HOME FEATURES: dark mode toggle -->
+        <button class="hf-dark-toggle" id="hfDarkToggle" onclick="hfToggleDarkMode()" aria-label="Switch to dark mode">
+          <i class="fa-solid fa-moon"></i>
+        </button>
+        <a href="#" onclick="openPayModal();return false;" class="login-donate-btn"><i class="fa-solid fa-hand-holding-heart"></i> Pay</a>
         <a href="login.html" class="login-btn"><i class="fa-solid fa-right-to-bracket"></i> Login</a>
        </div>
       
@@ -89,6 +101,10 @@
       <a href="#gallery" onclick="closeNavMenu()">
         <i class="fa-solid fa-images"></i> 
         Gallery</a
+      >
+      <a href="#hfFaq" onclick="closeNavMenu()">
+        <i class="fa-solid fa-circle-question"></i> 
+        FAQ</a
       >
       <a href="#feedbackSection" onclick="closeNavMenu()">
         <i class="fa-solid fa-comment-dots"></i> 
@@ -122,12 +138,6 @@
         expenses, and maintain the yearly financial balance in a highly secure
         and transparent manner.
       </p>
-      <div class="about-stats-row">
-          <div class="about-stat">
-          <div class="about-stat-num">100%</div>
-          <div class="about-stat-label">Transparent</div>
-        </div>
-      </div>
     </div>
 
     <div class="section reveal" id="gallery">
@@ -145,7 +155,7 @@
 
       <!-- Empty state -->
       <div class="gallery-empty-msg" id="galleryEmpty">
-        <i class="fa-solid fa-images" style="font-size:2rem;color:#2563EB;display:block;margin-bottom:10px;"></i>
+        <i class="fa-solid fa-images" style="font-size:2rem;color:#0F766E;display:block;margin-bottom:10px;"></i>
         No photos yet. Check back soon! 🙏
       </div>
 
@@ -185,6 +195,82 @@
 
 
 
+    <!-- ══ HOME FEATURES: Emergency & Important Contacts (frontend-only, edit freely) ══ -->
+    <div class="hf-contacts-section reveal" id="hfContacts">
+      <h2><i class="fa-solid fa-phone-volume" style="color:#0F766E;margin-right:10px;"></i>Emergency &amp; Important Contacts</h2>
+      <p>Quick access to the people who keep things running</p>
+      <div class="hf-contacts-grid">
+        <div class="hf-contact-card">
+          <div class="hf-contact-icon"><i class="fa-solid fa-user-tie"></i></div>
+          <div>
+            <div class="hf-contact-name">Committee Head</div>
+            <div class="hf-contact-role">General queries</div>
+            <a class="hf-contact-phone" href="tel:+911234567890">+91 12345 67890</a>
+          </div>
+        </div>
+        <div class="hf-contact-card">
+          <div class="hf-contact-icon"><i class="fa-solid fa-wrench"></i></div>
+          <div>
+            <div class="hf-contact-name">Plumber</div>
+            <div class="hf-contact-role">Water &amp; pipe issues</div>
+            <a class="hf-contact-phone" href="tel:+911234567891">+91 12345 67891</a>
+          </div>
+        </div>
+        <div class="hf-contact-card">
+          <div class="hf-contact-icon"><i class="fa-solid fa-bolt"></i></div>
+          <div>
+            <div class="hf-contact-name">Electrician</div>
+            <div class="hf-contact-role">Power &amp; wiring issues</div>
+            <a class="hf-contact-phone" href="tel:+911234567892">+91 12345 67892</a>
+          </div>
+        </div>
+        <div class="hf-contact-card">
+          <div class="hf-contact-icon"><i class="fa-solid fa-shield-halved"></i></div>
+          <div>
+            <div class="hf-contact-name">Watchman</div>
+            <div class="hf-contact-role">Security, on-site</div>
+            <a class="hf-contact-phone" href="tel:+911234567893">+91 12345 67893</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ HOME FEATURES: FAQ accordion (frontend-only, edit freely) ══ -->
+    <div class="hf-faq-section reveal" id="hfFaq">
+      <h2><i class="fa-solid fa-circle-question" style="color:#0F766E;margin-right:10px;"></i>Frequently Asked Questions</h2>
+      <p>Everything you might want to know before contributing</p>
+      <div class="hf-faq-list">
+        <div class="hf-faq-item">
+          <button class="hf-faq-q" onclick="hfToggleFaq(this)">
+            How do I make my monthly contribution?
+            <i class="fa-solid fa-chevron-down"></i>
+          </button>
+          <div class="hf-faq-a">Tap the "Pay" button in the header or the floating pay button — it opens our secure payment details (bank transfer or UPI) instantly.</div>
+        </div>
+        <div class="hf-faq-item">
+          <button class="hf-faq-q" onclick="hfToggleFaq(this)">
+            Where can I see how the funds are used?
+            <i class="fa-solid fa-chevron-down"></i>
+          </button>
+          <div class="hf-faq-a">Aggregated collection and expense totals are published transparently once the Household Finances section is live — individual amounts are never shown publicly.</div>
+        </div>
+        <div class="hf-faq-item">
+          <button class="hf-faq-q" onclick="hfToggleFaq(this)">
+            Who do I contact for a repair or maintenance issue?
+            <i class="fa-solid fa-chevron-down"></i>
+          </button>
+          <div class="hf-faq-a">Use the Emergency &amp; Important Contacts section above, or log in to your resident dashboard to raise a maintenance request.</div>
+        </div>
+        <div class="hf-faq-item">
+          <button class="hf-faq-q" onclick="hfToggleFaq(this)">
+            Is my contribution amount kept private?
+            <i class="fa-solid fa-chevron-down"></i>
+          </button>
+          <div class="hf-faq-a">Yes. Only aggregated totals are ever shown publicly — individual donor names and amounts stay private.</div>
+        </div>
+      </div>
+    </div>
+
     <!-- ══ Household Finances SECTION — DISABLED
          To re-enable: remove this HTML comment block wrapper,
          and also uncomment the CSS block and JS block marked the same way.
@@ -202,7 +288,7 @@
      
     <div class="transparency-section reveal" id="financesSection">
      
-      <h2><i class="fa-solid fa-scale-balanced" style="color:#2563EB;margin-right:10px;"></i>Household Finances</h2>
+      <h2><i class="fa-solid fa-scale-balanced" style="color:#0F766E;margin-right:10px;"></i>Household Finances</h2>
       <p class="tr-subtitle">
         पारदर्शिता हमारी प्राथमिकता है — We believe in complete transparency.<br>
         All funds collected are used solely for household maintenance and expenses.
@@ -231,7 +317,7 @@
      
       <div class="tr-goals" id="tr_goals" style="display:none;">
         <div class="tr-goals-title">
-          <i class="fa-solid fa-bullseye" style="color:#2563EB;margin-right:6px;"></i>
+          <i class="fa-solid fa-bullseye" style="color:#0F766E;margin-right:6px;"></i>
           Active Fundraising Goals
         </div>
         <div id="tr_goals_list"></div>
@@ -248,7 +334,7 @@
     <!-- Feedback Section: Map Left + Form Right -->
     <div class="feedback-section reveal" id="feedbackSection">
       <h2>
-        <i class="fa-solid fa-comment-dots" style="color: #2563EB; margin-right: 8px"></i>
+        <i class="fa-solid fa-comment-dots" style="color: #0F766E; margin-right: 8px"></i>
         Share Your Feedback
       </h2>
       <p>Your suggestions help us improve the Household System for everyone. 🙏</p>
@@ -526,6 +612,14 @@
 
       </div><!-- /pay-modal-body -->
     </div><!-- /payModal -->
+
+    <!-- HOME FEATURES: quick-pay floating action button (reuses existing openPayModal) -->
+    <button class="hf-pay-fab" id="hfPayFab" onclick="openPayModal()">
+      <i class="fa-solid fa-hand-holding-heart"></i> Quick Pay
+    </button>
+
+    <!-- HOME FEATURES: frontend-only additions, safe to remove -->
+    <script src="home-features.js"></script>
 
   </body>
 </html>

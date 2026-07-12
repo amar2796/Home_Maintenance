@@ -55,7 +55,7 @@
                     subtitle, map label, donate modal, PDF receipts.
          address  : Auto-built as full address — used in emails and PDFs.
          ✔ SYNC location / address with CFG.location / CFG.address. */
-      village:  "Paliya",
+      village:  "Mungar",
       district: "Sultanpur",
       state:    "Uttar Pradesh",
       pin:      "",                         // Optional — leave blank if not needed
@@ -67,7 +67,7 @@
          Displayed in emails, chatbot, and admin settings panel.
          These are NOT synced to appscript — frontend-only. */
       phone:   "+918127991402",
-      email:   "vishwakarmahome@gmail.com",
+      email:   "vishwakarmafamilymungar@gmail.com",
       website: "https://amar2796.github.io/Home_Maintenance_System/",
     
     
@@ -117,7 +117,7 @@
          ✔ SYNC receiptPrefix and legacyReceiptPrefix with appscript CFG. */
       receiptPrefix:       "HOM",
       legacyReceiptPrefix: "TRX",
-      currency:     "₹",          // Symbol used in HTML/UI display
+      currency:     "Rs.",          // Symbol used in HTML/UI display
       currencyText: "Rs.",         // Text form used in jsPDF (Helvetica can't render ₹). SYNC with CFG.currencyText in appscript.txt
       currencyCode: "INR",
     

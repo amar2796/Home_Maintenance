@@ -7,7 +7,9 @@
   <!-- CSP: restricts framing and object embeds; script/style remain open for JSONP + CDN -->
   <meta http-equiv="Content-Security-Policy" content="frame-ancestors 'self'; object-src 'none'; base-uri 'self';">
   <!-- Favicon — fixes 404 on every page load -->
+  <link rel="icon" type="image/svg+xml" href="Image/logo.svg">
   <link rel="icon" href="Image/logo.PNG" type="image/png" />
+  <link rel="apple-touch-icon" href="Image/logo.PNG">
   <!-- DNS prefetch + preconnect declared once each (was duplicated) -->
   <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com" />
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
@@ -73,7 +75,7 @@
     function _initialsAvatar(name, size) {
       const parts = (name || "?").trim().split(/\s+/);
       const initials = (parts[0][0] + (parts[1] ? parts[1][0] : "")).toUpperCase();
-      const colors = ["#c2410c","#b45309","#15803d","#1d4ed8","#7c3aed","#be185d","#0f766e"];
+      const colors = ["#c2410c","#2DD4BF","#15803d","#115E59","#7c3aed","#be185d","#0f766e"];
       const col = colors[(name || "").charCodeAt(0) % colors.length];
       const fs = Math.round(size * 0.38);
       return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}'><circle cx='${size/2}' cy='${size/2}' r='${size/2}' fill='${col}'/><text x='${size/2}' y='${size/2+fs*0.36}' text-anchor='middle' fill='white' font-size='${fs}' font-family='Arial' font-weight='700'>${initials}</text></svg>`)}`;
@@ -93,7 +95,7 @@
         <img src="Image/logo.PNG" alt="Home Logo" class="header-logo" fetchpriority="high" decoding="async" width="40" height="40"
           onerror="this.style.display='none';document.getElementById('hdrIcon').style.display='inline';">
         <i id="hdrIcon" class="fa-solid fa-house"
-          style="display:none;color:#2563EB;font-size:1.4rem;filter:drop-shadow(0 0 6px rgba(37, 99, 235,0.6));"></i>
+          style="display:none;color:#0F766E;font-size:1.4rem;filter:drop-shadow(0 0 6px rgba(15, 118, 110,0.6));"></i>
       </div>
       <div class="hdr-text" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top" style="cursor:pointer;">
         <div class="hdr-welcome">Welcome back,</div>
@@ -174,7 +176,7 @@
           <div>
             <div class="hero-label">Donated This Year (<span id="heroYearLabel">2025</span>)</div>
             <div class="hero-amount">₹ <span id="thisYearAmount">0</span></div>
-            <div id="lastDonationRow" style="display:none;margin-top:9px;align-items:center;gap:5px;flex-wrap:wrap;background:rgba(37, 99, 235,0.10);border:1px solid rgba(37, 99, 235,0.22);border-radius:20px;padding:4px 11px;width:fit-content;">
+            <div id="lastDonationRow" style="display:none;margin-top:9px;align-items:center;gap:5px;flex-wrap:wrap;background:rgba(15, 118, 110,0.10);border:1px solid rgba(15, 118, 110,0.22);border-radius:20px;padding:4px 11px;width:fit-content;">
               <i class="fa-solid fa-clock-rotate-left" style="font-size:10px;color:var(--gold);opacity:0.85;"></i>
               <span style="font-size:10.5px;color:var(--ink-faint);letter-spacing:.2px;">Last:</span>
               <span id="lastDonationAmt" style="font-size:12.5px;font-weight:700;color:var(--gold-lt);font-family:var(--font-h);"></span>
@@ -259,7 +261,7 @@
       <div class="menu-acc-wrap">
         <div class="menu-item" id="accBtn-panelPayment" onclick="_toggleAccordion('panelPayment')" tabindex="0" role="button" aria-expanded="false" aria-controls="accBody-panelPayment" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_toggleAccordion('panelPayment');}" >
           <div class="menu-item-left">
-            <div class="menu-icon" style="background:rgba(37, 99, 235,0.12);">📋</div>
+            <div class="menu-icon" style="background:rgba(15, 118, 110,0.12);">📋</div>
             <div>
               <div class="menu-title">Submit Payment</div>
               <div class="menu-desc">Submit &amp; track your payment requests</div>
@@ -279,7 +281,7 @@
       <div class="menu-acc-wrap">
         <div class="menu-item" id="accBtn-panelStats" onclick="_toggleAccordion('panelStats')" tabindex="0" role="button" aria-expanded="false" aria-controls="accBody-panelStats" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_toggleAccordion('panelStats');}" >
           <div class="menu-item-left">
-            <div class="menu-icon" style="background:rgba(99,102,241,0.1);">📊</div>
+            <div class="menu-icon" style="background:rgba(20, 184, 166,0.1);">📊</div>
             <div>
               <div class="menu-title">Statistics</div>
               <div class="menu-desc">Month-wise &amp; type breakdown</div>
@@ -296,7 +298,7 @@
       <div class="menu-acc-wrap">
         <div class="menu-item" id="accBtn-panelEvents" onclick="_toggleAccordion('panelEvents')" tabindex="0" role="button" aria-expanded="false" aria-controls="accBody-panelEvents" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_toggleAccordion('panelEvents');}" >
           <div class="menu-item-left">
-            <div class="menu-icon" style="background:rgba(37, 99, 235,0.1);">📅</div>
+            <div class="menu-icon" style="background:rgba(15, 118, 110,0.1);">📅</div>
             <div>
               <div class="menu-title">Events &amp; Festivals</div>
               <div class="menu-desc">Upcoming · ongoing household events</div>
@@ -316,7 +318,7 @@
       <div class="menu-acc-wrap">
         <div class="menu-item" id="accBtn-panelMaintenance" onclick="_toggleAccordion('panelMaintenance')" tabindex="0" role="button" aria-expanded="false" aria-controls="accBody-panelMaintenance" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_toggleAccordion('panelMaintenance');}" >
           <div class="menu-item-left">
-            <div class="menu-icon" style="background:rgba(37, 99, 235,0.1);">🛠️</div>
+            <div class="menu-icon" style="background:rgba(15, 118, 110,0.1);">🛠️</div>
             <div>
               <div class="menu-title">Maintenance &amp; Bills</div>
               <div class="menu-desc">Repair log &amp; bill reminders</div>
@@ -336,7 +338,7 @@
       <div class="menu-acc-wrap">
         <div class="menu-item" id="accBtn-panelFeedback" onclick="_toggleAccordion('panelFeedback')" tabindex="0" role="button" aria-expanded="false" aria-controls="accBody-panelFeedback" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_toggleAccordion('panelFeedback');}" >
           <div class="menu-item-left">
-            <div class="menu-icon" style="background:rgba(59,130,246,0.1);">💬</div>
+            <div class="menu-icon" style="background:rgba(20, 184, 166,0.1);">💬</div>
             <div>
               <div class="menu-title">Feedback</div>
               <div class="menu-desc">Share suggestions with household admin</div>
@@ -481,13 +483,13 @@
       <div class="sec-lbl" id="submitPaymentSection"><i class="fa-solid fa-hand-holding-dollar"></i> Submit Payment Request</div>
 
       <!-- Info banner -->
-      <div style="background:linear-gradient(135deg,#fffbf2,#fff8e8);border:1.5px solid rgba(37, 99, 235,0.28);border-radius:14px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:flex-start;gap:11px;">
-        <div style="width:34px;height:34px;background:rgba(37, 99, 235,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">
-          <i class="fa-solid fa-circle-info" style="color:#2563EB;font-size:0.95rem;"></i>
+      <div style="background:linear-gradient(135deg,#F0FDFA,#F8FAFC);border:1.5px solid rgba(15, 118, 110,0.28);border-radius:14px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:flex-start;gap:11px;">
+        <div style="width:34px;height:34px;background:rgba(15, 118, 110,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">
+          <i class="fa-solid fa-circle-info" style="color:#0F766E;font-size:0.95rem;"></i>
         </div>
         <div>
-          <div style="font-size:12.5px;font-weight:700;color:#78350f;margin-bottom:2px;">Already paid? Submit for verification</div>
-          <div style="font-size:11.5px;color:#a16207;line-height:1.55;">Paid via UPI or Cash? Submit your payment details below — household admin will verify and record it officially.</div>
+          <div style="font-size:12.5px;font-weight:700;color:#115E59;margin-bottom:2px;">Already paid? Submit for verification</div>
+          <div style="font-size:11.5px;color:#64748b;line-height:1.55;">Paid via UPI or Cash? Submit your payment details below — household admin will verify and record it officially.</div>
         </div>
       </div>
 
@@ -495,9 +497,9 @@
       <div class="card" style="margin-bottom:14px;border-radius:16px;overflow:hidden;box-shadow:var(--sh-md);">
 
         <!-- Card gradient header -->
-        <div style="background:linear-gradient(135deg,#2a0f00 0%,#3c1a00 60%,#2a0f00 100%);padding:14px 16px;display:flex;align-items:center;gap:10px;border-bottom:2px solid rgba(37, 99, 235,0.35);">
-          <div style="width:30px;height:30px;background:rgba(37, 99, 235,0.18);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-            <i class="fa-solid fa-receipt" style="color:#2563EB;font-size:0.85rem;"></i>
+        <div style="background:linear-gradient(135deg,#1E1B4B 0%,#312E81 60%,#1E1B4B 100%);padding:14px 16px;display:flex;align-items:center;gap:10px;border-bottom:2px solid rgba(15, 118, 110,0.35);">
+          <div style="width:30px;height:30px;background:rgba(15, 118, 110,0.18);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <i class="fa-solid fa-receipt" style="color:#0F766E;font-size:0.85rem;"></i>
           </div>
           <span style="font-family:var(--font-h);font-weight:700;font-size:14px;color:#fff;">Payment Details</span>
         </div>
@@ -527,7 +529,7 @@
               <i class="fa-solid fa-indian-rupee-sign" class="_u-gold-icon-xs"></i> Amount <span style="color:#ef4444;">*</span>
             </label>
             <div style="position:relative;">
-              <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;font-weight:700;color:#78350f;">₹</span>
+              <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;font-weight:700;color:#115E59;">₹</span>
               <input type="number" id="pr_amount" placeholder="0" min="1" class="f-input-gold"
                 style="width:100%;padding:10px 12px 10px 26px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:700;outline:none;background:var(--bg);color:var(--ink);font-family:var(--font-b);transition:border-color .2s;box-sizing:border-box;"/>
             </div>
@@ -569,10 +571,10 @@
               <span style="font-size:10px;color:#94a3b8;font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span>
             </label>
             <div onclick="document.getElementById('pr_slip').click()"
-              style="border:2px dashed rgba(37, 99, 235,0.4);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;background:var(--bg);cursor:pointer;transition:border-color .2s,background .2s;"
-              onmouseover="this.style.borderColor='var(--gold)';this.style.background=document.body.classList.contains('user-dark')?'rgba(37, 99, 235,0.09)':' #fff8e8'" onmouseout="this.style.borderColor='rgba(37, 99, 235,0.4)';this.style.background='var(--bg)'">
-              <div style="width:38px;height:38px;background:rgba(37, 99, 235,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                <i class="fa-solid fa-cloud-arrow-up" style="color:#2563EB;font-size:1.1rem;"></i>
+              style="border:2px dashed rgba(15, 118, 110,0.4);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;background:var(--bg);cursor:pointer;transition:border-color .2s,background .2s;"
+              onmouseover="this.style.borderColor='var(--gold)';this.style.background=document.body.classList.contains('user-dark')?'rgba(15, 118, 110,0.09)':' #F8FAFC'" onmouseout="this.style.borderColor='rgba(15, 118, 110,0.4)';this.style.background='var(--bg)'">
+              <div style="width:38px;height:38px;background:rgba(15, 118, 110,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="fa-solid fa-cloud-arrow-up" style="color:#0F766E;font-size:1.1rem;"></i>
               </div>
               <div class="_u-flex-1">
                 <div id="pr_slip_name" style="font-size:13px;color:#64748b;font-weight:500;">Tap to attach payment slip</div>
@@ -588,7 +590,7 @@
           <!-- Submit button -->
           <button id="btnSubmitPayment"
             onclick="_btnLoad(this);submitPaymentRequest().finally(()=>_btnDone(document.getElementById('btnSubmitPayment')))"
-            style="width:100%;padding:13px;background:linear-gradient(135deg,#2563EB,#e8920a);color:#fff;border:none;border-radius:11px;font-family:var(--font-b);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(37, 99, 235,0.4);transition:opacity .2s,transform .2s;letter-spacing:.2px;">
+            style="width:100%;padding:13px;background:linear-gradient(135deg,#0F766E,#F59E0B);color:#fff;border:none;border-radius:11px;font-family:var(--font-b);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(15, 118, 110,0.4);transition:opacity .2s,transform .2s;letter-spacing:.2px;">
             <i class="fa-solid fa-paper-plane"></i> Submit to Admin for Verification
           </button>
 

@@ -797,7 +797,7 @@ function _ensureModalCSS(){
     ._mbox{background:#fff;border-radius:16px;width:100%;max-height:92vh;overflow-y:auto;animation:_mS .3s cubic-bezier(.21,1.02,.73,1);box-shadow:0 20px 60px rgba(0,0,0,0.25);}
     ._mbox::-webkit-scrollbar{width:5px}._mbox::-webkit-scrollbar-thumb{background:#ddd;border-radius:3px;}
     ._mhdr{background:#334155;color:#fff;padding:16px 22px;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:2;}
-    ._mhdr h3{margin:0;font-size:1.05rem;font-weight:700;color:#2563EB;display:flex;align-items:center;gap:8px;}
+    ._mhdr h3{margin:0;font-size:1.05rem;font-weight:700;color:#0F766E;display:flex;align-items:center;gap:8px;}
     ._mcls{background:none!important;border:none!important;color:#fff!important;font-size:24px;cursor:pointer;padding:0!important;box-shadow:none!important;line-height:1;transform:none!important;width:auto!important;}
     ._mbdy{padding:22px;}
     ._mft{padding:14px 22px;border-top:1px solid #eee;display:flex;gap:10px;justify-content:flex-end;background:#fafafa;border-radius:0 0 16px 16px;flex-wrap:wrap;}
@@ -806,7 +806,7 @@ function _ensureModalCSS(){
     ._rl{color:#888;font-size:12.5px;flex-shrink:0;}
     ._rv{font-size:13px;font-weight:600;color:#334155;text-align:right;}
     ._fi{width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:8px;font-family:Poppins,sans-serif;font-size:13px;outline:none;transition:border-color .2s;box-sizing:border-box;margin-bottom:14px;}
-    ._fi:focus{border-color:#2563EB;}
+    ._fi:focus{border-color:#0F766E;}
     ._fl{display:block;font-size:12px;font-weight:600;color:#555;margin-bottom:5px;}
     ._mbtn{padding:9px 20px;border:none;border-radius:8px;cursor:pointer;font-family:Poppins,sans-serif;font-size:13px;font-weight:600;color:#fff;transition:all .2s;}
     ._mbtn:hover{filter:brightness(1.1);transform:translateY(-1px);}
@@ -815,8 +815,8 @@ function _ensureModalCSS(){
     #_cropWrap{position:relative;overflow:hidden;background:#111;width:100%;height:300px;cursor:grab;user-select:none;touch-action:none;}
     #_cropWrap:active{cursor:grabbing;}
     #_cropImg{position:absolute;top:0;left:0;transform-origin:top left;transition:none;}
-    #_cropBox{position:absolute;border:2.5px solid #2563EB;box-shadow:0 0 0 9999px rgba(0,0,0,0.55);pointer-events:none;border-radius:2px;}
-    #_zoomSlider{width:100%;accent-color:#2563EB;cursor:pointer;}
+    #_cropBox{position:absolute;border:2.5px solid #0F766E;box-shadow:0 0 0 9999px rgba(0,0,0,0.55);pointer-events:none;border-radius:2px;}
+    #_zoomSlider{width:100%;accent-color:#0F766E;cursor:pointer;}
     #_zoomLabel{font-size:11px;color:#888;text-align:center;display:block;margin:2px 0 8px;}
   `;
   document.head.appendChild(st);
@@ -838,16 +838,16 @@ function closeModal(){
 }
 /* ═══ CONFIRM MODAL ═══ */
 // Usage: confirmModal("Delete this item?", () => { /* confirmed */ }, "Delete", "#e74c3c")
-// confirmColor: "#e74c3c" = danger red (default), "#2563EB" = warning orange, "#22c55e" = safe green
+// confirmColor: "#e74c3c" = danger red (default), "#0F766E" = warning orange, "#22c55e" = safe green
 function confirmModal(message, onConfirm, confirmLabel, confirmColor) {
   var label = confirmLabel || "Delete";
   var color = confirmColor || "#e74c3c";
   // Icon and ring colour — red for danger, orange for warn, green for safe
   var icon  = color === "#22c55e" ? "fa-circle-check"
-            : color === "#2563EB" ? "fa-triangle-exclamation"
+            : color === "#0F766E" ? "fa-triangle-exclamation"
             : "fa-triangle-exclamation";
   var ringRgb = color === "#22c55e" ? "34,197,94"
-              : color === "#2563EB" ? "37,99,235"
+              : color === "#0F766E" ? "15, 118, 110"
               : "231,76,60";
   var html = `
     <div class="_mhdr" style="background:#fff;border-bottom:1px solid #f1f5f9;padding:18px 20px 14px;">
@@ -944,7 +944,7 @@ function openCropModal(file, onDone) {
       </div>
       <div class="_mft">
         <button class="_mbtn" style="background:#999;" onclick="closeModal()">Cancel</button>
-        <button class="_mbtn" style="background:#2563EB;" onclick="confirmCrop()"><i class="fa-solid fa-check"></i> Use Photo</button>
+        <button class="_mbtn" style="background:#0F766E;" onclick="confirmCrop()"><i class="fa-solid fa-check"></i> Use Photo</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -1154,8 +1154,8 @@ function showReceipt(c, userName, typeName, occasionName, isAdmin){
 
   // Logo HTML — show actual logo if available, else styled OM
   const logoHtml = window._logoB64
-    ? `<img src="${window._logoB64}" alt="Logo" style="width:54px;height:54px;border-radius:50%;border:2.5px solid rgba(37, 99, 235,0.7);object-fit:cover;background:#78501e;display:block;margin:0 auto 8px;">`
-    : `<div style="font-size:2.6rem;margin-bottom:8px;filter:drop-shadow(0 0 8px rgba(37, 99, 235,0.5));">${APP.symbol}</div>`;
+    ? `<img src="${window._logoB64}" alt="Logo" style="width:54px;height:54px;border-radius:50%;border:2.5px solid rgba(15, 118, 110,0.7);object-fit:cover;background:#115E59;display:block;margin:0 auto 8px;">`
+    : `<div style="font-size:2.6rem;margin-bottom:8px;filter:drop-shadow(0 0 8px rgba(15, 118, 110,0.5));">${APP.symbol}</div>`;
 
   let html=`
     <div class="_mhdr"><h3><i class="fa-solid fa-receipt"></i> Contribution Receipt</h3><button class="_mcls" onclick="closeModal()">×</button></div>
@@ -1163,9 +1163,9 @@ function showReceipt(c, userName, typeName, occasionName, isAdmin){
 
       <!-- Header Band -->
       <div class="rcpt-hdr-band" style="background:linear-gradient(135deg,#1e293b 0%,#334155 60%,#3d5068 100%);padding:22px 24px 18px;text-align:center;position:relative;overflow:hidden;">
-        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#2563EB,#fbbf24,#2563EB);"></div>
+        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#0F766E,#99F6E4,#0F766E);"></div>
         ${logoHtml}
-        <div style="font-size:1.15rem;font-weight:700;color:#2563EB;letter-spacing:.8px;text-shadow:0 1px 4px rgba(0,0,0,0.3);">${escapeHtml(APP.name.toUpperCase())}</div>
+        <div style="font-size:1.15rem;font-weight:700;color:#0F766E;letter-spacing:.8px;text-shadow:0 1px 4px rgba(0,0,0,0.3);">${escapeHtml(APP.name.toUpperCase())}</div>
         <div style="font-size:0.72rem;color:#94a3b8;margin-top:3px;letter-spacing:.3px;">${escapeHtml(APP.location)}</div>
         <div style="margin-top:12px;">
           <span style="background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;border-radius:20px;padding:4px 16px;font-size:10.5px;font-weight:700;letter-spacing:.6px;box-shadow:0 2px 8px rgba(34,197,94,0.35);">✓ OFFICIAL RECEIPT</span>
@@ -1173,9 +1173,9 @@ function showReceipt(c, userName, typeName, occasionName, isAdmin){
       </div>
 
       <!-- Receipt ID Band -->
-      <div class="rcpt-id-band" style="background:linear-gradient(90deg,#fef3c7,#93C5FD,#fef3c7);padding:10px 24px;text-align:center;border-bottom:2px solid #fcd34d;">
-        <span class="rcpt-id-label" style="color:#78350f;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Receipt No: </span>
-        <span class="rcpt-id-value" style="color:#92400e;font-size:15px;font-weight:700;font-family:monospace;letter-spacing:1.5px;">${escapeHtml(displayRID)}</span>
+      <div class="rcpt-id-band" style="background:linear-gradient(90deg,#fef3c7,#99F6E4,#fef3c7);padding:10px 24px;text-align:center;border-bottom:2px solid #fcd34d;">
+        <span class="rcpt-id-label" style="color:#115E59;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Receipt No: </span>
+        <span class="rcpt-id-value" style="color:#0F766E;font-size:15px;font-weight:700;font-family:monospace;letter-spacing:1.5px;">${escapeHtml(displayRID)}</span>
       </div>
 
       <!-- Amount Hero -->
@@ -1212,9 +1212,9 @@ function showReceipt(c, userName, typeName, occasionName, isAdmin){
       </div>
 
       <!-- Thank You -->
-      <div class="rcpt-thankyou" style="background:linear-gradient(135deg,#fef9ee,#fef3c7);padding:14px 24px;text-align:center;border-top:2px solid #93C5FD;">
-        <div class="rcpt-ty-msg" style="color:#92400e;font-size:13px;font-weight:700;">🙏 ${escapeHtml(APP.thankYouMsg)}</div>
-        <div class="rcpt-ty-tag" style="color:#a16207;font-size:11px;margin-top:3px;font-style:italic;">${escapeHtml(APP.tagline)}</div>
+      <div class="rcpt-thankyou" style="background:linear-gradient(135deg,#F0FDFA,#fef3c7);padding:14px 24px;text-align:center;border-top:2px solid #99F6E4;">
+        <div class="rcpt-ty-msg" style="color:#0F766E;font-size:13px;font-weight:700;">🙏 ${escapeHtml(APP.thankYouMsg)}</div>
+        <div class="rcpt-ty-tag" style="color:#64748b;font-size:11px;margin-top:3px;font-style:italic;">${escapeHtml(APP.tagline)}</div>
       </div>
     </div>
 
@@ -1315,7 +1315,7 @@ function printReceipt(rid){
   const displayRID = _displayRID(c);
   const payMode    = c.PaymentMode||"—";
   const logoTag    = window._logoB64
-    ? `<img src="${window._logoB64}" alt="Logo" style="width:60px;height:60px;border-radius:50%;border:3px solid rgba(37, 99, 235,0.7);object-fit:cover;display:block;margin:0 auto 10px;">`
+    ? `<img src="${window._logoB64}" alt="Logo" style="width:60px;height:60px;border-radius:50%;border:3px solid rgba(15, 118, 110,0.7);object-fit:cover;display:block;margin:0 auto 10px;">`
     : `<div class="om">${APP.symbol}</div>`;
   const win = window.open("","_blank","width=620,height=800");
   win.document.write(`<!DOCTYPE html><html><head><title>Receipt ${displayRID}</title>
@@ -1325,15 +1325,15 @@ function printReceipt(rid){
     body{font-family:'Poppins',Arial,sans-serif;margin:0;padding:20px;color:#333;background:#f4f6f9;}
     .card{background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.12);max-width:520px;margin:0 auto;}
     .header{background:linear-gradient(135deg,#1e293b 0%,#334155 60%,#3d5068 100%);color:#fff;padding:24px 20px 18px;text-align:center;position:relative;}
-    .header::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#2563EB,#fbbf24,#2563EB);}
+    .header::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#0F766E,#99F6E4,#0F766E);}
     .header .om{font-size:2.2rem;margin-bottom:8px;}
-    .header h1{margin:4px 0;font-size:1.15rem;color:#2563EB;font-weight:700;letter-spacing:1px;}
+    .header h1{margin:4px 0;font-size:1.15rem;color:#0F766E;font-weight:700;letter-spacing:1px;}
     .header p{margin:2px 0;font-size:0.75rem;color:#94a3b8;letter-spacing:.3px;}
     .receipt-badge{margin-top:12px;}
     .receipt-badge span{background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;padding:4px 18px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.5px;}
-    .rid-band{background:linear-gradient(90deg,#fef3c7,#93C5FD,#fef3c7);padding:11px 20px;text-align:center;border-bottom:2px solid #fcd34d;}
-    .rid-label{color:#78350f;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;}
-    .rid-value{color:#92400e;font-size:15px;font-weight:700;font-family:monospace;letter-spacing:1.5px;margin-left:6px;}
+    .rid-band{background:linear-gradient(90deg,#fef3c7,#99F6E4,#fef3c7);padding:11px 20px;text-align:center;border-bottom:2px solid #fcd34d;}
+    .rid-label{color:#115E59;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;}
+    .rid-value{color:#0F766E;font-size:15px;font-weight:700;font-family:monospace;letter-spacing:1.5px;margin-left:6px;}
     .amount-section{padding:18px 20px;text-align:center;border-bottom:1px dashed #e2e8f0;background:#fafffe;}
     .amount-label{font-size:10.5px;color:#64748b;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;}
     .amount{font-size:2.4rem;color:#15803d;font-weight:800;letter-spacing:-0.5px;}
@@ -1343,8 +1343,8 @@ function printReceipt(rid){
     td:first-child{color:#64748b;width:44%;}
     td:last-child{font-weight:600;text-align:right;color:#1e293b;}
     .sig{display:flex;justify-content:space-between;padding:14px 16px;border-top:1px solid #e2e8f0;font-size:11px;background:#f8fafc;}
-    .footer{background:linear-gradient(135deg,#fef9ee,#fef3c7);padding:14px 20px;text-align:center;border-top:2px solid #93C5FD;font-size:12.5px;color:#92400e;font-weight:700;}
-    .footer-sub{font-size:11px;color:#a16207;margin-top:3px;font-style:italic;font-weight:400;}
+    .footer{background:linear-gradient(135deg,#F0FDFA,#fef3c7);padding:14px 20px;text-align:center;border-top:2px solid #99F6E4;font-size:12.5px;color:#0F766E;font-weight:700;}
+    .footer-sub{font-size:11px;color:#64748b;margin-top:3px;font-style:italic;font-weight:400;}
     @media print{body{padding:0;background:#fff;}.card{box-shadow:none;border-radius:0;}}
   </style></head><body>
   <div class="card">
@@ -1423,7 +1423,7 @@ async function exportReceiptPDF(rid){
   /* 1. GOLD BAND — starts flush at Y=0, no stripe above, no white gap.
         "OFFICIAL RECEIPT" left, Receipt No right */
   const BAND_H = 10;
-  doc.setFillColor(37,99,235); doc.rect(0,0,W,BAND_H,"F");
+  doc.setFillColor(15, 118, 110); doc.rect(0,0,W,BAND_H,"F");
   doc.setTextColor(26,10,0); doc.setFontSize(8); doc.setFont(undefined,"bold");
   doc.text("OFFICIAL RECEIPT", 10, 6.8);
   doc.text(displayRID, W-10, 6.8, {align:"right"});
@@ -1455,7 +1455,7 @@ async function exportReceiptPDF(rid){
   /* Logo — centered on full page width */
   const LOGO_CY = Y + 16;
   const LOGO_R  = 13;
-  doc.setFillColor(37,99,235); doc.circle(CX, LOGO_CY, LOGO_R+2, "F");
+  doc.setFillColor(15, 118, 110); doc.circle(CX, LOGO_CY, LOGO_R+2, "F");
   doc.setFillColor(255,255,255); doc.circle(CX, LOGO_CY, LOGO_R, "F");
   let logoOk = false;
   if(window._logoB64){
@@ -1471,7 +1471,7 @@ async function exportReceiptPDF(rid){
   }
 
   /* Temple name — centered on full page width */
-  doc.setTextColor(37,99,235); doc.setFontSize(16); doc.setFont(undefined,"bold");
+  doc.setTextColor(15, 118, 110); doc.setFontSize(16); doc.setFont(undefined,"bold");
   doc.text(pdfName.toUpperCase(), CX, Y+38, {align:"center"});
 
   /* Location — centered on full page width */
@@ -1481,7 +1481,7 @@ async function exportReceiptPDF(rid){
   Y += HDR_H;
 
   /* 3. GOLD DIVIDER */
-  doc.setFillColor(37,99,235); doc.rect(0,Y,W,2,"F"); Y+=2;
+  doc.setFillColor(15, 118, 110); doc.rect(0,Y,W,2,"F"); Y+=2;
 
   /* 4. AMOUNT HERO */
   const AMT_H=32;
@@ -1501,7 +1501,7 @@ async function exportReceiptPDF(rid){
   Y+=AMT_H;
 
   /* 5. DETAILS TABLE */
-  doc.setFillColor(37,99,235); doc.rect(0,Y,W,0.6,"F"); Y+=2;
+  doc.setFillColor(15, 118, 110); doc.rect(0,Y,W,0.6,"F"); Y+=2;
 
   const tableRows=[
     ["Donor Name",     _pdf(userName)||"—"],
@@ -1531,14 +1531,14 @@ async function exportReceiptPDF(rid){
     },
     didDrawCell:function(d){
       if(d.column.index===0){
-        doc.setFillColor(37,99,235);
+        doc.setFillColor(15, 118, 110);
         doc.rect(d.cell.x,d.cell.y+1.5,3,d.cell.height-3,"F");
       }
     }
   });
 
   Y=doc.lastAutoTable.finalY+1;
-  doc.setFillColor(37,99,235); doc.rect(0,Y,W,0.6,"F"); Y+=1;
+  doc.setFillColor(15, 118, 110); doc.rect(0,Y,W,0.6,"F"); Y+=1;
 
   /* 6. SIGNATURE */
   const SIG_H=20;
@@ -1557,7 +1557,7 @@ async function exportReceiptPDF(rid){
   /* 7. THANK YOU FOOTER */
   const FTR_H=20;
   doc.setFillColor(255,249,235); doc.rect(0,Y,W,FTR_H,"F");
-  doc.setFillColor(37,99,235);  doc.rect(0,Y,W,2,"F");
+  doc.setFillColor(15, 118, 110);  doc.rect(0,Y,W,2,"F");
   doc.setFontSize(11); doc.setTextColor(146,64,14); doc.setFont(undefined,"bold");
   doc.text(pdfThankYou,W/2,Y+11,{align:"center"});
   doc.setFont(undefined,"normal"); doc.setFontSize(7.5); doc.setTextColor(161,98,7);
@@ -1565,7 +1565,7 @@ async function exportReceiptPDF(rid){
   Y+=FTR_H;
 
   /* 8. GOLD BOTTOM STRIPE */
-  doc.setFillColor(37,99,235); doc.rect(0,Y,W,3,"F");
+  doc.setFillColor(15, 118, 110); doc.rect(0,Y,W,3,"F");
 
   doc.save("Receipt_"+displayRID+".pdf");
 }
@@ -1614,7 +1614,7 @@ async function _generateQRDataUrl(text, sizePx) {
 /* ═══ VIEW-ONLY DETAIL POPUP ═══ */
 function showDetailPopup(title, rows, editFn){
   let rowsHtml = rows.map(r=>`<div class="_row"><span class="_rl">${escapeHtml(String(r[0]||""))}</span><span class="_rv">${escapeHtml(String(r[1]||""))}</span></div>`).join("");
-  let editBtn = editFn ? `<button class="_mbtn" style="background:#2563EB;" onclick="${editFn}"><i class="fa-solid fa-pen"></i> Edit</button>` : "";
+  let editBtn = editFn ? `<button class="_mbtn" style="background:#0F766E;" onclick="${editFn}"><i class="fa-solid fa-pen"></i> Edit</button>` : "";
   let html=`
     <div class="_mhdr"><h3><i class="fa-solid fa-eye"></i> ${title}</h3><button class="_mcls" onclick="closeModal()">×</button></div>
     <div class="_mbdy"><div style="border:1px solid #f0f0f0;border-radius:10px;padding:4px 16px;">${rowsHtml}</div></div>

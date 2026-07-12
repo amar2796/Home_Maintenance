@@ -126,7 +126,7 @@
     padding: 8px 14px;
     border-radius: 20px 20px 4px 20px;
     box-shadow: 0 4px 18px rgba(0,0,0,0.14);
-    border: 1.5px solid rgba(37, 99, 235,0.35);
+    border: 1.5px solid rgba(15, 118, 110,0.35);
     white-space: nowrap;
     pointer-events: none;
     transition: opacity 0.4s ease, transform 0.4s ease;
@@ -142,7 +142,7 @@
     right: -9px; top: 50%;
     transform: translateY(-50%);
     border: 5px solid transparent;
-    border-left-color: rgba(37, 99, 235,0.35);
+    border-left-color: rgba(15, 118, 110,0.35);
   }
   @media (max-width: 420px) {
     #_mbotHelpBubble { right: 70px; font-size: 11.5px; padding: 7px 12px; }
@@ -151,14 +151,14 @@
   #_mbotBtn {
     position: fixed; bottom: ${chatBtnBottom}; right: 24px; z-index: 99990;
     width: 54px; height: 54px; border-radius: 50%;
-    background: linear-gradient(135deg, #2563EB, #e08e12);
-    box-shadow: 0 6px 22px rgba(37, 99, 235,0.45);
+    background: linear-gradient(135deg, #0F766E, #F59E0B);
+    box-shadow: 0 6px 22px rgba(15, 118, 110,0.45);
     cursor: pointer; display: flex; align-items: center; justify-content: center;
     font-size: 24px; border: 3px solid #fff;
     transition: transform 0.22s ease, box-shadow 0.22s ease;
     user-select: none;
   }
-  #_mbotBtn:hover { transform: scale(1.1); box-shadow: 0 8px 28px rgba(37, 99, 235,0.55); }
+  #_mbotBtn:hover { transform: scale(1.1); box-shadow: 0 8px 28px rgba(15, 118, 110,0.55); }
   #_mbotBtn._open { transform: rotate(90deg) scale(1.05); }
   
   #_mbotWin {
@@ -179,7 +179,7 @@
     background: linear-gradient(135deg, #1e293b, #334155);
     padding: 13px 14px 11px;
     display: flex; align-items: center; gap: 10px;
-    border-top: 3px solid #2563EB; flex-shrink: 0;
+    border-top: 3px solid #0F766E; flex-shrink: 0;
   }
   
   /* login logo */
@@ -188,19 +188,19 @@
     height: 40px;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid rgba(37, 99, 235,0.55);
-    box-shadow: 0 0 10px rgba(37, 99, 235,0.35);
+    border: 2px solid rgba(15, 118, 110,0.55);
+    box-shadow: 0 0 10px rgba(15, 118, 110,0.35);
     flex-shrink: 0;
-    background: #78501e;
+    background: #115E59;
   }
   
   #_mbotHdr .mbot-avatar {
     width: 34px; height: 34px; border-radius: 50%;
-    background: #2563EB; display: flex; align-items: center;
+    background: #0F766E; display: flex; align-items: center;
     justify-content: center; font-size: 17px; flex-shrink: 0;
   }
   #_mbotHdr .mbot-title { flex: 1; }
-  #_mbotHdr .mbot-title div:first-child { color: #2563EB; font-size: 13px; font-weight: 700; font-family: Poppins, sans-serif; }
+  #_mbotHdr .mbot-title div:first-child { color: #0F766E; font-size: 13px; font-weight: 700; font-family: Poppins, sans-serif; }
   #_mbotHdr .mbot-title div:last-child { color: #94a3b8; font-size: 10px; font-family: Poppins, sans-serif; }
   .mbot-hbtn {
     background: rgba(255,255,255,0.12); border: none; cursor: pointer;
@@ -225,7 +225,7 @@
     white-space: pre-wrap; word-break: break-word;
   }
   .mbot-msg.user {
-    align-self: flex-end; background: #2563EB; color: #fff;
+    align-self: flex-end; background: #0F766E; color: #fff;
     border: none; border-radius: 14px 14px 4px 14px;
   }
   .mbot-msg.bot { align-self: flex-start; }
@@ -249,7 +249,7 @@
     transition: all 0.18s ease;
     white-space: nowrap;
   }
-  .mbot-pill:hover { background: #2563EB; border-color: #2563EB; color: #fff; }
+  .mbot-pill:hover { background: #0F766E; border-color: #0F766E; color: #fff; }
   .mbot-typing { display: flex; align-items: center; gap: 4px; padding: 10px 14px; }
   .mbot-typing span {
     width: 7px; height: 7px; background: #cbd5e1; border-radius: 50%;
@@ -268,15 +268,15 @@
     outline: none; color: #334155; background: #f8fafc;
     transition: border-color 0.18s;
   }
-  #_mbotInput:focus { border-color: #2563EB; background: #fff; }
+  #_mbotInput:focus { border-color: #0F766E; background: #fff; }
   #_mbotSend {
     width: 36px; height: 36px; border-radius: 50%; border: none;
-    background: #2563EB; cursor: pointer; display: flex;
+    background: #0F766E; cursor: pointer; display: flex;
     align-items: center; justify-content: center;
     font-size: 15px; flex-shrink: 0; color: #fff;
     transition: background 0.18s, transform 0.15s;
   }
-  #_mbotSend:hover { background: #d35400; transform: scale(1.08); }
+  #_mbotSend:hover { background: #115E59; transform: scale(1.08); }
   #_mbotUnread {
     position: absolute; top: -4px; right: -4px;
     background: #e74c3c; color: #fff; border-radius: 50%;
@@ -344,7 +344,7 @@
         <div id="_mbotHdr">
           <div class="mbot-avatar">
              <img src="Image/logo.PNG" alt="Home Logo" class="mbot-logo" onerror="this.style.display='none';document.getElementById('hdrIcon').style.display='inline';">
-            <i id="hdrIcon" class="fa-solid fa-house" style="display:none;color:#2563EB;font-size:1.4rem;filter:drop-shadow(0 0 6px rgba(37, 99, 235,0.6));"></i>
+            <i id="hdrIcon" class="fa-solid fa-house" style="display:none;color:#0F766E;font-size:1.4rem;filter:drop-shadow(0 0 6px rgba(15, 118, 110,0.6));"></i>
           </div>
           <div class="mbot-title">
             <div>Home Assistant</div>
