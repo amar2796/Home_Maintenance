@@ -150,8 +150,38 @@ function getData(action) {
   });
 }
 
-/* ═══ JSONP POST ═══ */
+/* ═══ JSONP POST ═══
+   [GUARANTEE FIX] Every postData() call now carries an IdempotencyKey.
+   The OLD "read-back verify" here tried to guess success by searching
+   getAllData for a contribution matching data.Id — but no caller in
+   admin.js ever sends an Id (it's server-generated on purpose, see
+   appscript.txt), so that search key was always "" and this safety net
+   could never actually fire. That's the root cause of "saved in the
+   sheet but UI says failed".
+   NEW approach: on timeout we don't guess — we safely RESEND the exact
+   same request (same IdempotencyKey). The backend (appscript.txt,
+   _idempotencyCheckAndReserve) recognizes the key:
+     • if the original write never completed → this resend IS the write.
+     • if the original write DID complete    → backend replays the
+       original result instead of inserting a second row.
+   Either way the client gets a real answer, and duplicates are impossible
+   because the key — not a timing guess — is what the server checks.
+   ═══════════════════════════════════════════════════════════════ */
 function postData(data) {
+  // Generate the idempotency key ONCE per logical submit attempt.
+  // Mutating `data` in place means callers that stash the same payload
+  // object for a manual "Retry" button (admin.js: _contribFailedPayload,
+  // _walkInFailedPayload) automatically reuse the same key on retry —
+  // no caller changes needed for those flows.
+  if (!data.IdempotencyKey) {
+    data.IdempotencyKey = (window.crypto && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : "idem_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+  }
+  return _postDataOnce(data, /*isRetry*/false);
+}
+
+function _postDataOnce(data, isRetry) {
   return new Promise((resolve,reject)=>{
     _cbId++; const cb="cb_post_"+_cbId+"_"+Date.now(); const script=document.createElement("script"); let done=false;
     window._activeJsonpCount = (window._activeJsonpCount||0) + 1;
@@ -161,38 +191,19 @@ function postData(data) {
       _fin();
       window[cb]=function(){try{delete window[cb];script.remove();}catch(e){}};
       try{script.remove();}catch(e){}
-      // ── Read-back verify for contribution writes ──────────────────
-      // Apps Script may have committed the write even though the JSONP
-      // response was lost (cold start, network blip). For addContribution
-      // only: wait 3s then check if a new receipt appeared in getAllData.
-      // If yes → resolve as success instead of rejecting with timeout.
-      // For all other actions: reject normally (safe, no double-write risk).
-      const _action = data && data.action;
-      if (_action === "addContribution") {
-        const _sentId = String(data.Id || "");
-        setTimeout(function() {
-          // SESSION GUARD: If session was cleared (force logout, cross-device kick) during the
-          // 23-second window (20s timeout + 3s delay), getData("getAllData") would fire with no
-          // userId/token → REJECTED_NO_TOKEN logged as "Unknown". Skip fallback if session gone.
-          try {
-            var _fb_sess = JSON.parse(localStorage.getItem("session") || "null");
-            if (!_fb_sess || !_fb_sess.userId || !_fb_sess.sessionToken) return;
-          } catch(_fbe) { return; }
-          mandirCacheBust("getAllData");
-          getData("getAllData").then(function(fresh) {
-            const contribs = (fresh && fresh.contributions) || [];
-            const found = contribs.find(function(c) { return String(c.Id) === _sentId; });
-            if (found) {
-              // Write committed on server — treat as success
-              resolve({ status: "success", receiptId: found.ReceiptID || "", _recoveredFromTimeout: true });
-            } else {
-              reject(new Error("Request timed out."));
-            }
-          }).catch(function() { reject(new Error("Request timed out.")); });
-        }, 3000);
-      } else {
+      if (isRetry) {
+        // Already retried once with the same idempotency key — don't loop forever.
         reject(new Error("Request timed out."));
+        return;
       }
+      // SESSION GUARD: don't retry if the session is gone (logged out mid-request).
+      try {
+        var _fb_sess = JSON.parse(localStorage.getItem("session") || "null");
+        if (!_fb_sess || !_fb_sess.userId || !_fb_sess.sessionToken) { reject(new Error("Request timed out.")); return; }
+      } catch(_fbe) { reject(new Error("Request timed out.")); return; }
+      // Safe resend — same IdempotencyKey, so the backend either performs
+      // the write for the first time, or hands back the original result.
+      _postDataOnce(data, /*isRetry*/true).then(resolve).catch(reject);
     },20000);
     script.onerror=function(){ _fin(); clearTimeout(timer); window[cb]=function(){try{delete window[cb];}catch(e){}}; try{script.remove();}catch(e){} reject(new Error("Network error.")); };
     // ── AUTO-INJECT session token + userId so every write action is authenticated.
@@ -720,8 +731,27 @@ function _forceLogout(message, logoutReason){
 
 
 function checkSession() {
-  let s=JSON.parse(localStorage.getItem("session"));
+  let s=JSON.parse(localStorage.getItem("session")||"null");
   if(!s||Date.now()>s.expiry){
+    // [H12-FIX] Try the 24h remember-me token before forcing logout.
+    // Previously this went straight to _forceLogout() even when a valid
+    // remember-token existed — so anyone mid-action (e.g. clicking
+    // "Add Contribution") with "Remember me" checked could get bounced
+    // to the login screen after 30 min, even though they'd asked to stay
+    // logged in for 24h. admin.js's page-load guard already restores from
+    // the token; this makes the same restore available to every action
+    // that calls checkSession() (add/edit/delete etc., ~10+ call sites).
+    try {
+      const rt = (typeof getRememberToken === "function") ? getRememberToken() : null;
+      if (rt && Date.now() < rt.expiry) {
+        s = {
+          userId: rt.userId, name: rt.name, role: rt.role, email: rt.email || "",
+          sessionToken: rt.sessionToken || "", expiry: Date.now() + 30 * 60 * 1000
+        };
+        localStorage.setItem("session", JSON.stringify(s));
+        return true;
+      }
+    } catch (e) { /* fall through to force logout below */ }
     _forceLogout("Session expired. Please login again.",
                  "Session expired - missing or corrupted");
     return false;

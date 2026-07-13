@@ -209,6 +209,59 @@ function generateId() {
 //
 //  LockService prevents duplicate IDs under concurrent requests.
 // ════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
+//  [GUARANTEE] IDEMPOTENCY GUARD — prevents "saved in sheet but UI
+//  shows failed" AND prevents duplicate rows when the client retries.
+//
+//  Problem this solves:
+//  The web app talks to Apps Script over JSONP. If the HTTP response
+//  is lost (cold start, network blip, GAS execution running long) the
+//  browser sees a timeout even though the write already committed on
+//  the server. Client then either (a) wrongly tells the user it failed,
+//  or (b) retries and creates a second row for the same contribution.
+//
+//  Fix: every write the client cares about (currently: addContribution)
+//  carries a client-generated IdempotencyKey. The FIRST time we see a
+//  key we do the real work and cache the result. Every SUBSEQUENT
+//  request with the *same* key (a retry of the same logical submit)
+//  gets the cached result played back verbatim — no second row is ever
+//  inserted, and the client gets a real answer instead of a guess.
+//
+//  _idempotencyCheckAndReserve() is wrapped in LockService so two
+//  near-simultaneous requests with the same key can't both slip past
+//  the cache check before either has written its result (the classic
+//  check-then-act race). The loser gets a "please retry" response
+//  instead of duplicating the insert.
+// ════════════════════════════════════════════════════════════════
+function _idempotencyCheckAndReserve(key) {
+  const lock = LockService.getScriptLock();
+  let lockAcquired = false;
+  try {
+    lock.waitLock(10000);
+    lockAcquired = true;
+    const cache = CacheService.getScriptCache();
+    const existing = cache.get("IDEM_" + key);
+    if (existing) return existing; // "__IN_PROGRESS__" or a real cached JSON result
+    // Reserve the key immediately so a concurrent duplicate request
+    // (same key, arriving within milliseconds) sees the reservation
+    // instead of also passing the empty check.
+    cache.put("IDEM_" + key, "__IN_PROGRESS__", 60);
+    return null; // caller should proceed with the real work
+  } catch (e) {
+    // Lock unavailable — fail open (let the write proceed) rather than
+    // blocking a legitimate contribution just because the guard couldn't run.
+    return null;
+  } finally {
+    if (lockAcquired) lock.releaseLock();
+  }
+}
+function _idempotencySave(key, resultObj) {
+  try {
+    // 21600s = 6 hours = the maximum TTL CacheService allows.
+    CacheService.getScriptCache().put("IDEM_" + key, JSON.stringify(resultObj), 21600);
+  } catch (e) { /* non-fatal — worst case a retry re-inserts instead of replaying */ }
+}
+
 function generateSheetId(prefix, yearReset) {
   const lock = LockService.getScriptLock();
   let lockAcquired = false;
@@ -2429,6 +2482,25 @@ function doGet(e) {
   //  Receipt ID: MNR-2025-00001 (year-wise, uses selected Year)
   // ════════════════════════════════════════════════════════════════
   else if (action === "addContribution") {
+    // ── [GUARANTEE] Idempotency check — see _idempotencyCheckAndReserve() above.
+    // If this exact request (same IdempotencyKey) already ran, replay its
+    // result instead of inserting a second row.
+    const idemKey = sanitize(e.parameter.IdempotencyKey, 100);
+    if (idemKey) {
+      const _idemPrior = _idempotencyCheckAndReserve(idemKey);
+      if (_idemPrior === "__IN_PROGRESS__") {
+        result = { status: "error", message: "Previous request for this entry is still processing. Please wait a moment.", errorCode: "duplicate_in_progress" };
+        return ContentService
+          .createTextOutput(callback + "(" + JSON.stringify(result) + ")")
+          .setMimeType(ContentService.MimeType.JAVASCRIPT);
+      }
+      if (_idemPrior) {
+        // Already completed on a prior attempt — hand back the ORIGINAL result verbatim.
+        return ContentService
+          .createTextOutput(callback + "(" + _idemPrior + ")")
+          .setMimeType(ContentService.MimeType.JAVASCRIPT);
+      }
+    }
     const suppliedReceiptId = sanitize(e.parameter.ReceiptID, 30);
     const year        = sanitize(e.parameter.Year, 10);
     // [FIX-9] If client supplies a ReceiptID, verify it doesn't already exist in CONTRIBUTIONS.
@@ -2547,6 +2619,11 @@ function doGet(e) {
       emailSent:     emailSent,
       emailSkipped:  emailSkipped
     };
+
+    // ── [GUARANTEE] Save result under the idempotency key so any retry of
+    // this exact request (same key) replays this result instead of
+    // inserting a second row. Must happen AFTER the row is safely written.
+    if (idemKey) _idempotencySave(idemKey, result);
   }
 
   // ── ADD EXPENSE — [ID] EXP-2025-00001 (year-wise reset)

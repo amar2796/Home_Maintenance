@@ -4930,6 +4930,15 @@
       }
       // [DUP-FIX-4b] Deduplicate by month — last-one-wins if month appears twice in table
       finalRows = Array.from(new Map(finalRows.map(function(r) { return [r.month, r]; })).values());
+      // [GUARANTEE] Give each row a stable idempotency key, once, right here.
+      // This is the ONLY place finalRows is built fresh from _pendingBulkRows —
+      // _retryBulkFailed() below only ever filters THESE same row objects, so
+      // the key survives into every retry of this same row untouched. postData()
+      // sends this key to the backend; a retried row is recognized as "the same
+      // request again" instead of becoming a second row in the sheet.
+      finalRows.forEach(function(r) {
+        if (!r.idemKey) r.idemKey = "bulk_" + Date.now() + "_" + Math.random().toString(36).slice(2) + "_" + r.month;
+      });
       // Show inserting spinner in panel
       const bkBodySpin = document.getElementById("sp-bulk-body");
       if (bkBodySpin) {
@@ -4981,7 +4990,8 @@
           action: "addContribution",
           UserId: userId, Amount: _br.amount, ForMonth: _br.month,
           Year: year, TypeId: typeId, OccasionId: "", Note: note,
-          sessionToken: s.sessionToken || "", userId: s.userId || ""
+          sessionToken: s.sessionToken || "", userId: s.userId || "",
+          IdempotencyKey: _br.idemKey
         }).catch(function() { return { status: "error" }; });
         results.push(_bres);
         // 250ms gap between requests — lets Google Sheets commit each row before next write
@@ -4990,8 +5000,21 @@
         }
       }
 
-      // After all inserts, do a fresh data fetch so dedup check in retry is accurate
+      // [ORDER-FIX] Fetch fresh data BEFORE the dedup check below, not after.
+      // mandirCacheBust() only invalidates the cache — it doesn't refresh the
+      // `data` array the dedup check reads. Previously `data` still held
+      // whatever was loaded before this bulk run started, so _bulkEntryExists()
+      // could never see rows this very run had just (silently) saved on the
+      // backend despite an error response — it was checking against stale data.
       if (typeof mandirCacheBust === "function") mandirCacheBust("getAllData");
+      try {
+        if (typeof getCached === "function") {
+          var _freshAllData = await getCached("getAllData");
+          if (_freshAllData && Array.isArray(_freshAllData.contributions)) {
+            data = _freshAllData.contributions;
+          }
+        }
+      } catch (_e) { /* fall back to whatever `data` already had — best effort only */ }
 
       const done   = results.filter(function(r) { return r && r.status === "success"; }).length;
       const failed = results.length - done;
@@ -5151,7 +5174,13 @@
           action: "addContribution",
           UserId: stored.userId, Amount: _rr.amount, ForMonth: _rr.month,
           Year: stored.year, TypeId: stored.typeId, OccasionId: "", Note: stored.note,
-          sessionToken: s.sessionToken || "", userId: s.userId || ""
+          sessionToken: s.sessionToken || "", userId: s.userId || "",
+          // [GUARANTEE] Reuse the SAME key this row was given when it was first
+          // built in _executeBulkInsert (survives here via the object reference
+          // through stored.rows → rowsToRetry). If that first attempt actually
+          // succeeded on the backend and only the response was lost, the backend
+          // replays that original success instead of inserting a duplicate row.
+          IdempotencyKey: _rr.idemKey
         }).catch(function() { return { status: "error" }; });
         retryResults.push(_rres);
         if (_ri < rowsToRetry.length - 1) {
@@ -8905,6 +8934,11 @@
       const MAX_POLLS = 36; // 36 × 5s = 3 minutes max wait
 
       // Step 1 — Fire the job (fire-and-forget, ignore response)
+      // [FIX] This request was missing sessionToken/userId entirely, so the
+      // backend's _verifySession() (required for triggerMonthlyReport /
+      // triggerMonthlyReminder) always rejected it with "Session expired."
+      // — regardless of whether the admin was actually logged in.
+      const _mrSess = JSON.parse(localStorage.getItem("session") || "{}");
       (function () {
         const cbFire = "cb_mrf_" + Date.now();
         const script = document.createElement("script");
@@ -8912,7 +8946,10 @@
         script.onerror = function () { try { delete window[cbFire]; script.remove(); } catch (e) { } };
         const action = (mode === "reminders_only") ? "triggerMonthlyReminder" : "triggerMonthlyReport";
         script.src = API_URL + "?action=" + action + "&month=" + encodeURIComponent(month) +
-          "&year=" + encodeURIComponent(year) + "&jobKey=" + encodeURIComponent(jobKey) + "&callback=" + cbFire;
+          "&year=" + encodeURIComponent(year) + "&jobKey=" + encodeURIComponent(jobKey) +
+          "&sessionToken=" + encodeURIComponent(_mrSess.sessionToken || "") +
+          "&userId=" + encodeURIComponent(_mrSess.userId || "") +
+          "&callback=" + cbFire;
         document.body.appendChild(script);
       })();
 
@@ -8952,7 +8989,10 @@
           if (pollCount < MAX_POLLS) setTimeout(_pollResult, 5000);
           else _reportDone(null, true);
         };
-        script.src = API_URL + "?action=getMonthlyReportStatus&jobKey=" + encodeURIComponent(jobKey) + "&callback=" + cbPoll;
+        script.src = API_URL + "?action=getMonthlyReportStatus&jobKey=" + encodeURIComponent(jobKey) +
+          "&sessionToken=" + encodeURIComponent(_mrSess.sessionToken || "") +
+          "&userId=" + encodeURIComponent(_mrSess.userId || "") +
+          "&callback=" + cbPoll;
         document.body.appendChild(script);
       }
 
@@ -9465,6 +9505,14 @@
           OccasionId: r.OccasionId || "",
           Note: (r.Note ? r.Note + " " : "") + "[Approved Request: " + (r.ReqId || "") + "]",
           PaymentMode: r.PaymentMode || "UPI",
+          // [GUARANTEE] Unlike bulk/single-add, this flow builds a brand-new
+          // payload object on every click (no stored-payload retry), so
+          // postData()'s auto-generated key would be different each time —
+          // a re-click after a false "failed" would create a duplicate.
+          // Deriving the key from the request's own ReqId instead makes
+          // approving the same request idempotent no matter how many times
+          // the admin clicks "Approve & Record" after a timeout.
+          IdempotencyKey: "approve_" + (r.ReqId || "")
         });
         if (!contribRes || contribRes.status !== "success") {
           toast("Failed to record contribution.", "error");
