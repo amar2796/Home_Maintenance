@@ -38,12 +38,45 @@ const _U_LANG    = _U_PREFIX + "_lang";              // language preference
       }
     } catch(e) {}
   })();
+  // [H12-FIX] Shared remember-me restore helper for the two listeners below.
+  // BEFORE this fix, only the initial page-load guard (the IIFE above) tried
+  // to restore a fresh 30-min session from the 24h remember-token. pageshow
+  // (fires on bfcache restore, e.g. hitting back/forward) and visibilitychange
+  // (fires when switching back to this tab) skipped that restore entirely and
+  // went straight to login.html the moment the 30-min session lapsed — even
+  // with "Remember me" checked and a valid 24h token sitting right there.
+  // This made "remember me" effectively only work on a hard page reload.
+  // Returns true once a valid "User" session exists in localStorage (either
+  // it was already valid, or it was just restored from the token).
+  function _uTryRestoreSession() {
+    let s = JSON.parse(localStorage.getItem("session") || "null");
+    if (s && Date.now() < s.expiry && s.role === "User") return true;
+    try {
+      const rt = JSON.parse(localStorage.getItem(_U_RMK) || "null");
+      if (rt && rt.role === "User" && Date.now() < rt.expiry) {
+        const ns = { userId: rt.userId, name: rt.name, role: rt.role, email: rt.email || "",
+                     sessionToken: rt.sessionToken || "", expiry: Date.now() + 30 * 60 * 1000 };
+        localStorage.setItem("session", JSON.stringify(ns));
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
   window.addEventListener("pageshow", () => {
     let s = JSON.parse(localStorage.getItem("session") || "null");
-    if (!s || Date.now() > s.expiry || s.role !== "User") { ["session",_U_RMK].forEach(k=>localStorage.removeItem(k)); history.replaceState(null, "", "login.html"); location.replace("login.html"); }
+    if (!s || Date.now() > s.expiry || s.role !== "User") {
+      if (_uTryRestoreSession()) return; // restored — stay on the page
+      ["session",_U_RMK].forEach(k=>localStorage.removeItem(k)); history.replaceState(null, "", "login.html"); location.replace("login.html");
+    }
   });
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) { let s = JSON.parse(localStorage.getItem("session") || "null"); if (!s || Date.now() > s.expiry || s.role !== "User") { ["session",_U_RMK].forEach(k=>localStorage.removeItem(k)); history.replaceState(null, "", "login.html"); location.replace("login.html"); } }
+    if (!document.hidden) {
+      let s = JSON.parse(localStorage.getItem("session") || "null");
+      if (!s || Date.now() > s.expiry || s.role !== "User") {
+        if (_uTryRestoreSession()) return; // restored — stay on the page
+        ["session",_U_RMK].forEach(k=>localStorage.removeItem(k)); history.replaceState(null, "", "login.html"); location.replace("login.html");
+      }
+    }
   });
 
 
