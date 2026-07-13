@@ -44,9 +44,9 @@
                      e.g. "SHM" → keys: shm_remember_token, shm_lang …
          nameHindi : Hindi name — used in hero section and member bios.
          ✔ SYNC name with CFG.name in appscript.txt. */
-      name:      "Shree Hanuman Mandir",
-      shortName: "SHM",
-      nameHindi: "श्री हनुमान मंदिर",
+      name:      "The Vishwakarma Home",
+      shortName: "TVH",
+      nameHindi: "विश्वकर्मा निवास",
     
     
       /* ── LOCATION ──────────────────────────────────────────────────────
@@ -55,7 +55,7 @@
                     subtitle, map label, donate modal, PDF receipts.
          address  : Auto-built as full address — used in emails and PDFs.
          ✔ SYNC location / address with CFG.location / CFG.address. */
-      village:  "Paliya",
+      village:  "Mungar",
       district: "Sultanpur",
       state:    "Uttar Pradesh",
       pin:      "",                         // Optional — leave blank if not needed
@@ -67,8 +67,8 @@
          Displayed in emails, chatbot, and admin settings panel.
          These are NOT synced to appscript — frontend-only. */
       phone:   "+918127991402",
-      email:   "hanumanmandirpaliya@gmail.com",
-      website: "https://amar2796.github.io/Mandir_Contribution_System/",
+      email:   "vishwakarmafamilymungar@gmail.com",
+      website: "https://amar2796.github.io/Home_Maintenance_System/",
     
     
       /* ── HOMEPAGE DISPLAY ──────────────────────────────────────────────
@@ -83,10 +83,10 @@
          committee  : Managing trust / committee name — shown in the donate
                       modal declaration ("managed by ...").
          ✔ SYNC splashText, heroText, heroSub, committee with appscript CFG. */
-      splashText: "॥ जय श्री राम ॥",
-      heroText:   "|| श्री हनुमत आश्रम ||",
-      heroSub:    "राम जग विश्‍वकर्मा",
-      committee:  "Ram Jag Vishwakarma Committee",
+      splashText: "Welcome Home",
+      heroText:   "The Vishwakarma Home",
+      heroSub:    "Every contribution, tracked together",
+      committee:  "Vishwakarma Household",
     
     
       /* ── BRANDING & MESSAGES ───────────────────────────────────────────
@@ -99,10 +99,10 @@
                       Used in PDF receipt header and WhatsApp messages.
                       e.g. "🕉️" (Om), "✡️" (Star of David), "☪️" (Crescent)
          ✔ SYNC tagline and thankYouMsg with appscript CFG. */
-      tagline:    "Jai Shree Ram",
-      thankYouMsg: "Thank you for your generous contribution",
+      tagline:    "Home, together",
+      thankYouMsg: "Thank you for your contribution to the household",
       footerNote: "This is a system-generated receipt.",
-      symbol:     "🕉️",
+      symbol:     "🏠",
     
     
       /* ── RECEIPT & FINANCE ─────────────────────────────────────────────
@@ -115,9 +115,9 @@
          currency            : Currency symbol shown on receipts and UI.
          currencyCode        : ISO 4217 currency code (informational).
          ✔ SYNC receiptPrefix and legacyReceiptPrefix with appscript CFG. */
-      receiptPrefix:       "MNR",
+      receiptPrefix:       "HOM",
       legacyReceiptPrefix: "TRX",
-      currency:     "₹",          // Symbol used in HTML/UI display
+      currency:     "Rs.",          // Symbol used in HTML/UI display
       currencyText: "Rs.",         // Text form used in jsPDF (Helvetica can't render ₹). SYNC with CFG.currencyText in appscript.txt
       currencyCode: "INR",
     
@@ -145,8 +145,8 @@
          signatory   : Name or title of the signing authority.
          designation : Their role / title.
          ✔ SYNC both with appscript CFG. */
-      signatory:   "Temple Trust",
-      designation: "Authorized Signatory",
+      signatory:   "Vishwakarma Household",
+      designation: "Household Head",
     
     
       /* ── EMAIL QUOTA ───────────────────────────────────────────────────
@@ -179,10 +179,10 @@
          How to get a folder ID:
            Open the folder in Google Drive → copy the ID from the URL:
            https://drive.google.com/drive/folders/<<THIS_PART>> */
-      folderMain:    "1fw9No8nevduhe1yeILZUrbJHdDH_Lt9f",  // Legacy main upload folder
-      folderProfile: "1z9vb3mPu8DVB7htuB_vku0cC2dTc7Pa7",  // Drive > ProfilePhotos/
-      folderExpense: "1YY55xNxs5_LNCNjYYkq0oeEzoZBg5qKv",  // Drive > ExpenseReceipts/
-      folderGallery: "1ecYdcFZrSF2mKX15mDYh8vi4Oat9jF2n",  // Drive > GalleryPhotos/
-      folderSlip:    "1c60FzCP3ECU_XBckWfBVkcWyNb-ikNIk",   // Drive > PaymentSlips/
+      folderMain:    "1DXMdV62cbwuxzKSYMuxjCP6pXkCMMaYs",  // Legacy main upload folder
+      folderProfile: "1AdK1kHQ5g6ADBD31RCbDTHvYhQV9wL4d",  // Drive > ProfilePhotos/
+      folderExpense: "1GPZQMwYRukg-Th60aReVFeju_l8wHmJv",  // Drive > ExpenseReceipts/
+      folderGallery: "1xIIFG2i3_DA7F2OXQUHPT1Gm1ToD95-i",  // Drive > GalleryPhotos/
+      folderSlip:    "1SjbhXqzcwi0Ucvag8IxgVI4OQZVr_eds",   // Drive > PaymentSlips/
     
     };

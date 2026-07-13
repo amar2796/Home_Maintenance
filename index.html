@@ -4,8 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <title id="pageTitle">Mandir System</title>
-    <meta name="description" id="metaDesc" content="Temple management system — contributions, expenses, members and more."/>
+    <title id="pageTitle">Household System</title>
+    <meta name="description" id="metaDesc" content="Household management system — contributions, expenses, members and more."/>
+    <link rel="icon" type="image/svg+xml" href="Image/logo.svg">
     <link rel="icon" type="image/png" href="Image/logo.PNG">
     <link rel="apple-touch-icon" href="Image/logo.PNG">
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -20,21 +21,10 @@
     />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Swiper/11.0.5/swiper-bundle.min.css" />
     <link rel="stylesheet" href="index.css">
+    <!-- HOME FEATURES: dark mode, FAQ, contacts, quick-pay FAB (frontend-only, safe to remove) -->
+    <link rel="stylesheet" href="home-features.css">
   </head>
   <body>
-    <div id="splash-screen">
-      <h1 class="splash-text" id="splashText">…</h1>
-    </div>
-
-    <audio id="bgMusic" src="jai-shree-ram.mp3"></audio>
-    <button
-      id="audioControl"
-      class="audio-btn"
-      aria-label="Toggle Background Music"
-    >
-      <i class="fa-solid fa-volume-high"></i>
-    </button>
-
     <!-- ══ SITE TOP: banner + header stacked in one fixed wrapper ══ -->
     <div id="siteTop">
 
@@ -45,6 +35,10 @@
         <span class="ann-text" id="annText"></span>
         <span class="ann-badge" id="annBadge" style="display:none;"></span>
       </div>
+      <!-- HOME FEATURES: share this announcement on WhatsApp -->
+      <button class="hf-ann-share" onclick="hfShareAnnouncement()" aria-label="Share on WhatsApp" title="Share on WhatsApp">
+        <i class="fa-brands fa-whatsapp"></i>
+      </button>
       <button class="ann-close" onclick="dismissBanner()" aria-label="Close">✕</button>
     </div>
 
@@ -52,10 +46,10 @@
     <div class="header" id="mainHeader">
       <div>
         <a class="header-brand" href="#home">
-          <img src="Image/logo.PNG" alt="Mandir Logo" class="header-logo"
+          <img src="Image/logo.PNG" alt="Home Logo" class="header-logo"
             onerror="this.style.display='none';document.getElementById('hdrIcon').style.display='inline';">
-          <i id="hdrIcon" class="fa-solid fa-place-of-worship"
-            style="display:none;color:#f7a01a;font-size:1.4rem;filter:drop-shadow(0 0 6px rgba(247,160,26,0.6));"></i>
+          <i id="hdrIcon" class="fa-solid fa-house"
+            style="display:none;color:#0F766E;font-size:1.4rem;filter:drop-shadow(0 0 6px rgba(15, 118, 110,0.6));"></i>
           <div class="header-brand-text">
             <span class="brand-main" id="hdrBrandName">…</span>
             <span class="brand-sub" id="hdrBrandSub">…</span>
@@ -67,18 +61,21 @@
         <nav class="nav-links">
           <a href="#hero">Home</a>
           <a href="#about">About</a>
-          <a href="#membersSection">Member</a>
-          <a href="#features">Features</a>
           <a href="#gallery">Gallery</a>
-          <!-- FINANCES NAV LINK — disabled until Temple Finances section is re-enabled
+          <!-- FINANCES NAV LINK — disabled until Household Finances section is re-enabled
           <a href="#financesSection">Finances</a>
           -->
+          <a href="#hfFaq">FAQ</a>
           <a href="#feedbackSection">Feedback</a>
          
         </nav>
        </div>
        <div class="login-nav-links">
-        <a href="#" onclick="openPayModal();return false;" class="login-donate-btn"><i class="fa-solid fa-hand-holding-heart"></i> Donate</a>
+        <!-- HOME FEATURES: dark mode toggle -->
+        <button class="hf-dark-toggle" id="hfDarkToggle" onclick="hfToggleDarkMode()" aria-label="Switch to dark mode">
+          <i class="fa-solid fa-moon"></i>
+        </button>
+        <a href="#" onclick="openPayModal();return false;" class="login-donate-btn"><i class="fa-solid fa-hand-holding-heart"></i> Pay</a>
         <a href="login.html" class="login-btn"><i class="fa-solid fa-right-to-bracket"></i> Login</a>
        </div>
       
@@ -101,19 +98,19 @@
         <i class="fa-solid fa-info-circle"></i>
          About</a
       >
-      <a href="#features" onclick="closeNavMenu()">
-        <i class="fa-solid fa-star"></i>
-         Features</a
-      >
       <a href="#gallery" onclick="closeNavMenu()">
         <i class="fa-solid fa-images"></i> 
         Gallery</a
+      >
+      <a href="#hfFaq" onclick="closeNavMenu()">
+        <i class="fa-solid fa-circle-question"></i> 
+        FAQ</a
       >
       <a href="#feedbackSection" onclick="closeNavMenu()">
         <i class="fa-solid fa-comment-dots"></i> 
         Feedback</a
       >
-      <!-- FINANCES NAV LINK — disabled until Temple Finances section is re-enabled
+      <!-- FINANCES NAV LINK — disabled until Household Finances section is re-enabled
       <a href="#financesSection" onclick="closeNavMenu()">
         <i class="fa-solid fa-scale-balanced"></i> Finances
       </a>
@@ -128,252 +125,24 @@
     </div>
 
     <div class="hero" id="hero">
+      <!-- <i class="fa-solid fa-drafting-compass hero-deco" aria-hidden="true"></i> -->
       <div class="hero-box">
-        <h1 id="heroHeading">|| श्री हनुमत आश्रम ||<span id="heroSub">राम जग विश्‍वकर्मा</span></h1>
+        <h1 id="heroHeading">The Vishwakarma Home<span id="heroSub">Every contribution, tracked together</span></h1>
       </div>
     </div>
-
-    <!-- ══ CHAUPAI TICKER — above About ══ -->
-
-    <!-- Divider above Chaupai — FIXED, never collapses -->
-    <div class="section-divider reveal">
-      <div class="sd-line"></div>
-      <div class="sd-center">
-        <div class="sd-petal"></div>
-        <div class="sd-dot"></div>
-        <div class="sd-symbol">🔱</div>
-        <div class="sd-dot"></div>
-        <div class="sd-petal"></div>
-      </div>
-      <div class="sd-line"></div>
-    </div>
-
-    <!-- Chaupai ticker: spacer always holds the LONGEST chaupai so height never collapses -->
-    <div class="cp-ticker-wrap reveal" aria-live="polite">
-      <div class="cp-ticker-inner">
-        <!-- Spacer always = longest chaupai → layout never jumps -->
-        <div id="chaupaiSpacer" class="cp-spacer"></div>
-        <!-- Animated words render on top -->
-        <div id="chaupaiDisplay" class="cp-display"></div>
-      </div>
-    </div>
-
-    <!-- Divider below Chaupai — FIXED, never collapses -->
-    <div class="section-divider reveal">
-      <div class="sd-line"></div>
-      <div class="sd-center">
-        <div class="sd-petal"></div>
-        <div class="sd-dot"></div>
-        <div class="sd-symbol">🙏</div>
-        <div class="sd-dot"></div>
-        <div class="sd-petal"></div>
-      </div>
-      <div class="sd-line"></div>
-    </div>
-
-
-    <!-- chaupai ticker init — see index.js _initChaupai() -->
 
     <div class="section reveal" id="about">
-      <h2>About The Mandir</h2>
+      <h2>About Our Household</h2>
       <p>
-        This digital portal helps manage temple contributions, track daily
+        This digital portal helps manage household contributions, track
         expenses, and maintain the yearly financial balance in a highly secure
         and transparent manner.
       </p>
-      <div class="about-stats-row">
-        <div class="about-stat">
-          <div class="about-stat-num">30+</div>
-          <div class="about-stat-label">Years of Service</div>
-        </div>
-        <div class="about-stat">
-          <div class="about-stat-num" id="aboutStatSymbol">🕉️</div>
-          <div class="about-stat-label">Daily Pooja</div>
-        </div>
-        <div class="about-stat">
-          <div class="about-stat-num">4+</div>
-          <div class="about-stat-label">Annual Events</div>
-        </div>
-        <div class="about-stat">
-          <div class="about-stat-num">100%</div>
-          <div class="about-stat-label">Transparent</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ══ OUR MEMBERS SECTION ══ -->
-
-    <div class="section-divider reveal">
-      <div class="sd-line"></div>
-      <div class="sd-center">
-        <div class="sd-petal"></div>
-        <div class="sd-dot"></div>
-        <div class="sd-symbol" id="sdSymbol">🕉️</div>
-        <div class="sd-dot"></div>
-        <div class="sd-petal"></div>
-      </div>
-      <div class="sd-line"></div>
-    </div>
-
-    <div class="members-section reveal" id="membersSection">
-      <div class="members-section-bg"></div>
-
-      <div class="members-header">
-        <div class="members-header-top">
-          <div class="members-header-left">
-            <div class="members-eyebrow">
-              <i class="fa-solid fa-om"></i> हमारे सदस्य
-            </div>
-            <h2 class="members-title">Our <span>Mandir Members</span></h2>
-            <p class="members-subtitle" id="membersSubtitle">
-              The devoted souls who uphold the spirit of <span id="aboutMandirName">…</span> — serving the community with faith, love, and dedication.
-            </p>
-          </div>
-          <div class="members-nav">
-            <button class="members-nav-btn" onclick="memberNav(-1);resetMemberAutoplay();" aria-label="Previous">
-              <i class="fa-solid fa-chevron-left"></i>
-            </button>
-            <button class="members-nav-btn" onclick="memberNav(1);resetMemberAutoplay();" aria-label="Next">
-              <i class="fa-solid fa-chevron-right"></i>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Member 1 -->
-      <div class="member-card active" id="memberCard0">
-        <div class="member-photo-side">
-          <img class="member-avatar" src="Image/Ambika.jpg" alt="Ambika Prasad Singh" 
-            onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-          <div class="member-photo-overlay"></div>
-          <div class="member-avatar-placeholder" style="display:none;">APS</div>
-        </div>
-        <div class="member-info-side">
-          <div class="member-role-badge">
-            <i class="fa-solid fa-hands-praying"></i> प्रधान पुजारी
-          </div>
-          <h3 class="member-name">पं. अम्बिका प्रसाद सिंह</h3>
-          <p class="member-title">Shree Hanuman Mandir, Paliya</p>
-          <div class="member-divider"></div>
-          <p class="member-bio">
-            <strong>पं. अम्बिका प्रसाद सिंह</strong>, श्री हनुमान मंदिर, पलिया के 
-            <strong>प्रधान पुजारी</strong> हैं, जो 
-            <strong>30+ वर्षों से पूजा-अर्चना एवं धार्मिक सेवाओं में समर्पित</strong> हैं। वे वैदिक अनुष्ठानों के विशेषज्ञ हैं 
-            और उनके मार्गदर्शन में <strong>अनेक यज्ञ, पूजा एवं धार्मिक कार्यक्रम सफलतापूर्वक संपन्न</strong> हुए हैं।
-          </p>
-        </div>
-      </div>
-
-      <!-- Member 2 -->
-      <div class="member-card" id="memberCard2">
-        <div class="member-photo-side">
-          <img class="member-avatar" src="Image/RamJag.jpeg" alt="Ambika Prasad Singh" 
-            onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-          <div class="member-photo-overlay"></div>
-        </div>
-        <div class="member-info-side">
-          <div class="member-role-badge">
-            <i class="fa-solid fa-crown"></i> संरक्षक एवं आध्यात्मिक मार्गदर्शक
-          </div>
-          <h3 class="member-name">श्री राम जग विश्‍वकर्मा</h3>
-          <p class="member-title">Shree Hanuman Mandir, Paliya</p>
-          <div class="member-divider"></div>
-          <p class="member-bio">
-            <strong>श्री राम जग विश्‍वकर्मा</strong>, श्री हनुमान मंदिर, पलिया के 
-            <strong>संरक्षक एवं आध्यात्मिक मार्गदर्शक</strong> हैं, जो 
-            <strong>30+ वर्षों से मंदिर सेवा एवं मार्गदर्शन में समर्पित</strong> हैं। वे मंदिर के विकास, 
-            योजनाओं एवं नई पहल में महत्वपूर्ण भूमिका निभाते हैं तथा अपने अनुभव और मार्गदर्शन से 
-            <strong>मंदिर की प्रगति एवं व्यवस्था को सुदृढ़</strong> करते हैं।
-          </p>
-        </div>
-      </div>
-
-      <!-- Member 3 -->
-      <div class="member-card" id="memberCard1">
-        <div class="member-photo-side">
-          <img class="member-avatar" src="Image/RamSankar.jpeg" alt="Ram Shankar Vishwakarma" 
-            onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-          <div class="member-photo-overlay"></div>
-          <div class="member-avatar-placeholder" style="display:none;">RSV</div>
-        </div>
-        <div class="member-info-side">
-          <div class="member-role-badge">
-            <i class="fa-solid fa-user-gear"></i> सेवक एवं व्यवस्था प्रमुख
-          </div>
-          <h3 class="member-name">श्री राम शंकर विश्‍वकर्मा</h3>
-          <p class="member-title">Shree Hanuman Mandir, Paliya</p>
-          <div class="member-divider"></div>
-          <p class="member-bio">
-            <strong>श्री राम शंकर विश्‍वकर्मा</strong>, श्री हनुमान मंदिर, पलिया के 
-            <strong>सेवक एवं व्यवस्था प्रमुख</strong> हैं, जो 
-            <strong>30+ वर्षों से निस्वार्थ भाव से सेवा में समर्पित</strong> हैं। वे मंदिर की दैनिक व्यवस्था, 
-            देखभाल एवं सभी गतिविधियों के <strong>सुचारु संचालन एवं प्रबंधन</strong> में महत्वपूर्ण योगदान देते हैं।
-          </p>
-        </div>
-      </div>
-
-      <!-- Dot indicators -->
-      <div class="member-dots">
-        <div class="member-dot active" onclick="memberGoTo(0);resetMemberAutoplay();"></div>
-        <div class="member-dot" onclick="memberGoTo(1);resetMemberAutoplay();"></div>
-        <div class="member-dot" onclick="memberGoTo(2);resetMemberAutoplay();"></div>
-      </div>
-    </div>
-
-
-    <div class="section-divider reveal">
-      <div class="sd-line"></div>
-      <div class="sd-center">
-        <div class="sd-petal"></div>
-        <div class="sd-dot"></div>
-        <div class="sd-symbol">🪔</div>
-        <div class="sd-dot"></div>
-        <div class="sd-petal"></div>
-      </div>
-      <div class="sd-line"></div>
-    </div>
-
-    <div class="section reveal" id="features">
-      <h2>System Features</h2>
-      <div class="cards">
-        <div class="card">
-          <h3><i class="fa-solid fa-hand-holding-dollar"></i> Contributions</h3>
-          <p>Track all incoming donations seamlessly and view daily totals.</p>
-        </div>
-        <div class="card">
-          <h3><i class="fa-solid fa-chart-column"></i> Dashboard</h3>
-          <p>View visual analytics, expense reports, and balances.</p>
-        </div>
-        <div class="card">
-          <h3><i class="fa-solid fa-user-shield"></i> Admin Control</h3>
-          <p>Manage registered users, update records, and export data.</p>
-        </div>
-        <div class="card">
-          <h3><i class="fa-solid fa-users"></i> User Panel</h3>
-          <p>
-            Allow members to log in and securely view their personal
-            contributions.
-          </p>
-        </div>
-      </div>
-    </div>
-
-
-    <div class="section-divider reveal">
-      <div class="sd-line"></div>
-      <div class="sd-center">
-        <div class="sd-petal"></div>
-        <div class="sd-dot"></div>
-        <div class="sd-symbol">🌸</div>
-        <div class="sd-dot"></div>
-        <div class="sd-petal"></div>
-      </div>
-      <div class="sd-line"></div>
     </div>
 
     <div class="section reveal" id="gallery">
       <h2>Gallery</h2>
-      <p>Moments from our Mandir events and celebrations</p>
+      <p>Moments from our home's moments and milestones</p>
 
       <!-- Loading state — skeleton shimmer cards -->
       <div class="gallery-loading-msg" id="galleryLoading">
@@ -386,7 +155,7 @@
 
       <!-- Empty state -->
       <div class="gallery-empty-msg" id="galleryEmpty">
-        <i class="fa-solid fa-images" style="font-size:2rem;color:#f7a01a;display:block;margin-bottom:10px;"></i>
+        <i class="fa-solid fa-images" style="font-size:2rem;color:#0F766E;display:block;margin-bottom:10px;"></i>
         No photos yet. Check back soon! 🙏
       </div>
 
@@ -425,46 +194,8 @@
     </div>
 
 
-    <div class="section-divider reveal">
-      <div class="sd-line"></div>
-      <div class="sd-center">
-        <div class="sd-petal"></div>
-        <div class="sd-dot"></div>
-        <div class="sd-symbol">🔱</div>
-        <div class="sd-dot"></div>
-        <div class="sd-petal"></div>
-      </div>
-      <div class="sd-line"></div>
-    </div>
 
-    <!-- ══ COMMUNITY STATS SECTION ══ -->
-    <div class="community-stats-section reveal" id="communityStats">
-      <!-- Background ambient orbs -->
-      <div class="cs-bg-orb-1"></div>
-      <div class="cs-bg-orb-2"></div>
-
-      <div class="cs-eyebrow">
-        <span class="cs-eyebrow-dot"></span>
-        Live count
-      </div>
-
-      <div class="cs-card">
-        <div class="cs-icon-wrap">
-          <i class="fa-solid fa-users"></i>
-        </div>
-        <div class="cs-count-row">
-          <span class="cs-big-num" id="csMembers">0</span>
-          <span class="cs-big-plus">+</span>
-        </div>
-        <div class="cs-label">Registered Members</div>
-        <div class="cs-sublabel" id="csSublabel">… family</div>
-        <div class="cs-divider"></div>
-        <div class="cs-cta">Be a part of this family — <a href="login.html">join us today</a></div>
-      </div>
-
-    </div>
-
-    <!-- ══ TEMPLE FINANCES SECTION — DISABLED
+       <!-- ══ Household Finances SECTION — DISABLED
          To re-enable: remove this HTML comment block wrapper,
          and also uncomment the CSS block and JS block marked the same way.
     <div class="section-divider reveal">
@@ -481,10 +212,10 @@
      
     <div class="transparency-section reveal" id="financesSection">
      
-      <h2><i class="fa-solid fa-scale-balanced" style="color:#f7a01a;margin-right:10px;"></i>Temple Finances</h2>
+      <h2><i class="fa-solid fa-scale-balanced" style="color:#0F766E;margin-right:10px;"></i>Household Finances</h2>
       <p class="tr-subtitle">
         पारदर्शिता हमारी प्राथमिकता है — We believe in complete transparency.<br>
-        All funds collected are used solely for temple maintenance and activities.
+        All funds collected are used solely for household maintenance and expenses.
       </p>
       <div class="tr-updated" id="tr_updated"></div>
      
@@ -510,7 +241,7 @@
      
       <div class="tr-goals" id="tr_goals" style="display:none;">
         <div class="tr-goals-title">
-          <i class="fa-solid fa-bullseye" style="color:#f7a01a;margin-right:6px;"></i>
+          <i class="fa-solid fa-bullseye" style="color:#0F766E;margin-right:6px;"></i>
           Active Fundraising Goals
         </div>
         <div id="tr_goals_list"></div>
@@ -522,27 +253,15 @@
       </p>
      
     </div>
-    ══ END TEMPLE FINANCES HTML ══ -->
-
-    <div class="section-divider reveal">
-      <div class="sd-line"></div>
-      <div class="sd-center">
-        <div class="sd-petal"></div>
-        <div class="sd-dot"></div>
-        <div class="sd-symbol">🙏</div>
-        <div class="sd-dot"></div>
-        <div class="sd-petal"></div>
-      </div>
-      <div class="sd-line"></div>
-    </div>
+    ══ END Household Finances HTML ══ -->
 
     <!-- Feedback Section: Map Left + Form Right -->
     <div class="feedback-section reveal" id="feedbackSection">
       <h2>
-        <i class="fa-solid fa-comment-dots" style="color: #f7a01a; margin-right: 8px"></i>
+        <i class="fa-solid fa-comment-dots" style="color: #0F766E; margin-right: 8px"></i>
         Share Your Feedback
       </h2>
-      <p>Your suggestions help us improve the Mandir system for everyone. 🙏</p>
+      <p>Your suggestions help us improve the Household System for everyone. 🙏</p>
 
       <div class="feedback-layout">
 
@@ -552,14 +271,7 @@
             <i class="fa-solid fa-location-dot"></i>
             <span id="mapHeaderText">…</span>
           </div>
-          <iframe
-            id="mapEmbedFrame"
-            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3273.497389457402!2d82.20519597492734!3d26.321060585267084!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x399a790bd4e8dff3%3A0x93c61c2049ae55f2!2sHanuman%20Mandir!5e1!3m2!1sen!2sin!4v1775203315104!5m2!1sen!2sin"
-            allowfullscreen=""
-            loading="lazy"
-            referrerpolicy="no-referrer-when-downgrade"
-            title="…">
-          </iframe>
+          <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d849.8414927304128!2d82.2058416695775!3d26.316155998562984!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x399a79fe680ff1d7%3A0x6161b25ff92ace37!2sVishwakarma%20House!5e1!3m2!1sen!2sin!4v1783874146777!5m2!1sen!2sin" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
         </div>
 
         <!-- RIGHT: Feedback Form -->
@@ -593,7 +305,7 @@
             <h3>Thank You for Your Valuable Feedback!</h3>
             <p>
               Your message has been received. We deeply appreciate your time and<br />suggestions
-              — they help us serve the Mandir community better.<br /><br /><em id="feedbackTagline">…</em>
+              — they help us serve our household better.<br /><br /><em id="feedbackTagline">…</em>
             </p>
             <div class="fb-pending-badge">
               <i class="fa-solid fa-clock"></i> Status: Pending Review
@@ -605,7 +317,7 @@
     </div>
 
     <div class="footer" id="pageFooter">
-      © 2026 Mandir System | Built with <span>❤️</span>
+      © 2026 Household System | Built with <span>❤️</span>
       <span class="footer-tagline" id="footerTagline">…</span>
     </div>
 
@@ -618,12 +330,11 @@
       // ══════════════════════════════════════════════════════════════
       (function() {
         if (typeof APP === 'undefined') return;
-        var name      = APP.name      || 'Mandir';
+        var name      = APP.name      || 'Home';
         var loc       = APP.location  || '';
         var tagline   = APP.tagline   || '';
-        var symbol    = APP.symbol    || '🕉️';
+        var symbol    = APP.symbol    || '🏠';
         var committee = APP.committee || '';
-        var splashTxt = APP.splashText || ('॥ ' + tagline + ' ॥');
         var heroTxt   = APP.heroText  || ('|| ' + name + ' ||');
         var heroSub   = APP.heroSub   || '';
         var shortName = APP.shortName || name;
@@ -631,11 +342,7 @@
         // Page title & meta description
         document.title = name + (loc ? ', ' + loc : '');
         var md = document.getElementById('metaDesc');
-        if (md) md.setAttribute('content', name + ' — temple management system for contributions, expenses, and members.');
-
-        // Splash screen
-        var sp = document.getElementById('splashText');
-        if (sp) sp.textContent = splashTxt;
+        if (md) md.setAttribute('content', name + ' — household management system for contributions, expenses, and members.');
 
         // Header brand
         var bn = document.getElementById('hdrBrandName'); if (bn) bn.textContent = name;
@@ -648,7 +355,7 @@
 
         // Members section subtitle
         var ms = document.getElementById('membersSubtitle');
-        if (ms) ms.textContent = 'The devoted souls who uphold the spirit of ' + name + ' — serving the community with faith, love, and dedication.';
+        if (ms) ms.textContent = 'the family members who keep ' + name + ' — serving the community with faith, love, and dedication.';
 
         // Member card location tags (all .member-title elements)
         document.querySelectorAll('.member-title').forEach(function(el) {
@@ -661,7 +368,7 @@
 
         // Donate modal sub-text
         var ps = document.querySelector('.pay-section-sub');
-        if (ps) ps.textContent = 'Support ' + name + ' — your donation helps maintain the temple, conduct religious activities, and serve the community.';
+        if (ps) ps.textContent = 'Support ' + name + ' — your contribution helps maintain the home, cover household expenses, and support the family.';
 
         // Donate declaration name & committee
         var pd = document.getElementById('payDeclName');    if (pd) pd.textContent = name + (loc ? ', ' + loc : '');
@@ -736,10 +443,10 @@
       <div class="pay-modal-body">
 
         <!-- Diya icon + Heading -->
-        <div class="pay-diya-icon">🪔</div>
+        <div class="pay-diya-icon">🔧</div>
         <h2 class="pay-section-title">Payment <span>Details</span></h2>
         <p class="pay-section-sub">
-          Support <span id="donateSupportName">…</span> — your donation helps maintain the temple,
+          Support <span id="donateSupportName">…</span> — your contribution helps maintain the home,
           conduct yagyas, and serve the community.
         </p>
         <div class="pay-gold-divider"></div>
@@ -808,10 +515,10 @@
         <div class="pay-declaration">
           <p>
             <strong>Declaration:</strong> All donations made to <strong id="payDeclName">…</strong>
-            are used exclusively for temple maintenance, religious ceremonies, and community welfare activities.
+            are used exclusively for household maintenance, bills, and family welfare.
             This institution is managed by the <strong id="payCommittee">…</strong>.
-            Please retain your payment receipt for records. For any queries, contact the temple office.
-            <strong>दान का सदुपयोग मंदिर संचालन एवं धार्मिक कार्यों में किया जाता है।</strong>
+            Please retain your payment receipt for records. For any queries, contact the household admin.
+            <strong>योगदान का उपयोग घर के रखरखाव एवं खर्चों में किया जाता है।</strong>
           </p>
         </div>
 
@@ -822,6 +529,14 @@
 
       </div><!-- /pay-modal-body -->
     </div><!-- /payModal -->
+
+    <!-- HOME FEATURES: quick-pay floating action button (reuses existing openPayModal) -->
+    <button class="hf-pay-fab" id="hfPayFab" onclick="openPayModal()">
+      <i class="fa-solid fa-hand-holding-heart"></i> Quick Pay
+    </button>
+
+    <!-- HOME FEATURES: frontend-only additions, safe to remove -->
+    <script src="home-features.js"></script>
 
   </body>
 </html>

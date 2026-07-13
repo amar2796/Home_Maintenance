@@ -57,7 +57,7 @@
         if (!q || typeof q.used === "undefined") { console.warn("[QUOTA] Invalid quota response."); return; }
         var pct   = Math.round((q.used / q.limit) * 100);
         var color = q.remaining < 10 ? "#f87171"
-                  : q.remaining < 30 ? "#fbbf24" : "#60a5fa";
+                  : q.remaining < 30 ? "#fbbf24" : "#2DD4BF";
         var col2  = pct > 80 ? "#f87171" : pct > 50 ? "#fbbf24" : "#34d399";
 
         // 1. Sidebar — Email Today counter + warning banner
@@ -766,27 +766,27 @@
       if (!s) { toast("Session expired.", "error"); return; }
       let myProfile = users.find((u) => String(u.UserId) === String(s.userId));
       if (!myProfile) { toast("Profile data not loaded yet.", "warn"); return; }
-      let photoSrc = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='88' height='88'><circle cx='44' cy='44' r='44' fill='%23f7a01a'/><text x='44' y='56' text-anchor='middle' fill='white' font-size='36' font-family='Arial'>&#128100;</text></svg>";
+      let photoSrc = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='88' height='88'><circle cx='44' cy='44' r='44' fill='%230F766E'/><text x='44' y='56' text-anchor='middle' fill='white' font-size='36' font-family='Arial'>&#128100;</text></svg>";
       let fb = photoSrc;
       let st = String(myProfile.Status || "Active");
       let stC = st.toLowerCase() === "active" ? "#22c55e" : st.toLowerCase() === "pending" ? "#f59e0b" : "#ef4444";
       let rowStyle = "border-bottom:1px solid #fef3e2;";
       let rlStyle = "color:#64748b;font-size:12.5px;display:flex;align-items:center;gap:7px;";
-      let iconBox = (icon) => `<span style="width:24px;height:24px;background:#fff7ed;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;"><i class="${icon}" style="color:#f7a01a;font-size:11px;"></i></span>`;
+      let iconBox = (icon) => `<span style="width:24px;height:24px;background:#fff7ed;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;"><i class="${icon}" style="color:#0F766E;font-size:11px;"></i></span>`;
       let html = `
-        <div class="_mhdr" style="background:linear-gradient(135deg,#141b2d 0%,#2a0f00 60%,#3c1a00 100%);border-bottom:2px solid rgba(247,160,26,0.35);">
+        <div class="_mhdr" style="background:linear-gradient(135deg,#141b2d 0%,#2a0f00 60%,#3c1a00 100%);border-bottom:2px solid rgba(15, 118, 110,0.35);">
           <h3 style="color:#fff;display:flex;align-items:center;gap:8px;">
-            <span style="width:28px;height:28px;background:rgba(247,160,26,0.18);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-id-card" style="color:#f7a01a;font-size:13px;"></i></span> My Profile
+            <span style="width:28px;height:28px;background:rgba(15, 118, 110,0.18);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-id-card" style="color:#0F766E;font-size:13px;"></i></span> My Profile
           </h3>
           <button class="_mcls" onclick="closeModal()" style="color:rgba(255,255,255,0.6);font-size:20px;line-height:1;background:none;border:none;cursor:pointer;padding:0;">×</button>
         </div>
         <div class="_mbdy" style="padding:0;">
           <div style="background:linear-gradient(180deg,#141b2d 0%,#2a0f00 60%,#3c1a00 100%);padding:26px 20px 20px;text-align:center;position:relative;overflow:hidden;">
-            <div style="position:absolute;top:-40px;right:-40px;width:160px;height:160px;background:radial-gradient(circle,rgba(247,160,26,0.15),transparent 70%);border-radius:50%;pointer-events:none;"></div>
-            <div style="position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(247,160,26,0.4),transparent);"></div>
+            <div style="position:absolute;top:-40px;right:-40px;width:160px;height:160px;background:radial-gradient(circle,rgba(15, 118, 110,0.15),transparent 70%);border-radius:50%;pointer-events:none;"></div>
+            <div style="position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(15, 118, 110,0.4),transparent);"></div>
             <img id="_adminProfileModalPhoto" src="${escapeHtml(photoSrc)}" onerror="this.src='${fb}'"
-              style="width:82px;height:82px;border-radius:50%;object-fit:cover;border:3px solid #f7a01a;background:#eee;display:block;margin:0 auto 10px;box-shadow:0 4px 20px rgba(247,160,26,0.45);"/>
-            <div style="color:#f7a01a;font-size:1.05rem;font-weight:700;margin-bottom:8px;">${escapeHtml(myProfile.Name || "—")}</div>
+              style="width:82px;height:82px;border-radius:50%;object-fit:cover;border:3px solid #0F766E;background:#eee;display:block;margin:0 auto 10px;box-shadow:0 4px 20px rgba(15, 118, 110,0.45);"/>
+            <div style="color:#0F766E;font-size:1.05rem;font-weight:700;margin-bottom:8px;">${escapeHtml(myProfile.Name || "—")}</div>
             <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
               <span style="background:${stC};color:#fff;border-radius:20px;padding:3px 14px;font-size:11px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.2);">${escapeHtml(st)}</span>
               <span style="background:rgba(255,255,255,.1);color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:3px 14px;font-size:11px;font-weight:600;">${escapeHtml(myProfile.Role || "Admin")}</span>
@@ -800,10 +800,10 @@
             <div class="_row"><span class="_rl" style="${rlStyle}">${iconBox("fa-solid fa-id-card")} Admin ID</span><span class="_rv" style="font-family:monospace;font-size:12px;font-weight:700;color:#3c1a00;letter-spacing:.5px;">${escapeHtml(String(myProfile.UserId || "—"))}</span></div>
           </div>
         </div>
-        <div class="_mft" style="flex-wrap:wrap;gap:8px;border-top:2px solid rgba(247,160,26,0.15);background:linear-gradient(90deg,rgba(247,160,26,0.04),transparent);">
+        <div class="_mft" style="flex-wrap:wrap;gap:8px;border-top:2px solid rgba(15, 118, 110,0.15);background:linear-gradient(90deg,rgba(15, 118, 110,0.04),transparent);">
           <button class="_mbtn" style="background:#64748b;box-shadow:none;" onclick="closeModal()"><i class="fa-solid fa-xmark"></i> Close</button>
-          <button class="_mbtn" style="background:linear-gradient(135deg,#2a0f00,#3c1a00);box-shadow:0 3px 10px rgba(42,15,0,0.3);" onclick="closeModal();openAdminChangePassword()"><i class="fa-solid fa-key" style="color:#f7a01a;"></i> Change Password</button>
-          <button class="_mbtn" style="background:linear-gradient(135deg,#f7a01a,#e8920a);box-shadow:0 3px 10px rgba(247,160,26,0.35);" onclick="closeModal();openAdminEditProfileForm()"><i class="fa-solid fa-user-pen"></i> Edit Profile</button>
+          <button class="_mbtn" style="background:linear-gradient(135deg,#2a0f00,#3c1a00);box-shadow:0 3px 10px rgba(42,15,0,0.3);" onclick="closeModal();openAdminChangePassword()"><i class="fa-solid fa-key" style="color:#0F766E;"></i> Change Password</button>
+          <button class="_mbtn" style="background:linear-gradient(135deg,#0F766E,#e8920a);box-shadow:0 3px 10px rgba(15, 118, 110,0.35);" onclick="closeModal();openAdminEditProfileForm()"><i class="fa-solid fa-user-pen"></i> Edit Profile</button>
         </div>`;
       openModal(html, "460px");
       // Load real photo via proxy after modal is in DOM (avoids CORS/429 on Drive URLs)
@@ -831,19 +831,19 @@
       let dE = prefillEmail    !== undefined ? prefillEmail    : myProfile?.Email   || s.email || "";
       let dV = prefillVillage  !== undefined ? prefillVillage  : myProfile?.Village || "";
       let dA = prefillAddress  !== undefined ? prefillAddress  : myProfile?.Address || "";
-      let fb = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='88' height='88'><circle cx='44' cy='44' r='44' fill='%23f7a01a'/><text x='44' y='56' text-anchor='middle' fill='white' font-size='36' font-family='Arial'>&#128100;</text></svg>";
+      let fb = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='88' height='88'><circle cx='44' cy='44' r='44' fill='%230F766E'/><text x='44' y='56' text-anchor='middle' fill='white' font-size='36' font-family='Arial'>&#128100;</text></svg>";
       let html = `
-        <div class="_mhdr" style="background:linear-gradient(135deg,#141b2d 0%,#2a0f00 60%,#3c1a00 100%);border-bottom:2px solid rgba(247,160,26,0.35);">
+        <div class="_mhdr" style="background:linear-gradient(135deg,#141b2d 0%,#2a0f00 60%,#3c1a00 100%);border-bottom:2px solid rgba(15, 118, 110,0.35);">
           <h3 style="color:#fff;display:flex;align-items:center;gap:8px;">
-            <span style="width:28px;height:28px;background:rgba(247,160,26,0.18);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-user-pen" style="color:#f7a01a;font-size:13px;"></i></span> Edit Profile
+            <span style="width:28px;height:28px;background:rgba(15, 118, 110,0.18);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-user-pen" style="color:#0F766E;font-size:13px;"></i></span> Edit Profile
           </h3>
           <button class="_mcls" onclick="closeModal()" style="color:rgba(255,255,255,0.6);font-size:20px;line-height:1;background:none;border:none;cursor:pointer;padding:0;">×</button>
         </div>
         <div class="_mbdy" style="text-align:center;">
           <div style="position:relative;width:88px;margin:0 auto 10px;">
             <img id="adminPhotoPreview" src="${escapeHtml(photoSrc)}" onerror="this.src='${fb}'"
-              style="width:88px;height:88px;border-radius:50%;object-fit:cover;border:3px solid #f7a01a;background:#faeeda;display:block;margin-bottom:0;box-shadow:0 4px 14px rgba(247,160,26,0.25);"/>
-            <div onclick="document.getElementById('adminPhotoFile').click()" style="position:absolute;bottom:2px;right:2px;width:28px;height:28px;background:#f7a01a;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2);border:2.5px solid white;" title="Change Photo">
+              style="width:88px;height:88px;border-radius:50%;object-fit:cover;border:3px solid #0F766E;background:#faeeda;display:block;margin-bottom:0;box-shadow:0 4px 14px rgba(15, 118, 110,0.25);"/>
+            <div onclick="document.getElementById('adminPhotoFile').click()" style="position:absolute;bottom:2px;right:2px;width:28px;height:28px;background:#0F766E;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2);border:2.5px solid white;" title="Change Photo">
               <i class="fa-solid fa-camera" style="color:white;font-size:11px;"></i>
             </div>
           </div>
@@ -857,7 +857,7 @@
             <label class="_fl">Mobile Number</label>
             <div style="background:#f8f8f8;border:1.5px solid #eee;border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
               <div style="display:flex;align-items:center;gap:8px;">
-                <i class="fa-solid fa-mobile-screen" style="color:#f7a01a;font-size:13px;"></i>
+                <i class="fa-solid fa-mobile-screen" style="color:#0F766E;font-size:13px;"></i>
                 <span style="color:#555;font-size:13px;font-weight:600;letter-spacing:1px;">${escapeHtml(String(myProfile?.Mobile || "—"))}</span>
               </div>
               <span style="color:#aaa;font-size:11px;font-weight:500;">(read-only)</span>
@@ -875,9 +875,9 @@
             </div>
           </div>
         </div>
-        <div class="_mft" style="border-top:2px solid rgba(247,160,26,0.15);background:linear-gradient(90deg,rgba(247,160,26,0.04),transparent);">
+        <div class="_mft" style="border-top:2px solid rgba(15, 118, 110,0.15);background:linear-gradient(90deg,rgba(15, 118, 110,0.04),transparent);">
           <button class="_mbtn" style="background:#64748b;box-shadow:none;" onclick="closeModal();_adminSelfCroppedB64='';">Cancel</button>
-          <button class="_mbtn" style="background:linear-gradient(135deg,#f7a01a,#e8920a);box-shadow:0 3px 10px rgba(247,160,26,0.35);" onclick="saveAdminProfile()"><i class="fa-solid fa-check"></i> Save Changes</button>
+          <button class="_mbtn" style="background:linear-gradient(135deg,#0F766E,#e8920a);box-shadow:0 3px 10px rgba(15, 118, 110,0.35);" onclick="saveAdminProfile()"><i class="fa-solid fa-check"></i> Save Changes</button>
         </div>`;
       openModal(html, "460px");
       // Async-load avatar after modal is in DOM — avoids NS_BINDING_ABORTED
@@ -914,9 +914,9 @@
     /* ── Change Password modal ── */
     function openAdminChangePassword() {
       const html = `
-        <div class="_mhdr" style="background:linear-gradient(135deg,#141b2d 0%,#2a0f00 60%,#3c1a00 100%);border-bottom:2px solid rgba(247,160,26,0.35);">
+        <div class="_mhdr" style="background:linear-gradient(135deg,#141b2d 0%,#2a0f00 60%,#3c1a00 100%);border-bottom:2px solid rgba(15, 118, 110,0.35);">
           <h3 style="color:#fff;display:flex;align-items:center;gap:8px;">
-            <span style="width:28px;height:28px;background:rgba(247,160,26,0.18);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-key" style="color:#f7a01a;font-size:13px;"></i></span> Change Password
+            <span style="width:28px;height:28px;background:rgba(15, 118, 110,0.18);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-key" style="color:#0F766E;font-size:13px;"></i></span> Change Password
           </h3>
           <button class="_mcls" onclick="closeModal()" style="color:rgba(255,255,255,0.6);font-size:20px;line-height:1;background:none;border:none;cursor:pointer;padding:0;">×</button>
         </div>
@@ -944,9 +944,9 @@
           </div>
           <div id="adm_cp_msg" style="font-size:12px;min-height:18px;margin-bottom:4px;"></div>
         </div>
-        <div class="_mft" style="border-top:2px solid rgba(247,160,26,0.15);background:linear-gradient(90deg,rgba(247,160,26,0.04),transparent);">
+        <div class="_mft" style="border-top:2px solid rgba(15, 118, 110,0.15);background:linear-gradient(90deg,rgba(15, 118, 110,0.04),transparent);">
           <button class="_mbtn" style="background:#64748b;box-shadow:none;" onclick="closeModal()">Cancel</button>
-          <button class="_mbtn" id="adm_cp_save_btn" style="background:linear-gradient(135deg,#f7a01a,#e8920a);box-shadow:0 3px 10px rgba(247,160,26,0.35);" onclick="saveAdminNewPassword()">
+          <button class="_mbtn" id="adm_cp_save_btn" style="background:linear-gradient(135deg,#0F766E,#e8920a);box-shadow:0 3px 10px rgba(15, 118, 110,0.35);" onclick="saveAdminNewPassword()">
             <i class="fa-solid fa-key"></i> Update Password
           </button>
         </div>`;
@@ -1149,7 +1149,7 @@
     function glryHandleDrop(e) {
       e.preventDefault();
       var dz = document.getElementById("glryDropZone");
-      dz.style.borderColor = "#ddd"; dz.style.background = "rgba(247,160,26,0.04)";
+      dz.style.borderColor = "#ddd"; dz.style.background = "rgba(15, 118, 110,0.04)";
       var f = e.dataTransfer.files[0];
       if (f) _glryProcessFile(f);
     }
@@ -1417,7 +1417,7 @@
       /* enable upload button */
       var btn = document.getElementById("glryUploadBtn");
       btn.disabled = false;
-      btn.style.cssText = "background:#f7a01a;color:#fff;border:none;padding:11px 28px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;width:100%;transition:background 0.2s;";
+      btn.style.cssText = "background:#0F766E;color:#fff;border:none;padding:11px 28px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;width:100%;transition:background 0.2s;";
       btn.innerHTML = '<i class="fa-solid fa-upload"></i>&nbsp; Upload to Gallery';
 
       glryCloseCrop();
@@ -1470,7 +1470,7 @@
           document.getElementById("glryCroppedPreviewImg").src = "";
           // [FIX-2] Re-enable button after success so admin can upload another photo
           btn.disabled = false;
-          btn.style.cssText = "background:#f7a01a;color:#fff;border:none;padding:11px 28px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;width:100%;";
+          btn.style.cssText = "background:#0F766E;color:#fff;border:none;padding:11px 28px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;width:100%;";
           btn.innerHTML = '<i class="fa-solid fa-upload"></i>&nbsp; Upload to Gallery';
           // [FIX-2] Bust getGallery cache — upload used raw fetch (not postData) so
           // _CACHE_BUST_ON_WRITE didn't fire; without this, loadGalleryAdmin shows stale data
@@ -1479,13 +1479,13 @@
         } else {
           toast("Upload failed: " + (res.message || "Unknown error"), "error");
           btn.disabled = false;
-          btn.style.cssText = "background:#f7a01a;color:#fff;border:none;padding:11px 28px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;width:100%;";
+          btn.style.cssText = "background:#0F766E;color:#fff;border:none;padding:11px 28px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;width:100%;";
           btn.innerHTML = '<i class="fa-solid fa-upload"></i>&nbsp; Upload to Gallery';
         }
       } catch (err) {
         toast("Upload error: " + err.message, "error");
         btn.disabled = false;
-        btn.style.cssText = "background:#f7a01a;color:#fff;border:none;padding:11px 28px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;width:100%;";
+        btn.style.cssText = "background:#0F766E;color:#fff;border:none;padding:11px 28px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;width:100%;";
         btn.innerHTML = '<i class="fa-solid fa-upload"></i>&nbsp; Upload to Gallery';
       }
     }
@@ -1554,7 +1554,7 @@
       orange: "linear-gradient(90deg,#c2410c,#ea580c,#c2410c)",
       red: "linear-gradient(90deg,#991b1b,#dc2626,#991b1b)",
       green: "linear-gradient(90deg,#14532d,#16a34a,#14532d)",
-      blue: "linear-gradient(90deg,#1e3a8a,#2563eb,#1e3a8a)",
+      blue: "linear-gradient(90deg,#1e3a8a,#0F766E,#1e3a8a)",
       teal: "linear-gradient(90deg,#134e4a,#0d9488,#134e4a)",
       pink: "linear-gradient(90deg,#831843,#db2777,#831843)",
       dark: "linear-gradient(90deg,#0f172a,#334155,#0f172a)"
@@ -1568,10 +1568,10 @@
       });
       el.style.border = "3px solid #fff";
       el.style.boxShadow = "0 0 0 3px " + (el.style.background.includes("7c3aed") ? "#7c3aed" :
-        el.style.background.includes("d35400") ? "#f7a01a" :
+        el.style.background.includes("d35400") ? "#0F766E" :
           el.style.background.includes("991b1b") ? "#dc2626" :
             el.style.background.includes("15803d") ? "#16a34a" :
-              el.style.background.includes("1d4ed8") ? "#2563eb" :
+              el.style.background.includes("1d4ed8") ? "#0F766E" :
                 el.style.background.includes("0f766e") ? "#0d9488" :
                   el.style.background.includes("be185d") ? "#db2777" : "#334155");
       el.style.transform = "scale(1.18)";
@@ -1634,7 +1634,7 @@
           toast("Banner removed.", "success");
           loadAnnouncementAdmin();
         } catch (e) { toast("Error: " + e.message, "error"); }
-      }, "Remove", "#f7a01a");
+      }, "Remove", "#0F766E");
     }
 
     async function loadAnnouncementAdmin() {
@@ -1658,7 +1658,7 @@
             (a.Icon ? '<span style="margin-right:5px;">' + escapeHtml(a.Icon) + '</span>' : '') +
             escapeHtml(a.Message || "—") +
             '</div>' +
-            (a.Badge ? '<span style="display:inline-block;margin-top:4px;background:#f0f4ff;color:#6366f1;border-radius:10px;padding:1px 8px;font-size:11px;font-weight:700;">' + escapeHtml(a.Badge) + '</span>' : '') +
+            (a.Badge ? '<span style="display:inline-block;margin-top:4px;background:#f0f4ff;color:#14B8A6;border-radius:10px;padding:1px 8px;font-size:11px;font-weight:700;">' + escapeHtml(a.Badge) + '</span>' : '') +
             '<div style="font-size:11px;color:#aaa;margin-top:4px;">' +
             escapeHtml(a.AdminName || "Admin") + ' · ' + escapeHtml(a.CreatedAt || "—") +
             '</div>' +
@@ -2014,14 +2014,14 @@
 
             const tr = document.createElement("tr");
             if (isCurrentYear) {
-              tr.style.background = "rgba(247,160,26,0.07)";
+              tr.style.background = "rgba(15, 118, 110,0.07)";
               tr.style.fontWeight = "600";
             }
 
             tr.innerHTML =
               '<td style="text-align:center;">' +
               '<span style="font-weight:700;color:#334155;">' + r.year + '</span>' +
-              (isCurrentYear ? ' <span style="font-size:10px;background:#f7a01a;color:#fff;border-radius:4px;padding:1px 6px;vertical-align:middle;">Current</span>' : '') +
+              (isCurrentYear ? ' <span style="font-size:10px;background:#0F766E;color:#fff;border-radius:4px;padding:1px 6px;vertical-align:middle;">Current</span>' : '') +
               '</td>' +
               '<td style="text-align:right;color:#64748b;">₹' + fmt(Number(r.openingBalance || 0)) + '</td>' +
               '<td style="text-align:right;color:#27ae60;font-weight:600;">₹' + fmt(Number(r.totalCollection || 0)) + '</td>' +
@@ -2029,7 +2029,7 @@
               '<td style="text-align:right;font-weight:700;color:' + (closing >= 0 ? "#27ae60" : "#e74c3c") + ';">' +
               (closing < 0 ? "−" : "") + "₹" + fmt(Math.abs(closing)) +
               '</td>' +
-              '<td style="text-align:right;color:#6366f1;">' + cfText + '</td>' +
+              '<td style="text-align:right;color:#14B8A6;">' + cfText + '</td>' +
               '<td style="text-align:right;color:#334155;">' + (r.receiptCount || 0) + '</td>' +
               '<td style="text-align:right;color:#334155;">' + (r.memberCount || 0) + '</td>' +
               '<td style="text-align:right;color:#64748b;">₹' + fmt(r.avgContribution || 0) + '</td>';
@@ -2068,7 +2068,7 @@
             "<div style='font-size:1.8rem;margin-bottom:6px;'>" + c.icon + "</div>" +
             "<div style='font-weight:700;color:#78350f;margin-bottom:4px;'>" + c.title + "</div>" +
             "<div style='font-size:12px;color:#555;margin-bottom:12px;'>" + c.detail + "</div>" +
-            "<button onclick='loadYearSummary()' style='background:#f7a01a;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-family:Poppins,sans-serif;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 3px 8px rgba(247,160,26,0.3);'>" +
+            "<button onclick='loadYearSummary()' style='background:#0F766E;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-family:Poppins,sans-serif;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 3px 8px rgba(15, 118, 110,0.3);'>" +
             "<i class=\"fa-solid fa-rotate-right\"></i> Retry</button>" +
             "</div>";
         });
@@ -2248,7 +2248,7 @@
       var ydrop = document.getElementById("hm_year_dropdown");
       if (ydrop) {
         ydrop.innerHTML = sortedYears.map(function(y) {
-          return '<div onclick="_hmSelectYear(' + y + ')" style="padding:8px 16px;font-size:13px;font-weight:600;color:#e2e8f0;cursor:pointer;transition:background 0.15s;white-space:nowrap;" onmouseover="this.style.background=\'rgba(247,160,26,0.15)\'" onmouseout="this.style.background=\'\'">' + y + '</div>';
+          return '<div onclick="_hmSelectYear(' + y + ')" style="padding:8px 16px;font-size:13px;font-weight:600;color:#e2e8f0;cursor:pointer;transition:background 0.15s;white-space:nowrap;" onmouseover="this.style.background=\'rgba(15, 118, 110,0.15)\'" onmouseout="this.style.background=\'\'">' + y + '</div>';
         }).join("");
       }
 
@@ -2287,7 +2287,7 @@
       if (open) {
         // Highlight active year
         Array.from(drop.children).forEach(function(el) {
-          el.style.color = el.textContent.trim() === String(_hmSelYear) ? "#f7a01a" : "#e2e8f0";
+          el.style.color = el.textContent.trim() === String(_hmSelYear) ? "#0F766E" : "#e2e8f0";
           el.style.fontWeight = el.textContent.trim() === String(_hmSelYear) ? "700" : "600";
         });
         setTimeout(function() {
@@ -2312,8 +2312,8 @@
       if (lblText) lblText.textContent = (isCurrent ? "Current — " : "") + _hmSelMonth + " " + _hmSelYear;
       if (lbl) {
         lbl.style.background = isCurrent
-          ? "linear-gradient(90deg,#f7a01a,#f59e0b)"
-          : "linear-gradient(90deg,#6366f1,#4f46e5)";
+          ? "linear-gradient(90deg,#0F766E,#f59e0b)"
+          : "linear-gradient(90deg,#14B8A6,#0F766E)";
       }
 
       var yrDisp = document.getElementById("hm_year_display");
@@ -2345,11 +2345,11 @@
         var isActive = fullName === activeMonth;
         return '<div onclick="_hmSelectMonth(\'' + fullName + '\')" style="' +
           'padding:6px 15px;border-radius:20px;font-size:12px;font-weight:' + (isActive ? '700' : '500') + ';' +
-          'background:' + (isActive ? 'linear-gradient(135deg,#f7a01a,#f59e0b)' : 'rgba(255,255,255,0.06)') + ';' +
+          'background:' + (isActive ? 'linear-gradient(135deg,#0F766E,#f59e0b)' : 'rgba(255,255,255,0.06)') + ';' +
           'color:' + (isActive ? '#fff' : '#94a3b8') + ';' +
-          'border:1.5px solid ' + (isActive ? 'rgba(247,160,26,0.6)' : 'rgba(255,255,255,0.09)') + ';' +
+          'border:1.5px solid ' + (isActive ? 'rgba(15, 118, 110,0.6)' : 'rgba(255,255,255,0.09)') + ';' +
           'cursor:pointer;user-select:none;transition:all 0.18s;white-space:nowrap;' +
-          'box-shadow:' + (isActive ? '0 2px 12px rgba(247,160,26,0.35)' : 'none') + ';' +
+          'box-shadow:' + (isActive ? '0 2px 12px rgba(15, 118, 110,0.35)' : 'none') + ';' +
           '" onmouseover="if(this.dataset.active!==\'1\'){this.style.background=\'rgba(255,255,255,0.12)\';this.style.color=\'#e2e8f0\';}" ' +
           'onmouseout="if(this.dataset.active!==\'1\'){this.style.background=\'rgba(255,255,255,0.06)\';this.style.color=\'#94a3b8\';}" ' +
           'data-active="' + (isActive ? '1' : '0') + '">' + m + '</div>';
@@ -2583,7 +2583,7 @@
               : String(c.PaymentDate).split(" ")[0])
           : "—";
         return '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;background:#fffbeb;margin-bottom:5px;">' +
-          '<div style="width:28px;height:28px;border-radius:50%;background:#fde68a;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#92400e;flex-shrink:0;">W</div>' +
+          '<div style="width:28px;height:28px;border-radius:50%;background:#5EEAD4;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#92400e;flex-shrink:0;">W</div>' +
           '<div style="flex:1;min-width:0;">' +
             '<div style="font-size:12px;font-weight:600;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(visitorName) + '</div>' +
             '<div style="font-size:10px;color:#94a3b8;">' + escapeHtml(typeName) + ' · ' + dateStr + '</div>' +
@@ -2645,7 +2645,7 @@
         var eW  = Math.round((eV / maxE) * 100);
         return '<div onclick="_hmSelectMonth(\'' + m + '\')" ' +
           'style="display:grid;grid-template-columns:32px 1fr 1fr;gap:6px;align-items:center;cursor:pointer;' +
-          (sel ? 'background:rgba(247,160,26,0.07);border-radius:7px;padding:4px;' : 'padding:3px 4px;') + '">' +
+          (sel ? 'background:rgba(15, 118, 110,0.07);border-radius:7px;padding:4px;' : 'padding:3px 4px;') + '">' +
           '<span style="font-size:10px;font-weight:' + (sel?'600':'400') + ';color:' + (sel?'#d97706':'#64748b') + ';">' + m.slice(0,3) + '</span>' +
           '<div style="display:flex;align-items:center;gap:5px;">' +
             '<div style="flex:1;height:8px;background:#f1f5f9;border-radius:4px;overflow:hidden;">' +
@@ -2679,9 +2679,9 @@
         ? '<div style="display:flex;gap:6px;margin-top:10px;padding-top:8px;border-top:0.5px solid #f1f5f9;">' +
             _chip("Income", selC - (mapC[prevM]||0), false) +
             _chip("Expense", selE - (mapE[prevM]||0), true) +
-            '<div style="flex:1;background:#eff6ff;border-radius:8px;padding:7px 10px;text-align:center;min-width:0;">' +
+            '<div style="flex:1;background:#F0FDFA;border-radius:8px;padding:7px 10px;text-align:center;min-width:0;">' +
               '<div style="font-size:10px;color:#64748b;margin-bottom:2px;">Net · ' + selMonth.slice(0,3) + '</div>' +
-              '<div style="font-size:12px;font-weight:600;color:' + (netSel>=0?'#2563eb':'#dc2626') + ';white-space:nowrap;">' +
+              '<div style="font-size:12px;font-weight:600;color:' + (netSel>=0?'#0F766E':'#dc2626') + ';white-space:nowrap;">' +
                 (netSel<0?'−':'') + '₹' + _fmtK(Math.abs(netSel)) +
               '</div>' +
             '</div>' +
@@ -2794,10 +2794,10 @@
       }
 
       el.innerHTML = alerts.map(function(a) {
-        var bg  = a.type === "warn" ? "#fffbeb" : a.type === "info" ? "#eff6ff" : a.type === "birthday" ? "#fdf4ff" : "#f0fdf4";
-        var bc  = a.type === "warn" ? "#fde68a" : a.type === "info" ? "#bfdbfe" : a.type === "birthday" ? "#e9d5ff" : "#bbf7d0";
+        var bg  = a.type === "warn" ? "#fffbeb" : a.type === "info" ? "#F0FDFA" : a.type === "birthday" ? "#fdf4ff" : "#f0fdf4";
+        var bc  = a.type === "warn" ? "#5EEAD4" : a.type === "info" ? "#bfdbfe" : a.type === "birthday" ? "#e9d5ff" : "#bbf7d0";
         var ic  = a.type === "warn" ? "fa-triangle-exclamation" : a.type === "info" ? "fa-circle-info" : a.type === "birthday" ? "fa-cake-candles" : "fa-circle-check";
-        var ic2 = a.type === "warn" ? "#d97706" : a.type === "info" ? "#2563eb" : a.type === "birthday" ? "#9333ea" : "#16a34a";
+        var ic2 = a.type === "warn" ? "#d97706" : a.type === "info" ? "#0F766E" : a.type === "birthday" ? "#9333ea" : "#16a34a";
         var cursor = a.action ? "cursor:pointer;" : "";
         var onclick = a.action ? ' onclick="' + a.action + '"' : "";
         return '<div style="background:' + bg + ';border:1px solid ' + bc + ';border-radius:8px;padding:9px 12px;margin-bottom:7px;' + cursor + '"' + onclick + '>' +
@@ -2827,7 +2827,7 @@
       if (el) {
         el.style.width = pct + "%";
         el.style.transition = "width .4s ease";
-        el.style.background = pct >= 75 ? "#27ae60" : pct >= 40 ? "#f7a01a" : "#e74c3c";
+        el.style.background = pct >= 75 ? "#27ae60" : pct >= 40 ? "#0F766E" : "#e74c3c";
       }
 
       // ── Year totals for selected year (the numbers that were ₹0 before) ──
@@ -2891,7 +2891,7 @@
           cell("Collected",   "₹" + fmt(yearC), "#16a34a") +
           cell("Expenses",    "₹" + fmt(yearE), "#dc2626") +
           cell("Net balance", (net < 0 ? "−" : "") + "₹" + fmt(Math.abs(net)), netCol) +
-          cell("Members",     String(memberCount), "#6366f1");
+          cell("Members",     String(memberCount), "#14B8A6");
       })();
     }
 
@@ -3013,7 +3013,7 @@
       let ye = expenses
         .filter((e) => String(e.Year) === String(selYear))
         .reduce((s, e) => s + Number(e.Amount || 0), 0);
-      prev.innerHTML = `<span style="color:#f7a01a;font-weight:700;">${selMonth} ${selYear}</span><br>📥 ${APP.currency||"₹"}${fmt(
+      prev.innerHTML = `<span style="color:#0F766E;font-weight:700;">${selMonth} ${selYear}</span><br>📥 ${APP.currency||"₹"}${fmt(
         mc
       )} in &nbsp;|&nbsp; 💸 ${APP.currency||"₹"}${fmt(
         me
@@ -3155,7 +3155,7 @@
       let ph = doc.internal.pageSize.getHeight();
 
       // ── Gold top accent bar
-      doc.setFillColor(247, 160, 26); doc.rect(0, 0, w, 3, "F");
+      doc.setFillColor(15, 118, 110); doc.rect(0, 0, w, 3, "F");
 
       // ── Header band
       doc.setFillColor(30, 41, 59); doc.rect(0, 3, w, 34, "F");
@@ -3172,12 +3172,12 @@
       }
 
       // Mandir name
-      doc.setTextColor(247, 160, 26); doc.setFontSize(16); doc.setFont(undefined, "bold");
+      doc.setTextColor(15, 118, 110); doc.setFontSize(16); doc.setFont(undefined, "bold");
       doc.text(APP.name.toUpperCase(), w / 2, 14, { align: "center" });
       doc.setTextColor(200, 215, 230); doc.setFontSize(8); doc.setFont(undefined, "normal");
       doc.text(APP.address.toUpperCase() + "  |  CONFIDENTIAL FINANCIAL REPORT", w / 2, 21, { align: "center" });
       // Report title bar
-      doc.setFillColor(247, 160, 26); doc.roundedRect(w / 2 - 45, 24, 90, 8, 2, 2, "F");
+      doc.setFillColor(15, 118, 110); doc.roundedRect(w / 2 - 45, 24, 90, 8, 2, 2, "F");
       doc.setTextColor(30, 41, 59); doc.setFontSize(8); doc.setFont(undefined, "bold");
       doc.text(`FINANCIAL REPORT — ${selMonth.toUpperCase()} ${selYear}`, w / 2, 29.2, { align: "center" });
       doc.setTextColor(180, 195, 210); doc.setFontSize(7); doc.setFont(undefined, "normal");
@@ -3190,7 +3190,7 @@
       const cards = [
         { label: "Month Collected", value: (APP.currency||"₹") + moTotal.toLocaleString(APP.locale||"en-IN"), color: [240, 253, 244], border: [134, 239, 172], text: [21, 128, 61] },
         { label: "Month Expenses", value: (APP.currency||"₹") + moExp.toLocaleString(APP.locale||"en-IN"), color: [254, 242, 242], border: [252, 165, 165], text: [185, 28, 28] },
-        { label: "Year Collected", value: (APP.currency||"₹") + yrTotal.toLocaleString(APP.locale||"en-IN"), color: [239, 246, 255], border: [147, 197, 253], text: [37, 99, 235] },
+        { label: "Year Collected", value: (APP.currency||"₹") + yrTotal.toLocaleString(APP.locale||"en-IN"), color: [239, 246, 255], border: [147, 197, 253], text: [15, 118, 110] },
         { label: "Net Balance", value: (APP.currency||"₹") + (yrTotal - yrExp).toLocaleString(APP.locale||"en-IN"), color: [254, 249, 238], border: [253, 211, 77], text: [146, 64, 14] },
       ];
       cards.forEach((card, i) => {
@@ -3212,7 +3212,7 @@
         ],
         startY: cardY + cardH + 6,
         theme: "grid",
-        headStyles: { fillColor: [51, 65, 85], textColor: [247, 160, 26], fontStyle: "bold", fontSize: 9 },
+        headStyles: { fillColor: [51, 65, 85], textColor: [15, 118, 110], fontStyle: "bold", fontSize: 9 },
         styles: { fontSize: 9, cellPadding: 3.5, halign: "center" },
         columnStyles: { 0: { halign: "left", fontStyle: "bold" } },
         alternateRowStyles: { fillColor: [248, 250, 252] },
@@ -3238,7 +3238,7 @@
         body: memberRows,
         startY: doc.lastAutoTable.finalY + 6,
         theme: "grid",
-        headStyles: { fillColor: [247, 160, 26], textColor: [30, 41, 59], fontStyle: "bold", fontSize: 9 },
+        headStyles: { fillColor: [15, 118, 110], textColor: [30, 41, 59], fontStyle: "bold", fontSize: 9 },
         styles: { fontSize: 8.5, cellPadding: 3 },
         columnStyles: {
           0: { cellWidth: 10, halign: "center" },
@@ -3263,11 +3263,11 @@
         doc.setFillColor(51, 65, 85); doc.rect(0, ph - 10, w, 10, "F");
         doc.setFontSize(6.5); doc.setTextColor(180, 195, 210); doc.setFont(undefined, "normal");
         doc.text(APP.name.toUpperCase() + ", " + APP.address.toUpperCase() + "  |  Confidential — For Internal Use Only", w / 2, ph - 5.5, { align: "center" });
-        doc.setTextColor(247, 160, 26); doc.setFont(undefined, "bold");
+        doc.setTextColor(15, 118, 110); doc.setFont(undefined, "bold");
         doc.text(`Page ${i} of ${pages}`, w - 8, ph - 5.5, { align: "right" });
       }
 
-      doc.save("Mandir_Report_" + selYear + "_" + selMonth + ".pdf");
+      doc.save("Home_Report_" + selYear + "_" + selMonth + ".pdf");
       setTimeout(() => {
         let msg = `${APP.symbol||"🕉️"} *${APP.name.toUpperCase()}*\n📍 ${APP.location}\n\n📊 *Financial Report — ${selMonth} ${selYear}*\n━━━━━━━━━━━━━━━━━━━━\n💰 Month Collected: ${APP.currency||"₹"}${fmt(
           moTotal
@@ -3541,7 +3541,7 @@
             <div style="font-size:2rem;margin-bottom:8px;">🤲</div>
             <div style="font-weight:600;color:#334155;font-size:14px;margin-bottom:4px;">No contributions yet</div>
             <div style="color:#94a3b8;font-size:12px;margin-bottom:14px;">Add the first contribution using the form above</div>
-            <button onclick="document.getElementById('user').focus()" style="background:#f7a01a;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;">
+            <button onclick="document.getElementById('user').focus()" style="background:#0F766E;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;">
               <i class="fa-solid fa-plus"></i> Add First Contribution
             </button>
           </td></tr>`
@@ -3684,7 +3684,7 @@
       </div>
       <div class="_mft">
         <button class="_mbtn" style="background:#999;" onclick="closeModal()">Cancel</button>
-        <button class="_mbtn" style="background:#f7a01a;" onclick="saveEditContrib('${id}')"><i class="fa-solid fa-check"></i> Save Changes</button>
+        <button class="_mbtn" style="background:#0F766E;" onclick="saveEditContrib('${id}')"><i class="fa-solid fa-check"></i> Save Changes</button>
       </div>`;
       openModal(html, "460px");
     }
@@ -3822,7 +3822,7 @@
             <div style="font-size:2rem;margin-bottom:8px;">📋</div>
             <div style="font-weight:600;color:#334155;font-size:14px;margin-bottom:4px;">No expenses yet</div>
             <div style="color:#94a3b8;font-size:12px;margin-bottom:14px;">Add an expense using the form above</div>
-            <button onclick="document.getElementById('title').focus()" style="background:#f7a01a;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;">
+            <button onclick="document.getElementById('title').focus()" style="background:#0F766E;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;">
               <i class="fa-solid fa-plus"></i> Add First Expense
             </button>
           </td></tr>`
@@ -3936,7 +3936,7 @@
       if (f.amtMax) tags.push({ label: "Max ₹" + f.amtMax,     clear: function(){ document.getElementById("expFilterAmtMax").value=""; filterExpenses(); } });
       if (cnt) cnt.textContent = tags.length ? "(" + tags.length + " active)" : "";
       box.innerHTML = tags.map(function(t, i){
-        return '<span style="display:inline-flex;align-items:center;gap:4px;background:#fef9ec;border:1px solid #fde68a;border-radius:20px;padding:3px 10px;font-size:10px;font-weight:600;color:#92400e;cursor:pointer;" onclick="window._expClearTag(' + i + ')">' +
+        return '<span style="display:inline-flex;align-items:center;gap:4px;background:#fef9ec;border:1px solid #5EEAD4;border-radius:20px;padding:3px 10px;font-size:10px;font-weight:600;color:#92400e;cursor:pointer;" onclick="window._expClearTag(' + i + ')">' +
                escapeHtml(t.label) + ' <i class="fa-solid fa-xmark" style="font-size:9px;"></i></span>';
       }).join("");
       window._expClearTag = function(i){ if(tags[i]) tags[i].clear(); };
@@ -4023,7 +4023,7 @@
       </div>
       <div class="_mft">
         <button class="_mbtn" style="background:#999;" onclick="closeModal()">Cancel</button>
-        <button class="_mbtn" style="background:#f7a01a;" onclick="saveEditExpense('${id}','${e.Year || new Date().getFullYear()
+        <button class="_mbtn" style="background:#0F766E;" onclick="saveEditExpense('${id}','${e.Year || new Date().getFullYear()
         }')"><i class="fa-solid fa-check"></i> Save Changes</button>
       </div>`;
       openModal(html, "460px");
@@ -4092,7 +4092,7 @@
       const total = Math.ceil(filtered.length / PAGE_SIZE);
       const statusBadge = (u) => {
         const st = String(u.Status || "Active").toLowerCase();
-        if (st === "pending") return `<span class="badge" style="background:#fff3e0;color:#e67e22;border:1px solid #f7a01a;">Pending</span>`;
+        if (st === "pending") return `<span class="badge" style="background:#fff3e0;color:#e67e22;border:1px solid #0F766E;">Pending</span>`;
         if (st === "active") return `<span class="badge badge-green">Active</span>`;
         if (st === "rejected") return `<span class="badge badge-red">Rejected</span>`;
         if (st === "inactive") return `<span class="badge badge-red">Inactive</span>`;
@@ -4136,14 +4136,14 @@
             })() + `
             `;
         const _fbSvg = "Image/logo.PNG";
-        const _fbSvgFallback = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Ccircle cx='16' cy='16' r='16' fill='%23f7a01a'/%3E%3Ctext x='16' y='21' text-anchor='middle' fill='white' font-size='14' font-family='Arial'%3E%26%23128100%3B%3C/text%3E%3C/svg%3E";
+        const _fbSvgFallback = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Ccircle cx='16' cy='16' r='16' fill='%230F766E'/%3E%3Ctext x='16' y='21' text-anchor='middle' fill='white' font-size='14' font-family='Arial'%3E%26%23128100%3B%3C/text%3E%3C/svg%3E";
         return `
       <tr class="${rowClass}" onclick="viewUser('${u.UserId}')" title="Click to view details">
         <td onclick="event.stopPropagation();openEditUser('${u.UserId}')" title="Click to edit user" style="cursor:pointer;">
           <img src="${u.PhotoURL ? '' : _fbSvg}"
                data-userid="${escapeHtml(String(u.UserId))}"
                onerror="this.onerror=null;this.src='${_fbSvgFallback}'"
-               width="32" height="32" style="border-radius:50%;object-fit:cover;background:#eee;border:2px solid #f7a01a;display:block;"/>
+               width="32" height="32" style="border-radius:50%;object-fit:cover;background:#eee;border:2px solid #0F766E;display:block;"/>
         </td>
         <td><b>${escapeHtml(u.Name || "")}</b></td>
         <td>${escapeHtml(String(u.Mobile || ""))}</td>
@@ -4204,14 +4204,14 @@
       const _deleteBtnOnclick = _canDelete
         ? 'onclick="closeModal();deleteUser(\'' + _safeId + '\')"'
         : '';
-      const html = '<div class="_mhdr"><h3><i class="fa-solid fa-eye" style="color:#f7a01a;margin-right:6px;"></i> Member Details</h3><button class="_mcls" onclick="closeModal()">×</button></div>'
+      const html = '<div class="_mhdr"><h3><i class="fa-solid fa-eye" style="color:#0F766E;margin-right:6px;"></i> Member Details</h3><button class="_mcls" onclick="closeModal()">×</button></div>'
         + '<div class="_mbdy" style="padding:10px 16px;">'
         + '<table style="width:100%;border-collapse:collapse;">' + tableRows + '</table>'
         + '</div>'
         + '<div class="_mft">'
         + '<button class="_mbtn" style="background:#94a3b8;" onclick="closeModal()"><i class="fa-solid fa-xmark"></i> Close</button>'
         + '<button class="_mbtn" style="' + _deleteBtnStyle + '" ' + _deleteBtnOnclick + ' title="' + _deleteBtnTitle + '" ' + (_canDelete ? '' : 'disabled') + '><i class="fa-solid fa-trash"></i> Delete</button>'
-        + '<button class="_mbtn" style="background:linear-gradient(135deg,#f7a01a,#e8920a);" onclick="closeModal();openEditUser(\'' + _safeId + '\')"><i class="fa-solid fa-pen"></i> Edit</button>'
+        + '<button class="_mbtn" style="background:linear-gradient(135deg,#0F766E,#e8920a);" onclick="closeModal();openEditUser(\'' + _safeId + '\')"><i class="fa-solid fa-pen"></i> Edit</button>'
         + '</div>';
       openModal(html, "460px");
     }
@@ -4304,9 +4304,9 @@
         <div style="text-align:center;margin-bottom:14px;">
           <div style="position:relative;width:72px;margin:0 auto 8px;">
             <img id="eu_photoPreview" src="${escapeHtml(photoSrc)}"
-              onerror="this.src='data:image/svg+xml,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'72\' height=\\'72\\'><circle cx=\\'36\\' cy=\\'36\\' r=\\'36\\' fill=\\'%23f7a01a\\'/></svg>'"
-              style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid #f7a01a;background:#faeeda;display:block;margin-bottom:0;"/>
-            <div onclick="document.getElementById('eu_photoFile').click()" style="position:absolute;bottom:1px;right:1px;width:22px;height:22px;background:#f7a01a;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.2);" title="Change Photo">
+              onerror="this.src='data:image/svg+xml,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'72\' height=\\'72\\'><circle cx=\\'36\\' cy=\\'36\\' r=\\'36\\' fill=\\'%230F766E\\'/></svg>'"
+              style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid #0F766E;background:#faeeda;display:block;margin-bottom:0;"/>
+            <div onclick="document.getElementById('eu_photoFile').click()" style="position:absolute;bottom:1px;right:1px;width:22px;height:22px;background:#0F766E;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.2);" title="Change Photo">
               <i class="fa-solid fa-camera" style="color:white;font-size:9px;"></i>
             </div>
           </div>
@@ -4351,7 +4351,7 @@
       </div>
       <div class="_mft">
         <button class="_mbtn" style="background:#999;" onclick="closeModal();_adminPendingCroppedB64='';">Cancel</button>
-        <button class="_mbtn" style="background:#f7a01a;" onclick="saveEditUser('${id}')"><i class="fa-solid fa-check"></i> Save Changes</button>
+        <button class="_mbtn" style="background:#0F766E;" onclick="saveEditUser('${id}')"><i class="fa-solid fa-check"></i> Save Changes</button>
       </div>`;
       openModal(html, "460px");
       // Async-load user avatar — avoids NS_BINDING_ABORTED on Drive URLs
@@ -4602,7 +4602,7 @@
       // Show saving indicator in footer
       const savedSpanMap = { types: 'md_typesSaved', occasions: 'md_occasionsSaved', expenseTypes: 'md_expSaved' };
       const savedEl = document.getElementById(savedSpanMap[listName]);
-      if (savedEl) { savedEl.textContent = '⏳ Saving…'; savedEl.style.opacity = '1'; savedEl.style.color = '#f7a01a'; }
+      if (savedEl) { savedEl.textContent = '⏳ Saving…'; savedEl.style.opacity = '1'; savedEl.style.color = '#0F766E'; }
 
       // Build id-keyed sort order and persist to sheet
       const idField = { types: 'TypeId', occasions: 'OccasionId', expenseTypes: 'ExpenseTypeId' }[listName];
@@ -4733,7 +4733,7 @@
           <div><label class="_fl">Contribution Type <span style="color:#e74c3c">*</span></label><select class="_fi" id="bk_type">${typeOpts}</select></div>
           <div><label class="_fl">Note <span style="font-size:10px;color:#94a3b8;font-weight:400;">(optional)</span></label><input class="_fi" id="bk_note" placeholder="e.g. Annual"/></div>
         </div>
-        <div style="display:flex;align-items:flex-end;gap:10px;margin-bottom:16px;background:#fdf8ee;border-radius:10px;padding:12px 14px;border:1px solid #fde68a;">
+        <div style="display:flex;align-items:flex-end;gap:10px;margin-bottom:16px;background:#fdf8ee;border-radius:10px;padding:12px 14px;border:1px solid #5EEAD4;">
           <div style="flex:1;">
             <label class="_fl" style="margin-top:0;">Default Amount (₹) <span style="font-size:10px;color:#94a3b8;font-weight:400;">— fill all 12 months at once</span></label>
             <input class="_fi" id="bk_default_amt" type="number" min="1" placeholder="e.g. 500" oninput="_bkRenderRows()"/>
@@ -4743,10 +4743,10 @@
           </button>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <span style="font-size:12px;font-weight:700;color:#334155;"><i class="fa-solid fa-list-ul" style="color:#f7a01a;margin-right:5px;"></i> Month Entries</span>
+          <span style="font-size:12px;font-weight:700;color:#334155;"><i class="fa-solid fa-list-ul" style="color:#0F766E;margin-right:5px;"></i> Month Entries</span>
           <div style="display:flex;gap:8px;align-items:center;">
             <span id="bk_total" style="font-size:12px;font-weight:700;color:#27ae60;"></span>
-            <button type="button" onclick="bkAddRow('','')" style="background:#f7a01a;box-shadow:none;padding:6px 13px;font-size:12px;border-radius:8px;color:#fff;border:none;cursor:pointer;font-family:Poppins,sans-serif;font-weight:600;">
+            <button type="button" onclick="bkAddRow('','')" style="background:#0F766E;box-shadow:none;padding:6px 13px;font-size:12px;border-radius:8px;color:#fff;border:none;cursor:pointer;font-family:Poppins,sans-serif;font-weight:600;">
               <i class="fa-solid fa-plus"></i> Add Row
             </button>
           </div>
@@ -4802,9 +4802,9 @@
       ).join("");
 
       const previewHtml = `
-          <div class="_mhdr"><h3><i class="fa-solid fa-eye" style="color:#f7a01a;margin-right:6px;"></i> Preview & Confirm Bulk Insert</h3><button class="_mcls" onclick="closeModal()">&#xd7;</button></div>
+          <div class="_mhdr"><h3><i class="fa-solid fa-eye" style="color:#0F766E;margin-right:6px;"></i> Preview & Confirm Bulk Insert</h3><button class="_mcls" onclick="closeModal()">&#xd7;</button></div>
           <div class="_mbdy">
-            <div style="background:linear-gradient(135deg,#fef9ee,#fff8e1);border:1.5px solid #f7a01a44;border-radius:12px;padding:12px 16px;margin-bottom:14px;font-size:12.5px;color:#946c44;">
+            <div style="background:linear-gradient(135deg,#fef9ee,#fff8e1);border:1.5px solid #0F766E44;border-radius:12px;padding:12px 16px;margin-bottom:14px;font-size:12.5px;color:#946c44;">
               <i class="fa-solid fa-circle-info"></i> Review details below. <b>Edit amounts inline</b> or remove a row before confirming.
             </div>
             <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:12.5px;">
@@ -4839,7 +4839,7 @@
       const bkPanelBody = document.getElementById("sp-bulk-body");
       if (!bkPanelBody) { openModal(previewHtml, "520px"); return; }
       bkPanelBody.innerHTML = `
-        <div style="background:linear-gradient(135deg,#fef9ee,#fff8e1);border:1.5px solid #f7a01a55;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:12.5px;color:#946c44;">
+        <div style="background:linear-gradient(135deg,#fef9ee,#fff8e1);border:1.5px solid #0F766E55;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:12.5px;color:#946c44;">
           <i class="fa-solid fa-circle-info"></i> Review details below. <b>Edit amounts inline</b> or remove a row before confirming.
         </div>
         <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:12.5px;">
@@ -4851,7 +4851,7 @@
           </div>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <span style="font-size:12px;font-weight:700;color:#334155;"><i class="fa-solid fa-list-ul" style="color:#f7a01a;margin-right:5px;"></i> Month Entries</span>
+          <span style="font-size:12px;font-weight:700;color:#334155;"><i class="fa-solid fa-list-ul" style="color:#0F766E;margin-right:5px;"></i> Month Entries</span>
           <span id="bkprev_countLabel" style="font-size:12px;color:#78350f;font-weight:600;">Total (${rows.length} entr${rows.length === 1 ? "y" : "ies"})</span>
         </div>
         <table style="width:100%;border-collapse:collapse;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;" id="bkprev_table">
@@ -4861,7 +4861,7 @@
             <th style="padding:8px 10px;font-size:11px;text-align:left;color:#64748b;font-weight:600;">Amount (editable)</th>
           </tr></thead>
           <tbody>${previewRows}</tbody>
-          <tfoot><tr style="background:#fef9ee;border-top:2px solid #fde68a;">
+          <tfoot><tr style="background:#fef9ee;border-top:2px solid #5EEAD4;">
             <td colspan="2" style="padding:9px 10px;font-size:13px;font-weight:700;color:#78350f;" id="bkprev_countLabel2">Total (${rows.length} entr${rows.length === 1 ? "y" : "ies"})</td>
             <td style="padding:9px 10px;font-size:14px;font-weight:700;color:#15803d;" id="bkprev_total">${APP.currency||'₹'}${totalAmt.toLocaleString(APP.locale||"en-IN")}</td>
           </tr></tfoot>
@@ -5222,7 +5222,7 @@
       const last = userContribs[0];
       if (!amtEl.value) {
         amtEl.value = last.Amount || "";
-        amtEl.style.borderColor = "#f7a01a";
+        amtEl.style.borderColor = "#0F766E";
         amtEl.title = "Auto-filled from last contribution";
         setTimeout(() => { amtEl.style.borderColor = ""; amtEl.title = ""; }, 2000);
       }
@@ -5269,11 +5269,11 @@
 
       const previewHtml = `
         <div class="_mhdr">
-          <h3><i class="fa-solid fa-eye" style="color:#f7a01a;margin-right:8px;"></i> Preview & Confirm Contribution</h3>
+          <h3><i class="fa-solid fa-eye" style="color:#0F766E;margin-right:8px;"></i> Preview & Confirm Contribution</h3>
           <button class="_mcls" onclick="closeModal()">×</button>
         </div>
         <div class="_mbdy">
-          <div style="background:linear-gradient(135deg,#fef9ee,#fff8e1);border:1.5px solid #f7a01a44;border-radius:12px;padding:14px 16px;margin-bottom:16px;font-size:12.5px;color:#946c44;">
+          <div style="background:linear-gradient(135deg,#fef9ee,#fff8e1);border:1.5px solid #0F766E44;border-radius:12px;padding:14px 16px;margin-bottom:16px;font-size:12.5px;color:#946c44;">
             <i class="fa-solid fa-circle-info"></i> Review the details below. You can <b>edit any field inline</b> before submitting.
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
@@ -5323,7 +5323,7 @@
       const contribPanelBody = document.getElementById("sp-contrib-body");
       if (contribPanelBody) {
         contribPanelBody.innerHTML = `
-          <div style="background:linear-gradient(135deg,#fef9ee,#fff8e1);border:1.5px solid #f7a01a55;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:#946c44;">
+          <div style="background:linear-gradient(135deg,#fef9ee,#fff8e1);border:1.5px solid #0F766E55;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:#946c44;">
             <i class="fa-solid fa-circle-info"></i> Review the details below. <b>Edit any field inline</b> before submitting.
           </div>
           <div class="sp-row2">
@@ -6332,7 +6332,7 @@
               <div style="font-size:2rem;margin-bottom:8px;">🎯</div>
               <div style="font-weight:600;color:#334155;font-size:14px;margin-bottom:4px;">No goals yet</div>
               <div style="color:#94a3b8;font-size:12px;margin-bottom:14px;">Set a fundraising target to track progress</div>
-              <button onclick="document.getElementById('g_name').focus()" style="background:#f7a01a;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;">
+              <button onclick="document.getElementById('g_name').focus()" style="background:#0F766E;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;">
                 <i class="fa-solid fa-plus"></i> Add First Goal
               </button>
             </td></tr>`
@@ -6370,7 +6370,7 @@
                   )
                   : 0;
               let barColor =
-                pct >= 100 ? "#27ae60" : pct >= 60 ? "#f7a01a" : "#e74c3c";
+                pct >= 100 ? "#27ae60" : pct >= 60 ? "#0F766E" : "#e74c3c";
               let _gk = _storeGoalId(g.GoalId);
               return `<tr>
                 <td>${i + 1}</td>
@@ -6873,7 +6873,7 @@
           </div>
           <div class="_mft">
             <button class="_mbtn" style="background:#999;" onclick="closeModal()">Cancel</button>
-            <button class="_mbtn" style="background:#f7a01a;" onclick="saveEditGoal(_goalStore['${_gk}'])"><i class="fa-solid fa-check"></i> Save</button>
+            <button class="_mbtn" style="background:#0F766E;" onclick="saveEditGoal(_goalStore['${_gk}'])"><i class="fa-solid fa-check"></i> Save</button>
           </div>`;
       openModal(html, "420px");
     }
@@ -6952,7 +6952,7 @@
         <div class="_mhdr"><h3><i class="fa-solid fa-eye"></i> Contribution Details</h3><button class="_mcls" onclick="closeModal()">×</button></div>
         <div class="_mbdy">
           <div style="border:1px solid #f0f0f0;border-radius:10px;padding:4px 16px;">
-            <div class="_row"><span class="_rl">Tracking ID</span><span class="_rv" style="color:#f7a01a;font-family:monospace;">${escapeHtml(displayRID)}</span></div>
+            <div class="_row"><span class="_rl">Tracking ID</span><span class="_rv" style="color:#0F766E;font-family:monospace;">${escapeHtml(displayRID)}</span></div>
             <div class="_row"><span class="_rl">Donor</span><span class="_rv">${escapeHtml(userName)}</span></div>
             <div class="_row"><span class="_rl">Amount</span><span class="_rv" style="color:#27ae60;font-size:1.1rem;">₹ ${fmt(c.Amount)}</span></div>
             <div class="_row"><span class="_rl">Month / Year</span><span class="_rv">${escapeHtml(c.ForMonth || "—")} ${escapeHtml(String(c.Year || ""))}</span></div>
@@ -7343,7 +7343,7 @@
         const isDelete = aLow.includes("delete");
         const isPwd    = aLow.includes("password");
         const badgeSt = isLogin  ? "background:#dcfce7;color:#16a34a;border:1px solid #86efac;"
-          : isLogout ? "background:#fef3c7;color:#d97706;border:1px solid #fde68a;"
+          : isLogout ? "background:#fef3c7;color:#d97706;border:1px solid #5EEAD4;"
           : isEmail  ? "background:#ede9fe;color:#7c3aed;border:1px solid #c4b5fd;"
           : isDelete ? "background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;"
           : isPwd    ? "background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;"
@@ -7404,7 +7404,7 @@
       _auditPage = 1;
       // Reset Today button style when user manually filters
       const tb = document.getElementById("auditTodayBtn");
-      if (tb) { tb.style.background = "#f7a01a"; tb.innerHTML = '<i class="fa-solid fa-calendar-day"></i> Today'; }
+      if (tb) { tb.style.background = "#0F766E"; tb.innerHTML = '<i class="fa-solid fa-calendar-day"></i> Today'; }
       _renderAuditPaged(_getFilteredAudit(), 1);
     }
     function _auditFilterToday() {
@@ -7948,7 +7948,7 @@
       const wiPanelBody = document.getElementById("sp-walkin-body");
       if (!wiPanelBody) return;
       wiPanelBody.innerHTML = `
-        <div style="background:#fff8e8;border:1px solid #f7a01a44;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#946c44;">
+        <div style="background:#fff8e8;border:1px solid #0F766E44;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#946c44;">
           <i class="fa-solid fa-circle-info"></i> Use this for donors who visit in person and do <b>not</b> have a registered account.
         </div>
         <div class="sp-field-group">
@@ -8032,7 +8032,7 @@
           <button class="_mcls" onclick="closeModal()">×</button>
         </div>
         <div class="_mbdy">
-          <div style="background:linear-gradient(135deg,#fff8e8,#fef3cd);border:1.5px solid #f7a01a44;border-radius:12px;padding:12px 16px;margin-bottom:14px;font-size:12px;color:#946c44;">
+          <div style="background:linear-gradient(135deg,#fff8e8,#fef3cd);border:1.5px solid #0F766E44;border-radius:12px;padding:12px 16px;margin-bottom:14px;font-size:12px;color:#946c44;">
             <i class="fa-solid fa-circle-info"></i> Review all details. <b>Edit any field inline</b> before confirming.
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -8086,7 +8086,7 @@
       const wiPrevBody = document.getElementById("sp-walkin-body");
       if (!wiPrevBody) { openModal(previewHtml, "560px"); return; }
       wiPrevBody.innerHTML = `
-        <div style="background:linear-gradient(135deg,#fff8e8,#fef3cd);border:1.5px solid #f7a01a44;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:#946c44;">
+        <div style="background:linear-gradient(135deg,#fff8e8,#fef3cd);border:1.5px solid #0F766E44;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:#946c44;">
           <i class="fa-solid fa-circle-info"></i> Review all details. <b>Edit any field inline</b> before confirming.
         </div>
         <div class="sp-row2">
@@ -8530,9 +8530,9 @@
         }
         tgtBadgeWrap.style.display = "flex";
         tgtBadgeWrap.innerHTML =
-          `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 20px;text-align:center;min-width:120px;">
-        <div style="font-size:1.4rem;font-weight:700;color:#2563eb;">${APP.currency||"₹"}${fmt(totalExpected)}</div>
-        <div style="font-size:11px;color:#1d4ed8;font-weight:600;">🎯 Expected Total</div>
+          `<div style="background:#F0FDFA;border:1px solid #bfdbfe;border-radius:10px;padding:12px 20px;text-align:center;min-width:120px;">
+        <div style="font-size:1.4rem;font-weight:700;color:#0F766E;">${APP.currency||"₹"}${fmt(totalExpected)}</div>
+        <div style="font-size:11px;color:#115E59;font-weight:600;">🎯 Expected Total</div>
         <div style="font-size:11px;color:#3b82f6;">${members.filter(u => Number(u.MonthlyTarget || 0) > 0).length} members with target</div>
       </div>` +
           (totalShortfall > 0
@@ -8625,7 +8625,7 @@
       let pbEl = document.getElementById("tr_progress_bar");
       if (pbEl) {
         pbEl.style.width = pctComplete + "%";
-        pbEl.style.background = pctComplete >= 100 ? "#16a34a" : pctComplete >= 60 ? "#f7a01a" : "#dc2626";
+        pbEl.style.background = pctComplete >= 100 ? "#16a34a" : pctComplete >= 60 ? "#0F766E" : "#dc2626";
       }
 
       // Store state for WhatsApp send functions — unchanged
@@ -8859,7 +8859,7 @@
       var res = document.getElementById("ea_birthday_result");
       var btn = document.querySelector("[onclick='triggerTestBirthdayEmail()']");
       if (!userId) { toast("Please select a member first", "warn"); return; }
-      if (res) { res.style.display = "block"; res.style.background = "#eff6ff"; res.style.borderLeftColor = "#3b82f6"; res.style.color = "#1e40af"; res.textContent = "⏳ Sending test birthday email..."; }
+      if (res) { res.style.display = "block"; res.style.background = "#F0FDFA"; res.style.borderLeftColor = "#3b82f6"; res.style.color = "#1e40af"; res.textContent = "⏳ Sending test birthday email..."; }
       if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...'; }
       postData({ action: "sendBirthdayEmails", isTest: "1", userId: userId })
         .then(function(data) {
@@ -9077,7 +9077,7 @@
          A rejection email will be sent.
        </p>
        <label class="_fl">Reason <span style="color:#aaa;font-weight:400;">(optional — shown in email)</span></label>
-       <textarea class="_fi" id="rejectReason" placeholder="e.g. Could not verify identity. Please contact temple admin." rows="3"
+       <textarea class="_fi" id="rejectReason" placeholder="e.g. Could not verify identity. Please contact household admin." rows="3"
          style="resize:vertical;min-height:70px;"></textarea>
      </div>
      <div class="_mft">
@@ -9408,7 +9408,7 @@
         + '<span style="color:#64748b;">UTR / Ref</span><strong>' + escapeHtml(r.UtrRef || "—") + '</strong>'
         + '</div></div>'
         + '<div style="margin-bottom:14px;">'
-        + '<label style="font-size:13px;font-weight:600;color:#334155;display:block;margin-bottom:6px;"><i class="fa-solid fa-tag" style="color:#f7a01a;margin-right:4px;"></i> Contribution Type <span style="font-weight:400;color:#e74c3c;">*</span></label>'
+        + '<label style="font-size:13px;font-weight:600;color:#334155;display:block;margin-bottom:6px;"><i class="fa-solid fa-tag" style="color:#0F766E;margin-right:4px;"></i> Contribution Type <span style="font-weight:400;color:#e74c3c;">*</span></label>'
         + '<select id="_approveTypeSelect" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;">'
         + '<option value="">— Select Type —</option>' + typeOpts + '</select>'
         + '</div>'
@@ -9635,7 +9635,7 @@
       const blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url; a.download = "Mandir_Backup_" + new Date().toISOString().slice(0, 10) + ".csv";
+      a.href = url; a.download = "Home_Backup_" + new Date().toISOString().slice(0, 10) + ".csv";
       a.click(); URL.revokeObjectURL(url);
       localStorage.setItem(_DL_KEY, String(Date.now()));
       toast("✅ Local backup downloaded!", "success");
@@ -9655,8 +9655,8 @@
       let Y = 18;
       // Header
       doc.setFillColor(30, 41, 64); doc.rect(0, 0, W, 28, "F");
-      doc.setTextColor(247, 160, 26); doc.setFontSize(14); doc.setFont(undefined, "bold");
-      doc.text((typeof APP !== "undefined" ? APP.name : "Mandir").toUpperCase(), W / 2, 12, { align: "center" });
+      doc.setTextColor(15, 118, 110); doc.setFontSize(14); doc.setFont(undefined, "bold");
+      doc.text((typeof APP !== "undefined" ? APP.name : "Home").toUpperCase(), W / 2, 12, { align: "center" });
       doc.setTextColor(148, 163, 184); doc.setFontSize(9); doc.setFont(undefined, "normal");
       doc.text("Annual Financial Report", W / 2, 20, { align: "center" });
       Y = 36;
@@ -9670,7 +9670,7 @@
       if (typeof doc.autoTable === "function") {
         doc.autoTable({
           head: [heads], body: rows, startY: Y, margin: { left: margin, right: margin },
-          headStyles: { fillColor: [30, 41, 64], textColor: [247, 160, 26], fontSize: 9 },
+          headStyles: { fillColor: [30, 41, 64], textColor: [15, 118, 110], fontSize: 9 },
           bodyStyles: { fontSize: 9 }, alternateRowStyles: { fillColor: [250, 248, 243] }
         });
       } else {
@@ -9762,7 +9762,7 @@
         if (checks.email_limit && checks.email_used !== undefined) {
           var pct = Math.min(100, Math.round((checks.email_used / checks.email_limit) * 100));
           var emailBg  = pct >= 90 ? "#fef2f2" : pct >= 70 ? "#fffbeb" : "#f0fdf4";
-          var emailBdr = pct >= 90 ? "#fca5a5" : pct >= 70 ? "#fde68a" : "#86efac";
+          var emailBdr = pct >= 90 ? "#fca5a5" : pct >= 70 ? "#5EEAD4" : "#86efac";
           var barClr   = pct >= 90 ? "#ef4444"  : pct >= 70 ? "#f59e0b" : "#22c55e";
           if (emailCard) { emailCard.style.background = emailBg; emailCard.style.border = "1px solid " + emailBdr; emailCard.style.borderRadius = "10px"; }
           if (emailBarW) emailBarW.style.display = "block";
@@ -9803,7 +9803,7 @@
       if (issues.length > 0) {
         cfg = { bg:"#fef2f2", border:"#fca5a5", ico:"🔴", ttl:"Critical Issues Found", dtl: issues.join(" · ") };
       } else if (warnings.length > 0) {
-        cfg = { bg:"#fffbeb", border:"#fde68a", ico:"🟡", ttl:"Warnings", dtl: warnings.join(" · ") };
+        cfg = { bg:"#fffbeb", border:"#5EEAD4", ico:"🟡", ttl:"Warnings", dtl: warnings.join(" · ") };
       } else {
         cfg = { bg:"#f0fdf4", border:"#86efac", ico:"🟢", ttl:"All Systems Healthy", dtl:"All sheets exist, columns match, email quota is fine." };
       }
@@ -9875,7 +9875,7 @@
         "#_tcResetIconWrap{width:66px;height:66px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;font-size:1.7rem;color:#dc2626;margin:0 auto 16px;}" +
         "#_tcResetTitle{font-size:1.1rem;font-weight:700;color:#0f172a;margin:0 0 8px;font-family:Poppins,sans-serif;}" +
         "#_tcResetMsg{font-size:0.85rem;color:#64748b;line-height:1.65;margin:0 0 16px;font-family:Poppins,sans-serif;}" +
-        "#_tcResetWarn{background:#fef9ec;border:1px solid #fde68a;border-radius:10px;padding:10px 14px;margin:0 0 22px;font-size:11.5px;color:#92400e;font-family:Poppins,sans-serif;text-align:left;line-height:1.6;}" +
+        "#_tcResetWarn{background:#fef9ec;border:1px solid #5EEAD4;border-radius:10px;padding:10px 14px;margin:0 0 22px;font-size:11.5px;color:#92400e;font-family:Poppins,sans-serif;text-align:left;line-height:1.6;}" +
         "._tcResetBtns{display:flex;gap:10px;justify-content:center;}" +
         "._tcResetBtns button{flex:1;max-width:148px;padding:11px 0;border-radius:10px;border:none;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:Poppins,sans-serif;transition:transform 0.15s,box-shadow 0.15s;display:inline-flex;align-items:center;justify-content:center;gap:6px;}" +
         "._tcResetBtns button:hover{transform:translateY(-2px);}" +
@@ -9942,7 +9942,7 @@
 
         // doGet bar
         var doGetPct   = Math.min(100, d.usedPct || 0);
-        var doGetColor = doGetPct >= 90 ? "#dc2626" : doGetPct >= 70 ? "#f7a01a" : "#22c55e";
+        var doGetColor = doGetPct >= 90 ? "#dc2626" : doGetPct >= 70 ? "#0F766E" : "#22c55e";
         var doGetRemaining = (d.dailyLimit || 20000) - (d.today || 0);
         var doGetBar = document.getElementById("tc_limit_bar");
         var doGetLbl = document.getElementById("tc_limit_label");
@@ -9959,7 +9959,7 @@
 
         // Email bar
         var emailPct   = Math.min(100, d.emailPct || 0);
-        var emailColor = emailPct >= 90 ? "#dc2626" : emailPct >= 70 ? "#f7a01a" : "#22c55e";
+        var emailColor = emailPct >= 90 ? "#dc2626" : emailPct >= 70 ? "#0F766E" : "#22c55e";
         var emailRemaining = (d.emailLimit || 90) - (d.emailUsed || 0);
         var emailBar = document.getElementById("tc_email_bar");
         var emailLbl = document.getElementById("tc_email_label");
@@ -9977,9 +9977,9 @@
         // ── Summary pills ──
         var pills = [
           { label: "Total Ever",  val: d.total,    color: "#334155", icon: "fa-infinity" },
-          { label: "Today",       val: d.today,    color: "#2563eb", icon: "fa-calendar-day" },
+          { label: "Today",       val: d.today,    color: "#0F766E", icon: "fa-calendar-day" },
           { label: "This Hour",   val: d.thisHour, color: "#16a34a", icon: "fa-clock" },
-          { label: "Peak Hour",   val: d.peakHour, color: "#f7a01a", icon: "fa-bolt" },
+          { label: "Peak Hour",   val: d.peakHour, color: "#0F766E", icon: "fa-bolt" },
           { label: "Peak Day",    val: d.peakDay,  color: "#7c3aed", icon: "fa-crown" },
         ];
         var summaryEl = document.getElementById("tc_summary");
@@ -10010,8 +10010,8 @@
           }).join("");
         }
 
-        renderBars("tc_hour_chart", d.last24Hours, "hour", "count", "#f7a01a");
-        renderBars("tc_day_chart",  d.last14Days,  "date", "count", "#2563eb");
+        renderBars("tc_hour_chart", d.last24Hours, "hour", "count", "#0F766E");
+        renderBars("tc_day_chart",  d.last14Days,  "date", "count", "#0F766E");
 
         // ── Top actions table ──
         var actEl = document.getElementById("tc_actions");
@@ -10030,7 +10030,7 @@
                   '<td style="padding:6px 0;text-align:right;font-size:12px;font-weight:700;color:#334155;white-space:nowrap;padding-right:10px;">' + a.count.toLocaleString(APP.locale||"en-IN") + '</td>' +
                   '<td style="padding:6px 0;width:90px;">' +
                     '<div style="height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden;">' +
-                      '<div style="height:6px;width:' + pct + '%;background:linear-gradient(90deg,#f7a01a,#f59e0b);border-radius:3px;transition:width .4s;"></div>' +
+                      '<div style="height:6px;width:' + pct + '%;background:linear-gradient(90deg,#0F766E,#f59e0b);border-radius:3px;transition:width .4s;"></div>' +
                     '</div>' +
                     '<div style="font-size:9px;color:#94a3b8;margin-top:1px;">' + pct + '%</div>' +
                   '</td>' +
@@ -10220,7 +10220,7 @@
       const mobile = decodeURIComponent(encodedMobile).replace(/\D/g, "");
       if (!mobile || mobile.length < 10) { toast("No valid mobile number for this member.", "warn"); return; }
       const s = JSON.parse(localStorage.getItem("session") || "{}");
-      const waText = encodeURIComponent(APP.name + " — Admin Reply:\n\n" + msg + "\n\n— " + (s.name || "Temple Admin"));
+      const waText = encodeURIComponent(APP.name + " — Admin Reply:\n\n" + msg + "\n\n— " + (s.name || "Household Admin"));
       window.open("https://wa.me/91" + mobile + "?text=" + waText, "_blank");
       // Mark as replied
       postData({
@@ -10282,7 +10282,7 @@
       });
       if (!orderArr.length) return;
       const savedEl = document.getElementById({ typeList: "md_typesSaved", occasionList: "md_occasionsSaved", expenseList: "md_expSaved" }[listId]);
-      if (savedEl) { savedEl.textContent = "⏳ Saving…"; savedEl.style.opacity = "1"; savedEl.style.color = "#f7a01a"; }
+      if (savedEl) { savedEl.textContent = "⏳ Saving…"; savedEl.style.opacity = "1"; savedEl.style.color = "#0F766E"; }
       postData({ action: "updateSortOrder", sheet: sheet, order: JSON.stringify(orderArr) })
         .then(function (res) {
           if (res && res.status === "success") {
@@ -10779,7 +10779,7 @@
       const label  = _dash_activeTab === "contrib" ? "CONTRIBUTION" : "EXPENSE";
 
       doc.setFillColor(51,65,85); doc.rect(0,0,w,22,"F");
-      doc.setTextColor(247,160,26); doc.setFontSize(14); doc.setFont(undefined,"bold");
+      doc.setTextColor(15, 118, 110); doc.setFontSize(14); doc.setFont(undefined,"bold");
       doc.text(`${APP.name.toUpperCase()} — ${label} REPORT ${period}`, w/2, 13, {align:"center"});
 
       let rows = [];
@@ -11297,7 +11297,7 @@
               : `<div class="ct-streak">${_ct_streak(c.UserId)}</div>`;
             return `<tr class="clickable-row" style="cursor:pointer;" onclick="viewDashboardEntry('${_drid}')">
               <td>${escapeHtml(_ct_fmtDate(c.PaymentDate))}</td>
-              <td><span style="background:#eff6ff;color:#1d4ed8;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;font-family:monospace;">${escapeHtml(rid||"—")}</span></td>
+              <td><span style="background:#F0FDFA;color:#115E59;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;font-family:monospace;">${escapeHtml(rid||"—")}</span></td>
               <td><b>${escapeHtml(name)}</b></td>
               <td>${escapeHtml(tName)}</td>
               <td>${escapeHtml(oName)}</td>
@@ -11462,7 +11462,7 @@
         const dateStr = _dash_calYear + "-" + String(_dash_calMonth+1).padStart(2,"0") + "-" + String(d).padStart(2,"0");
         const isToday = d===today.getDate() && _dash_calMonth===today.getMonth() && _dash_calYear===today.getFullYear();
         const isSel   = dateStr===startVal || dateStr===endVal;
-        const bg = isSel ? "#334155" : isToday ? "#f7a01a" : "transparent";
+        const bg = isSel ? "#334155" : isToday ? "#0F766E" : "transparent";
         const co = (isSel || isToday) ? "#fff" : "#333";
         _calParts.push(`<div onclick="dash_pickDate('${dateStr}')" style="text-align:center;font-size:12px;padding:5px 2px;border-radius:6px;cursor:pointer;background:${bg};color:${co};font-weight:${(isSel||isToday)?700:400};">${d}</div>`);
       }
@@ -11717,7 +11717,7 @@
               + 'font-size:14px;font-family:Poppins,sans-serif;outline:none;'
               + 'color:#334155;background:#fdfcfa;box-sizing:border-box;margin:0;"/>'
               + '<button id="grsSearchBtn" style="padding:11px 15px;border-radius:9px;'
-              + 'background:#f7a01a;color:#fff;border:none;cursor:pointer;'
+              + 'background:#0F766E;color:#fff;border:none;cursor:pointer;'
               + 'font-size:15px;box-shadow:none;flex-shrink:0;">'
               + '<i class="fa-solid fa-magnifying-glass"></i></button>'
             + '</div>'
@@ -11750,7 +11750,7 @@
         if (e.key === 'Enter')  _lookup();
         if (e.key === 'Escape') window.grsClose();
       });
-      inp.addEventListener('focus', function () { this.style.borderColor = '#f7a01a'; });
+      inp.addEventListener('focus', function () { this.style.borderColor = '#0F766E'; });
       inp.addEventListener('blur',  function () { this.style.borderColor = '#e0dbd4'; });
 
       /* panel: stop all propagation so backdrop click only fires outside panel */
@@ -11865,8 +11865,8 @@
       var mon  = (c2.ForMonth || '') + (c2.Year ? ' ' + c2.Year : '');
 
       res.innerHTML =
-        '<div style="border:1px solid #fde68a;border-radius:10px;overflow:hidden;">'
-        + '<div style="background:linear-gradient(90deg,#f7a01a,#f5b942);padding:9px 13px;'
+        '<div style="border:1px solid #5EEAD4;border-radius:10px;overflow:hidden;">'
+        + '<div style="background:linear-gradient(90deg,#0F766E,#f5b942);padding:9px 13px;'
         + 'display:flex;align-items:center;justify-content:space-between;">'
           + '<span style="font-family:monospace;font-size:12px;font-weight:800;color:#fff;">&#x1F9FE; ' + dRID + '</span>'
           + '<span style="font-size:12px;font-weight:700;color:#fff;">' + amt + '</span>'
@@ -11877,11 +11877,11 @@
           + '<div style="display:flex;"><span style="color:#a09070;min-width:56px;">Date</span>' + (c2.PaymentDate || '--') + '</div>'
           + '<div style="display:flex;"><span style="color:#a09070;min-width:56px;">Type</span>' + (hit.typeName || '--') + '</div>'
         + '</div>'
-        + '<div style="padding:10px 13px;background:#fffdf5;border-top:1px solid #fde68a;">'
+        + '<div style="padding:10px 13px;background:#fffdf5;border-top:1px solid #5EEAD4;">'
           + '<button id="grsViewBtn" style="width:100%;padding:11px 0;'
-          + 'background:linear-gradient(135deg,#f7a01a,#e8920a);color:#fff;border:none;'
+          + 'background:linear-gradient(135deg,#0F766E,#e8920a);color:#fff;border:none;'
           + 'border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;'
-          + 'font-family:Poppins,sans-serif;box-shadow:0 3px 10px rgba(247,160,26,0.3);'
+          + 'font-family:Poppins,sans-serif;box-shadow:0 3px 10px rgba(15, 118, 110,0.3);'
           + 'display:flex;align-items:center;justify-content:center;gap:8px;">'
           + '<i class="fa-solid fa-receipt"></i> View Receipt</button>'
         + '</div>'
@@ -11941,23 +11941,23 @@
         // Ring container
         '<div style="position:relative;flex-shrink:0;width:38px;height:38px;">' +
           '<svg width="38" height="38" viewBox="0 0 38 38" style="transform:rotate(-90deg);">' +
-            '<circle cx="19" cy="19" r="' + R + '" fill="none" stroke="rgba(247,160,26,0.18)" stroke-width="3"/>' +
-            '<circle id="_undoRing" cx="19" cy="19" r="' + R + '" fill="none" stroke="#f7a01a" stroke-width="3"' +
+            '<circle cx="19" cy="19" r="' + R + '" fill="none" stroke="rgba(15, 118, 110,0.18)" stroke-width="3"/>' +
+            '<circle id="_undoRing" cx="19" cy="19" r="' + R + '" fill="none" stroke="#0F766E" stroke-width="3"' +
             ' stroke-dasharray="' + CIRC + '" stroke-dashoffset="0" stroke-linecap="round"' +
             ' style="transition:stroke-dashoffset 0.1s linear;"/>' +
           '</svg>' +
-          '<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#f7a01a;" id="_undoSec">30</span>' +
+          '<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#0F766E;" id="_undoSec">30</span>' +
         '</div>' +
         // Text
         '<div style="flex:1;min-width:0;line-height:1.4;">' +
-          '<div style="font-size:11px;font-weight:600;color:#f7a01a;letter-spacing:0.4px;text-transform:uppercase;margin-bottom:1px;">Deleted</div>' +
+          '<div style="font-size:11px;font-weight:600;color:#0F766E;letter-spacing:0.4px;text-transform:uppercase;margin-bottom:1px;">Deleted</div>' +
           '<div style="font-size:12.5px;font-weight:600;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + label + '">' + label + '</div>' +
         '</div>' +
         // Undo button
         '<button id="_undoBtn" onclick="_doUndo()" style="' +
-          'background:linear-gradient(135deg,#f7a01a,#f59e0b);border:none;color:#fff;' +
+          'background:linear-gradient(135deg,#0F766E,#f59e0b);border:none;color:#fff;' +
           'padding:7px 16px;border-radius:10px;cursor:pointer;font-weight:700;font-size:12px;' +
-          'font-family:Poppins,sans-serif;box-shadow:0 4px 12px rgba(247,160,26,0.4);' +
+          'font-family:Poppins,sans-serif;box-shadow:0 4px 12px rgba(15, 118, 110,0.4);' +
           'white-space:nowrap;flex-shrink:0;transition:transform 0.1s,box-shadow 0.1s;' +
           'display:flex;align-items:center;gap:6px;">' +
           '<i class="fa-solid fa-rotate-left"></i> Undo' +
@@ -11968,8 +11968,8 @@
       // Hover effects on undo button
       var btn = document.getElementById("_undoBtn");
       if (btn) {
-        btn.onmouseenter = function(){ this.style.transform="scale(1.06)"; this.style.boxShadow="0 6px 18px rgba(247,160,26,0.55)"; };
-        btn.onmouseleave = function(){ this.style.transform=""; this.style.boxShadow="0 4px 12px rgba(247,160,26,0.4)"; };
+        btn.onmouseenter = function(){ this.style.transform="scale(1.06)"; this.style.boxShadow="0 6px 18px rgba(15, 118, 110,0.55)"; };
+        btn.onmouseleave = function(){ this.style.transform=""; this.style.boxShadow="0 4px 12px rgba(15, 118, 110,0.4)"; };
       }
 
       // Animate ring drain frame-by-frame
@@ -11981,8 +11981,8 @@
         if (ring) ring.style.strokeDashoffset = String(CIRC * progress);
         if (sec)  sec.textContent = String(Math.max(0, Math.ceil((DURATION - elapsed) / 1000)));
         // Change ring color to red in last 5s
-        if (ring) ring.style.stroke = elapsed > DURATION * 0.83 ? "#ef4444" : "#f7a01a";
-        if (sec)  sec.style.color   = elapsed > DURATION * 0.83 ? "#ef4444" : "#f7a01a";
+        if (ring) ring.style.stroke = elapsed > DURATION * 0.83 ? "#ef4444" : "#0F766E";
+        if (sec)  sec.style.color   = elapsed > DURATION * 0.83 ? "#ef4444" : "#0F766E";
         if (progress < 1 && document.getElementById("_undoToast")) {
           _undoQueue.rafId = requestAnimationFrame(_animateRing);
         }
@@ -12099,7 +12099,7 @@
             var banner = document.createElement("div");
             banner.id = "_draftBanner";
             banner.style.cssText =
-              "background:linear-gradient(90deg,#fef9ec,#fef3c7);border:1px solid #fde68a;" +
+              "background:linear-gradient(90deg,#fef9ec,#fef3c7);border:1px solid #5EEAD4;" +
               "border-radius:8px;padding:8px 14px;font-size:12px;color:#92400e;" +
               "display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;";
             banner.innerHTML =

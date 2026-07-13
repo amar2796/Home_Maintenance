@@ -90,8 +90,8 @@ const _U_LANG    = _U_PREFIX + "_lang";              // language preference
     (function() {
       var _lo = document.createElement('div');
       _lo.id = '_logoutOverlay';
-      _lo.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(42,15,0,0.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);';
-      _lo.innerHTML = '<div style="width:42px;height:42px;border:3px solid rgba(247,160,26,0.3);border-top-color:#f7a01a;border-radius:50%;animation:spin .7s linear infinite;"></div><div style="color:#f7a01a;font-family:sans-serif;font-size:14px;font-weight:600;letter-spacing:.5px;">Logging out…</div>';
+      _lo.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,0.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);';
+      _lo.innerHTML = '<div style="width:42px;height:42px;border:3px solid rgba(15, 118, 110,0.3);border-top-color:#0F766E;border-radius:50%;animation:spin .7s linear infinite;"></div><div style="color:#0F766E;font-family:sans-serif;font-size:14px;font-weight:600;letter-spacing:.5px;">Logging out…</div>';
       document.body.appendChild(_lo);
     })();
     // [FIX] postData is JSONP (async script tag). Must WAIT for clearSessionToken
@@ -269,40 +269,40 @@ const _U_LANG    = _U_PREFIX + "_lang";              // language preference
     // Use initials as placeholder; real photo loads via proxy after modal opens
     const _profName = myProfile.Name || s.name || "?";
     let photoSrc = _initialsAvatar(_profName, 82);
-    let fb = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='88' height='88'><circle cx='44' cy='44' r='44' fill='%23f7a01a'/><text x='44' y='56' text-anchor='middle' fill='white' font-size='36' font-family='Arial'>&#128100;</text></svg>";
+    let fb = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='88' height='88'><circle cx='44' cy='44' r='44' fill='%230F766E'/><text x='44' y='56' text-anchor='middle' fill='white' font-size='36' font-family='Arial'>&#128100;</text></svg>";
     let st = String(myProfile.Status || "Active");
     let stC = st.toLowerCase() === "active" ? "#22c55e" : st.toLowerCase() === "pending" ? "#f59e0b" : "#ef4444";
     let html = `
-        <div class="_mhdr" style="background:linear-gradient(135deg,#2a0f00 0%,#3c1a00 60%,#2a0f00 100%);border-bottom:2px solid rgba(247,160,26,0.35);"><h3 style="color:#fff;display:flex;align-items:center;gap:8px;"><span class="_u-icon-md"><i class="fa-solid fa-id-card" style="color:#f7a01a;font-size:13px;"></i></span> My Profile</h3><button class="_mcls" onclick="closeModal()" style="color:rgba(255,255,255,0.6);font-size:20px;line-height:1;background:none;border:none;cursor:pointer;padding:0;">×</button></div>
+        <div class="_mhdr" style="background:linear-gradient(135deg,#0F172A 0%,#115E59 60%,#0F172A 100%);border-bottom:2px solid rgba(15, 118, 110,0.35);"><h3 style="color:#fff;display:flex;align-items:center;gap:8px;"><span class="_u-icon-md"><i class="fa-solid fa-id-card" style="color:#0F766E;font-size:13px;"></i></span> My Profile</h3><button class="_mcls" onclick="closeModal()" style="color:rgba(255,255,255,0.6);font-size:20px;line-height:1;background:none;border:none;cursor:pointer;padding:0;">×</button></div>
         <div class="_mbdy" style="padding:0;">
-          <div style="background:linear-gradient(180deg,#2a0f00 0%,#3c1a00 60%,#2a0f00 100%);padding:26px 20px 20px;text-align:center;position:relative;overflow:hidden;">
-            <div style="position:absolute;top:-40px;right:-40px;width:160px;height:160px;background:radial-gradient(circle,rgba(247,160,26,0.15),transparent 70%);border-radius:50%;pointer-events:none;"></div>
-            <div style="position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(247,160,26,0.4),transparent);"></div>
+          <div style="background:linear-gradient(180deg,#0F172A 0%,#115E59 60%,#0F172A 100%);padding:26px 20px 20px;text-align:center;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:-40px;right:-40px;width:160px;height:160px;background:radial-gradient(circle,rgba(15, 118, 110,0.15),transparent 70%);border-radius:50%;pointer-events:none;"></div>
+            <div style="position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(15, 118, 110,0.4),transparent);"></div>
             <img id="_profileModalPhoto" src="${escapeHtml(photoSrc)}" onerror="this.src='${fb}'"
-              style="width:82px;height:82px;border-radius:50%;object-fit:cover;border:3px solid #f7a01a;background:#eee;display:block;margin:0 auto 10px;box-shadow:0 4px 20px rgba(247,160,26,0.45);"/>
-            <div style="font-family:'Sora',sans-serif;color:#f7a01a;font-size:1.05rem;font-weight:700;margin-bottom:8px;">${escapeHtml(myProfile.Name || "—")}</div>
+              style="width:82px;height:82px;border-radius:50%;object-fit:cover;border:3px solid #0F766E;background:#eee;display:block;margin:0 auto 10px;box-shadow:0 4px 20px rgba(15, 118, 110,0.45);"/>
+            <div style="font-family:'Sora',sans-serif;color:#0F766E;font-size:1.05rem;font-weight:700;margin-bottom:8px;">${escapeHtml(myProfile.Name || "—")}</div>
             <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
               <span style="background:${stC};color:#fff;border-radius:20px;padding:3px 14px;font-size:11px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.2);">${escapeHtml(st)}</span>
               <span style="background:rgba(255,255,255,.1);color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:3px 14px;font-size:11px;font-weight:600;">${escapeHtml(myProfile.Role || "User")}</span>
             </div>
           </div>
           <div style="padding:10px 20px 16px;background:var(--white);">
-            <div class="_row" style="border-bottom:1px solid rgba(247,160,26,0.12);display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="_rl" class="_u-meta-ns"><span class="_u-icon-sm"><i class="fa-solid fa-mobile-screen" class="_u-gold-icon"></i></span> Mobile</span><span class="_rv" style="font-weight:600;color:#1e293b;">${escapeHtml(String(myProfile.Mobile || "—"))}</span></div>
-            <div class="_row" style="border-bottom:1px solid rgba(247,160,26,0.12);display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="_rl" class="_u-meta-ns"><span class="_u-icon-sm"><i class="fa-solid fa-envelope" class="_u-gold-icon"></i></span> Email</span><span class="_rv" style="word-break:break-all;font-weight:600;color:#1e293b;">${escapeHtml(myProfile.Email || "—")}</span></div>
-            ${myProfile.Village ? `<div class="_row" style="border-bottom:1px solid rgba(247,160,26,0.12);display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="_rl" class="_u-meta-ns"><span class="_u-icon-sm"><i class="fa-solid fa-map-pin" class="_u-gold-icon"></i></span> Village</span><span class="_rv" style="font-weight:600;color:#1e293b;">${escapeHtml(myProfile.Village)}</span></div>` : ""}
-            ${myProfile.Address ? `<div class="_row" style="border-bottom:1px solid rgba(247,160,26,0.12);display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="_rl" class="_u-meta-ns"><span class="_u-icon-sm"><i class="fa-solid fa-location-dot" class="_u-gold-icon"></i></span> Address</span><span class="_rv" style="white-space:pre-wrap;font-weight:600;color:#1e293b;">${escapeHtml(myProfile.Address)}</span></div>` : ""}
-            ${myProfile.DOB ? `<div class="_row" style="border-bottom:1px solid rgba(247,160,26,0.12);display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="_rl" class="_u-meta-ns"><span class="_u-icon-sm"><i class="fa-solid fa-cake-candles" class="_u-gold-icon"></i></span> Date of Birth</span><span class="_rv" style="font-weight:600;color:#1e293b;white-space:nowrap;">${(function(d){if(!d)return"—";var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];if(/^\d{2}-\d{2}-\d{4}$/.test(d)){var p=d.split("-");return p[0]+" "+M[parseInt(p[1],10)-1]+" "+p[2];}if(/^\d{4}-\d{2}-\d{2}$/.test(d)){var p=d.split("-");return p[2]+" "+M[parseInt(p[1],10)-1]+" "+p[0];}if(d.indexOf("T")>=0||d.indexOf("Z")>=0){var pt=d.split("T")[0].split("-");if(pt.length===3)return pt[2]+" "+M[parseInt(pt[1],10)-1]+" "+pt[0];}return d;})(myProfile.DOB)}</span></div>` : ""}
-            <div class="_row" style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="_rl" class="_u-meta-ns"><span class="_u-icon-sm"><i class="fa-solid fa-id-card" class="_u-gold-icon"></i></span> Member ID</span><span class="_rv" style="font-family:monospace;font-size:12px;font-weight:700;color:#3c1a00;letter-spacing:.5px;">${escapeHtml(String(myProfile.UserId || "—"))}</span></div>
+            <div class="_row" style="border-bottom:1px solid rgba(15, 118, 110,0.12);display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="_rl" class="_u-meta-ns"><span class="_u-icon-sm"><i class="fa-solid fa-mobile-screen" class="_u-gold-icon"></i></span> Mobile</span><span class="_rv" style="font-weight:600;color:#1e293b;">${escapeHtml(String(myProfile.Mobile || "—"))}</span></div>
+            <div class="_row" style="border-bottom:1px solid rgba(15, 118, 110,0.12);display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="_rl" class="_u-meta-ns"><span class="_u-icon-sm"><i class="fa-solid fa-envelope" class="_u-gold-icon"></i></span> Email</span><span class="_rv" style="word-break:break-all;font-weight:600;color:#1e293b;">${escapeHtml(myProfile.Email || "—")}</span></div>
+            ${myProfile.Village ? `<div class="_row" style="border-bottom:1px solid rgba(15, 118, 110,0.12);display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="_rl" class="_u-meta-ns"><span class="_u-icon-sm"><i class="fa-solid fa-map-pin" class="_u-gold-icon"></i></span> Village</span><span class="_rv" style="font-weight:600;color:#1e293b;">${escapeHtml(myProfile.Village)}</span></div>` : ""}
+            ${myProfile.Address ? `<div class="_row" style="border-bottom:1px solid rgba(15, 118, 110,0.12);display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="_rl" class="_u-meta-ns"><span class="_u-icon-sm"><i class="fa-solid fa-location-dot" class="_u-gold-icon"></i></span> Address</span><span class="_rv" style="white-space:pre-wrap;font-weight:600;color:#1e293b;">${escapeHtml(myProfile.Address)}</span></div>` : ""}
+            ${myProfile.DOB ? `<div class="_row" style="border-bottom:1px solid rgba(15, 118, 110,0.12);display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="_rl" class="_u-meta-ns"><span class="_u-icon-sm"><i class="fa-solid fa-cake-candles" class="_u-gold-icon"></i></span> Date of Birth</span><span class="_rv" style="font-weight:600;color:#1e293b;white-space:nowrap;">${(function(d){if(!d)return"—";var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];if(/^\d{2}-\d{2}-\d{4}$/.test(d)){var p=d.split("-");return p[0]+" "+M[parseInt(p[1],10)-1]+" "+p[2];}if(/^\d{4}-\d{2}-\d{2}$/.test(d)){var p=d.split("-");return p[2]+" "+M[parseInt(p[1],10)-1]+" "+p[0];}if(d.indexOf("T")>=0||d.indexOf("Z")>=0){var pt=d.split("T")[0].split("-");if(pt.length===3)return pt[2]+" "+M[parseInt(pt[1],10)-1]+" "+pt[0];}return d;})(myProfile.DOB)}</span></div>` : ""}
+            <div class="_row" style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="_rl" class="_u-meta-ns"><span class="_u-icon-sm"><i class="fa-solid fa-id-card" class="_u-gold-icon"></i></span> Member ID</span><span class="_rv" style="font-family:monospace;font-size:12px;font-weight:700;color:#115E59;letter-spacing:.5px;">${escapeHtml(String(myProfile.UserId || "—"))}</span></div>
           </div>
         </div>
-            <div class="_mft" style="gap:8px;border-top:2px solid rgba(247,160,26,0.15);background:linear-gradient(90deg,rgba(247,160,26,0.04),transparent);">
+            <div class="_mft" style="gap:8px;border-top:2px solid rgba(15, 118, 110,0.15);background:linear-gradient(90deg,rgba(15, 118, 110,0.04),transparent);">
     <button class="_mbtn" style="background:#64748b;box-shadow:none;" onclick="closeModal()">
       <i class="fa-solid fa-xmark"></i> Close
     </button>
-    <button class="_mbtn" style="background:linear-gradient(135deg,#2a0f00,#3c1a00);box-shadow:0 3px 10px rgba(42,15,0,0.3);" onclick="closeModal();openChangePassword()">
-      <i class="fa-solid fa-key" style="color:#f7a01a;"></i> Change Password
+    <button class="_mbtn" style="background:linear-gradient(135deg,#0F172A,#115E59);box-shadow:0 3px 10px rgba(15,23,42,0.3);" onclick="closeModal();openChangePassword()">
+      <i class="fa-solid fa-key" style="color:#0F766E;"></i> Change Password
     </button>
-    <button class="_mbtn" style="background:linear-gradient(135deg,#f7a01a,#e8920a);box-shadow:0 3px 10px rgba(247,160,26,0.35);" onclick="closeModal();openEditProfile()">
+    <button class="_mbtn" style="background:linear-gradient(135deg,#0F766E,#F59E0B);box-shadow:0 3px 10px rgba(15, 118, 110,0.35);" onclick="closeModal();openEditProfile()">
       <i class="fa-solid fa-user-pen"></i> Edit Profile
     </button>
   </div>`;
@@ -323,7 +323,7 @@ const _U_LANG    = _U_PREFIX + "_lang";              // language preference
   function toggleProfilePassword() {
     let val = document.getElementById("_pwdVal"), btn = document.getElementById("_pwdToggle");
     if (!val || !btn) return;
-    if (btn.textContent === "Show") { val.textContent = window._myProfilePwdHash || "(not available)"; val.style.color = "#334155"; val.style.letterSpacing = "0.5px"; btn.textContent = "Hide"; btn.style.background = "#fff3e0"; btn.style.borderColor = "#f7a01a"; btn.style.color = "#c0580a"; }
+    if (btn.textContent === "Show") { val.textContent = window._myProfilePwdHash || "(not available)"; val.style.color = "#334155"; val.style.letterSpacing = "0.5px"; btn.textContent = "Hide"; btn.style.background = "#fff3e0"; btn.style.borderColor = "#0F766E"; btn.style.color = "#c0580a"; }
     else { val.textContent = "••••••••"; val.style.color = "#94a3b8"; val.style.letterSpacing = "1px"; btn.textContent = "Show"; btn.style.background = "none"; btn.style.borderColor = "#ddd"; btn.style.color = "#666"; }
   }
 
@@ -350,24 +350,24 @@ const _U_LANG    = _U_PREFIX + "_lang";              // language preference
     }
     // Use initials as placeholder; load real photo via proxy (same as header)
     let photoSrc = previewB64 || _initialsAvatar(dN || "?", 88);
-    let fb = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='88' height='88'><circle cx='44' cy='44' r='44' fill='%23f7a01a'/><text x='44' y='56' text-anchor='middle' fill='white' font-size='36' font-family='Arial'>&#128100;</text></svg>";
+    let fb = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='88' height='88'><circle cx='44' cy='44' r='44' fill='%230F766E'/><text x='44' y='56' text-anchor='middle' fill='white' font-size='36' font-family='Arial'>&#128100;</text></svg>";
     let html = `
-        <div class="_mhdr" style="background:linear-gradient(135deg,#2a0f00 0%,#3c1a00 60%,#2a0f00 100%);border-bottom:2px solid rgba(247,160,26,0.35);"><h3 style="color:#fff;display:flex;align-items:center;gap:8px;"><span class="_u-icon-md"><i class="fa-solid fa-user-pen" style="color:#f7a01a;font-size:13px;"></i></span> Edit Profile</h3><button class="_mcls" onclick="closeModal()" style="color:rgba(255,255,255,0.6);font-size:20px;line-height:1;background:none;border:none;cursor:pointer;padding:0;">×</button></div>
+        <div class="_mhdr" style="background:linear-gradient(135deg,#0F172A 0%,#115E59 60%,#0F172A 100%);border-bottom:2px solid rgba(15, 118, 110,0.35);"><h3 style="color:#fff;display:flex;align-items:center;gap:8px;"><span class="_u-icon-md"><i class="fa-solid fa-user-pen" style="color:#0F766E;font-size:13px;"></i></span> Edit Profile</h3><button class="_mcls" onclick="closeModal()" style="color:rgba(255,255,255,0.6);font-size:20px;line-height:1;background:none;border:none;cursor:pointer;padding:0;">×</button></div>
         <div class="_mbdy" style="padding:0;">
 
           <!-- Hero banner — matches My Profile exactly -->
-          <div style="background:linear-gradient(180deg,#2a0f00 0%,#3c1a00 60%,#2a0f00 100%);padding:22px 20px 18px;text-align:center;position:relative;overflow:hidden;">
-            <div style="position:absolute;top:-40px;right:-40px;width:160px;height:160px;background:radial-gradient(circle,rgba(247,160,26,0.15),transparent 70%);border-radius:50%;pointer-events:none;"></div>
-            <div style="position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(247,160,26,0.4),transparent);"></div>
+          <div style="background:linear-gradient(180deg,#0F172A 0%,#115E59 60%,#0F172A 100%);padding:22px 20px 18px;text-align:center;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:-40px;right:-40px;width:160px;height:160px;background:radial-gradient(circle,rgba(15, 118, 110,0.15),transparent 70%);border-radius:50%;pointer-events:none;"></div>
+            <div style="position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(15, 118, 110,0.4),transparent);"></div>
             <div style="position:relative;width:82px;margin:0 auto 8px;">
               <img id="photoPreview" src="${escapeHtml(photoSrc)}" onerror="this.src='${fb}'"
-                style="width:82px;height:82px;border-radius:50%;object-fit:cover;border:3px solid #f7a01a;background:#eee;display:block;box-shadow:0 4px 20px rgba(247,160,26,0.45);"/>
+                style="width:82px;height:82px;border-radius:50%;object-fit:cover;border:3px solid #0F766E;background:#eee;display:block;box-shadow:0 4px 20px rgba(15, 118, 110,0.45);"/>
               <div onclick="pickPhoto()" title="Change Photo"
-                style="position:absolute;bottom:2px;right:2px;width:26px;height:26px;background:#f7a01a;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25);border:2px solid #fff;">
+                style="position:absolute;bottom:2px;right:2px;width:26px;height:26px;background:#0F766E;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25);border:2px solid #fff;">
                 <i class="fa-solid fa-camera" style="color:#fff;font-size:10px;"></i>
               </div>
             </div>
-            <div style="font-size:11px;color:rgba(247,160,26,0.65);margin:0;">Tap camera to change photo</div>
+            <div style="font-size:11px;color:rgba(15, 118, 110,0.65);margin:0;">Tap camera to change photo</div>
           </div>
           <input type="file" id="photoFile" accept="image/*" style="display:none;" onchange="handlePhotoSelected(this)"/>
 
@@ -375,7 +375,7 @@ const _U_LANG    = _U_PREFIX + "_lang";              // language preference
           <div style="padding:6px 20px 14px;background:var(--white);">
 
             <!-- Full Name -->
-            <div class="_row" style="border-bottom:1px solid rgba(247,160,26,0.12);align-items:center;">
+            <div class="_row" style="border-bottom:1px solid rgba(15, 118, 110,0.12);align-items:center;">
               <span class="_rl" class="_u-meta">
                 <span class="_u-icon-sm">
                   <i class="fa-solid fa-user" class="_u-gold-icon"></i>
@@ -386,7 +386,7 @@ const _U_LANG    = _U_PREFIX + "_lang";              // language preference
             </div>
 
             <!-- Email -->
-            <div class="_row" style="border-bottom:1px solid rgba(247,160,26,0.12);align-items:center;">
+            <div class="_row" style="border-bottom:1px solid rgba(15, 118, 110,0.12);align-items:center;">
               <span class="_rl" class="_u-meta">
                 <span class="_u-icon-sm">
                   <i class="fa-solid fa-envelope" class="_u-gold-icon"></i>
@@ -397,7 +397,7 @@ const _U_LANG    = _U_PREFIX + "_lang";              // language preference
             </div>
 
             <!-- Mobile (read-only with update link) -->
-            <div class="_row" style="border-bottom:1px solid rgba(247,160,26,0.12);align-items:center;">
+            <div class="_row" style="border-bottom:1px solid rgba(15, 118, 110,0.12);align-items:center;">
               <span class="_rl" class="_u-meta">
                 <span class="_u-icon-sm">
                   <i class="fa-solid fa-mobile-screen" class="_u-gold-icon"></i>
@@ -405,14 +405,14 @@ const _U_LANG    = _U_PREFIX + "_lang";              // language preference
               </span>
               <div style="display:flex;align-items:center;gap:8px;justify-content:flex-start;flex:1;min-width:0;">
                 <span style="font-size:13px;font-weight:600;color:var(--ink);letter-spacing:.5px;">${escapeHtml(String(myProfile?.Mobile || "—"))}</span>
-                <span onclick="openUpdateMobileConfirm()" style="color:#3b82f6;font-size:11px;font-weight:600;cursor:pointer;text-decoration:underline;white-space:nowrap;flex-shrink:0;">
+                <span onclick="openUpdateMobileConfirm()" style="color:#14B8A6;font-size:11px;font-weight:600;cursor:pointer;text-decoration:underline;white-space:nowrap;flex-shrink:0;">
                   <i class="fa-solid fa-pen-to-square" style="font-size:10px;margin-right:2px;"></i>Update
                 </span>
               </div>
             </div>
 
             <!-- Village -->
-            <div class="_row" style="border-bottom:1px solid rgba(247,160,26,0.12);align-items:center;">
+            <div class="_row" style="border-bottom:1px solid rgba(15, 118, 110,0.12);align-items:center;">
               <span class="_rl" class="_u-meta">
                 <span class="_u-icon-sm">
                   <i class="fa-solid fa-map-pin" class="_u-gold-icon"></i>
@@ -423,7 +423,7 @@ const _U_LANG    = _U_PREFIX + "_lang";              // language preference
             </div>
 
             <!-- Address -->
-            <div class="_row" style="border-bottom:1px solid rgba(247,160,26,0.12);align-items:flex-start;padding-top:11px;padding-bottom:11px;">
+            <div class="_row" style="border-bottom:1px solid rgba(15, 118, 110,0.12);align-items:flex-start;padding-top:11px;padding-bottom:11px;">
               <span class="_rl" style="color:#64748b;font-size:12.5px;display:flex;align-items:center;gap:7px;flex-shrink:0;margin-top:1px;">
                 <span class="_u-icon-sm">
                   <i class="fa-solid fa-location-dot" class="_u-gold-icon"></i>
@@ -434,7 +434,7 @@ const _U_LANG    = _U_PREFIX + "_lang";              // language preference
             </div>
 
             <!-- Date of Birth -->
-            <div class="_row" style="border-bottom:1px solid rgba(247,160,26,0.12);align-items:center;position:relative;overflow:hidden;">
+            <div class="_row" style="border-bottom:1px solid rgba(15, 118, 110,0.12);align-items:center;position:relative;overflow:hidden;">
               <span class="_rl" class="_u-meta">
                 <span class="_u-icon-sm">
                   <i class="fa-solid fa-cake-candles" class="_u-gold-icon"></i>
@@ -442,7 +442,7 @@ const _U_LANG    = _U_PREFIX + "_lang";              // language preference
               </span>
               <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;flex:1;pointer-events:none;">
                 <span id="ep_dob_display" style="font-size:13px;font-weight:600;color:var(--ink);font-family:var(--font-b);white-space:nowrap;">${dDob ? (function(v){var p=v.split('-');var m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return p[2]+' '+m[parseInt(p[1],10)-1]+' '+p[0];})(dDob) : 'Select date'}</span>
-                <i class="fa-solid fa-calendar-days" style="color:var(--gold,#f7a01a);font-size:13px;flex-shrink:0;"></i>
+                <i class="fa-solid fa-calendar-days" style="color:var(--gold,#0F766E);font-size:13px;flex-shrink:0;"></i>
               </div>
               <input id="ep_dob" type="date" value="${escapeHtml(dDob)}" max="${new Date().toISOString().slice(0,10)}"
                 style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:10;font-size:16px;"
@@ -458,7 +458,7 @@ const _U_LANG    = _U_PREFIX + "_lang";              // language preference
               </span>
               <div style="display:flex;align-items:center;gap:8px;justify-content:flex-start;flex:1;">
                 <span style="color:#aaa;letter-spacing:2px;font-size:13px;">••••••••</span>
-                <span onclick="closeModal();openChangePassword()" style="color:#3b82f6;font-size:11px;font-weight:600;cursor:pointer;text-decoration:underline;white-space:nowrap;flex-shrink:0;">
+                <span onclick="closeModal();openChangePassword()" style="color:#14B8A6;font-size:11px;font-weight:600;cursor:pointer;text-decoration:underline;white-space:nowrap;flex-shrink:0;">
                   <i class="fa-solid fa-key" style="font-size:10px;margin-right:2px;"></i>Change
                 </span>
               </div>
@@ -466,9 +466,9 @@ const _U_LANG    = _U_PREFIX + "_lang";              // language preference
 
           </div>
         </div>
-        <div class="_mft" style="border-top:2px solid rgba(247,160,26,0.15);background:linear-gradient(90deg,rgba(247,160,26,0.04),transparent);">
+        <div class="_mft" style="border-top:2px solid rgba(15, 118, 110,0.15);background:linear-gradient(90deg,rgba(15, 118, 110,0.04),transparent);">
           <button class="_mbtn" style="background:#64748b;box-shadow:none;" onclick="closeModal();_pendingCroppedB64='';">Cancel</button>
-          <button class="_mbtn" style="background:linear-gradient(135deg,#f7a01a,#e8920a);box-shadow:0 3px 10px rgba(247,160,26,0.35);" onclick="saveProfile()"><i class="fa-solid fa-check"></i> Save Changes</button>
+          <button class="_mbtn" style="background:linear-gradient(135deg,#0F766E,#F59E0B);box-shadow:0 3px 10px rgba(15, 118, 110,0.35);" onclick="saveProfile()"><i class="fa-solid fa-check"></i> Save Changes</button>
         </div>`;
     openModal(html, "min(460px, 96vw)");
     // Load real photo via proxy after modal opens (avoids CORS block)
@@ -513,10 +513,10 @@ const _U_LANG    = _U_PREFIX + "_lang";              // language preference
         <div style="background:var(--white);border-radius:18px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden;animation:dropFade .2s ease;">
 
           <!-- HEADER — warm brown gradient matching hero -->
-          <div style="background:linear-gradient(135deg,#2a0f00 0%,#3c1a00 60%,#2a0f00 100%);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid rgba(247,160,26,0.35);">
+          <div style="background:linear-gradient(135deg,#0F172A 0%,#115E59 60%,#0F172A 100%);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid rgba(15, 118, 110,0.35);">
             <div style="display:flex;align-items:center;gap:10px;">
-              <span style="width:32px;height:32px;background:rgba(247,160,26,0.18);border-radius:9px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">
-                <i class="fa-solid fa-mobile-screen-button" style="color:#f7a01a;font-size:14px;"></i>
+              <span style="width:32px;height:32px;background:rgba(15, 118, 110,0.18);border-radius:9px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="fa-solid fa-mobile-screen-button" style="color:#0F766E;font-size:14px;"></i>
               </span>
               <span style="font-family:var(--font-h);font-weight:700;font-size:15px;color:#fff;">Update Mobile Number</span>
             </div>
@@ -527,9 +527,9 @@ const _U_LANG    = _U_PREFIX + "_lang";              // language preference
           <div style="padding:20px 20px 16px;">
 
             <!-- Verification info card -->
-            <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;background:var(--bg);border:1.5px solid rgba(247,160,26,0.22);border-radius:10px;padding:12px 14px;">
-              <div style="width:36px;height:36px;background:rgba(247,160,26,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">
-                <i class="fa-solid fa-shield-halved" style="color:#f7a01a;font-size:15px;"></i>
+            <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;background:var(--bg);border:1.5px solid rgba(15, 118, 110,0.22);border-radius:10px;padding:12px 14px;">
+              <div style="width:36px;height:36px;background:rgba(15, 118, 110,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">
+                <i class="fa-solid fa-shield-halved" style="color:#0F766E;font-size:15px;"></i>
               </div>
               <div>
                 <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:3px;">Verification Required</div>
@@ -538,8 +538,8 @@ const _U_LANG    = _U_PREFIX + "_lang";              // language preference
             </div>
 
             <!-- Current number display -->
-            <div style="background:var(--bg);border:1.5px solid rgba(247,160,26,0.22);border-radius:9px;padding:10px 14px;display:flex;align-items:center;gap:10px;margin-bottom:16px;">
-              <i class="fa-solid fa-mobile-screen" style="color:#f7a01a;font-size:14px;"></i>
+            <div style="background:var(--bg);border:1.5px solid rgba(15, 118, 110,0.22);border-radius:9px;padding:10px 14px;display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+              <i class="fa-solid fa-mobile-screen" style="color:#0F766E;font-size:14px;"></i>
               <span style="font-size:12px;color:var(--ink-faint);font-weight:500;">Current number</span>
               <span style="font-size:14px;font-weight:700;color:var(--ink);letter-spacing:1.5px;margin-left:auto;">${(() => { let s = (_sess() || {}); let mp = users.find(u => String(u.UserId) === String(s.userId)); return mp?.Mobile || "—"; })()}</span>
             </div>
@@ -552,7 +552,7 @@ const _U_LANG    = _U_PREFIX + "_lang";              // language preference
               <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:14px;line-height:1.6;">Click <b style="color:var(--ink);">Yes, Continue</b> to proceed. An OTP will be sent to your registered email to confirm the change.</div>
               <div style="display:flex;gap:8px;">
                 <button onclick="document.getElementById('_mobileConfirmOverlay').remove()" style="flex:1;padding:10px;background:var(--bg2);color:var(--ink-soft);border:none;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:none;">Cancel</button>
-                <button onclick="_mobileGoToStep2()" style="flex:2;padding:10px;background:linear-gradient(135deg,#f7a01a,#e8920a);color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(247,160,26,0.35);display:inline-flex;align-items:center;justify-content:center;gap:7px;">
+                <button onclick="_mobileGoToStep2()" style="flex:2;padding:10px;background:linear-gradient(135deg,#0F766E,#F59E0B);color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(15, 118, 110,0.35);display:inline-flex;align-items:center;justify-content:center;gap:7px;">
                   <i class="fa-solid fa-arrow-right"></i> Yes, Continue
                 </button>
               </div>
@@ -562,9 +562,9 @@ const _U_LANG    = _U_PREFIX + "_lang";              // language preference
             <div id="_mobileStep2" style="display:none;">
               <!-- Step indicator -->
               <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px;">
-                <span style="width:22px;height:22px;background:linear-gradient(135deg,#f7a01a,#e8920a);border-radius:50%;color:#fff;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;">1</span>
-                <span style="font-size:11.5px;font-weight:600;color:#f7a01a;">Enter new number</span>
-                <span style="flex:1;height:1.5px;background:linear-gradient(90deg,rgba(247,160,26,0.4),transparent);"></span>
+                <span style="width:22px;height:22px;background:linear-gradient(135deg,#0F766E,#F59E0B);border-radius:50%;color:#fff;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;">1</span>
+                <span style="font-size:11.5px;font-weight:600;color:#0F766E;">Enter new number</span>
+                <span style="flex:1;height:1.5px;background:linear-gradient(90deg,rgba(15, 118, 110,0.4),transparent);"></span>
                 <span style="width:22px;height:22px;background:#e2e8f0;border-radius:50%;color:#94a3b8;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;">2</span>
                 <span style="font-size:11.5px;font-weight:500;color:#94a3b8;">Verify OTP</span>
               </div>
@@ -574,7 +574,7 @@ const _U_LANG    = _U_PREFIX + "_lang";              // language preference
                 style="width:100%;padding:11px 14px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:15px;font-weight:600;letter-spacing:1.5px;outline:none;box-sizing:border-box;margin-bottom:10px;"
                 onkeydown="if(event.key==='Enter') _mobileSendOTP()"/>
               <!-- Button full width below -->
-              <button id="_mobileSendOtpBtn" onclick="_mobileSendOTP()" style="width:100%;padding:11px;background:linear-gradient(135deg,#f7a01a,#e8920a);color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(247,160,26,0.35);display:flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;margin-bottom:8px;">
+              <button id="_mobileSendOtpBtn" onclick="_mobileSendOTP()" style="width:100%;padding:11px;background:linear-gradient(135deg,#0F766E,#F59E0B);color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(15, 118, 110,0.35);display:flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;margin-bottom:8px;">
                 <i class="fa-solid fa-envelope"></i> Send OTP to Email
               </button>
               <div style="text-align:center;">
@@ -588,9 +588,9 @@ const _U_LANG    = _U_PREFIX + "_lang";              // language preference
               <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px;">
                 <span style="width:22px;height:22px;background:rgba(34,197,94,0.15);border-radius:50%;color:#16a34a;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;"><i class="fa-solid fa-check" style="font-size:9px;"></i></span>
                 <span style="font-size:11.5px;font-weight:600;color:#16a34a;">Number set</span>
-                <span style="flex:1;height:1.5px;background:linear-gradient(90deg,rgba(247,160,26,0.4),transparent);"></span>
-                <span style="width:22px;height:22px;background:linear-gradient(135deg,#f7a01a,#e8920a);border-radius:50%;color:#fff;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;">2</span>
-                <span style="font-size:11.5px;font-weight:600;color:#f7a01a;">Verify OTP</span>
+                <span style="flex:1;height:1.5px;background:linear-gradient(90deg,rgba(15, 118, 110,0.4),transparent);"></span>
+                <span style="width:22px;height:22px;background:linear-gradient(135deg,#0F766E,#F59E0B);border-radius:50%;color:#fff;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;">2</span>
+                <span style="font-size:11.5px;font-weight:600;color:#0F766E;">Verify OTP</span>
               </div>
               <!-- Email sent-to banner -->
               <div id="_mobileOtpEmailBanner" style="background:rgba(34,197,94,0.08);border:1.5px solid rgba(74,222,128,0.25);border-radius:9px;padding:9px 13px;display:flex;align-items:center;gap:9px;margin-bottom:12px;">
@@ -612,12 +612,12 @@ const _U_LANG    = _U_PREFIX + "_lang";              // language preference
               <!-- Resend row: countdown then resend button -->
               <div style="text-align:center;margin-bottom:4px;">
                 <span id="_mobileResendCountdown" style="font-size:12px;color:#94a3b8;"></span>
-                <button id="_mobileResendBtn" onclick="_mobileResendOTP()" style="display:none;padding:5px 14px;background:none;color:#f7a01a;border:1.5px solid #f7a01a;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:none;transition:background .2s;">
+                <button id="_mobileResendBtn" onclick="_mobileResendOTP()" style="display:none;padding:5px 14px;background:none;color:#0F766E;border:1.5px solid #0F766E;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:none;transition:background .2s;">
                   <i class="fa-solid fa-rotate-right" style="font-size:10px;"></i> Resend OTP
                 </button>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;">
-                <button onclick="_mobileGoToStep2()" style="padding:6px 12px;background:none;color:#3b82f6;border:none;font-size:12px;cursor:pointer;box-shadow:none;text-decoration:underline;display:inline-flex;align-items:center;gap:4px;"><i class="fa-solid fa-arrow-left" style="font-size:10px;"></i> Change number</button>
+                <button onclick="_mobileGoToStep2()" style="padding:6px 12px;background:none;color:#14B8A6;border:none;font-size:12px;cursor:pointer;box-shadow:none;text-decoration:underline;display:inline-flex;align-items:center;gap:4px;"><i class="fa-solid fa-arrow-left" style="font-size:10px;"></i> Change number</button>
                 <button onclick="document.getElementById('_mobileConfirmOverlay').remove()" style="padding:6px 12px;background:none;color:#94a3b8;border:none;font-size:12px;cursor:pointer;box-shadow:none;text-decoration:underline;">Cancel</button>
               </div>
             </div>
@@ -886,8 +886,8 @@ existing updateUser action. No new Apps Script action needed.
 ═══════════════════════════════════════════════════════════════ */
   function openChangePassword() {
     const html = `
-  <div class="_mhdr" style="background:linear-gradient(135deg,#2a0f00 0%,#3c1a00 60%,#2a0f00 100%);border-bottom:2px solid rgba(247,160,26,0.35);">
-    <h3 style="color:#fff;display:flex;align-items:center;gap:8px;"><span class="_u-icon-md"><i class="fa-solid fa-key" style="color:#f7a01a;font-size:13px;"></i></span> Change Password</h3>
+  <div class="_mhdr" style="background:linear-gradient(135deg,#0F172A 0%,#115E59 60%,#0F172A 100%);border-bottom:2px solid rgba(15, 118, 110,0.35);">
+    <h3 style="color:#fff;display:flex;align-items:center;gap:8px;"><span class="_u-icon-md"><i class="fa-solid fa-key" style="color:#0F766E;font-size:13px;"></i></span> Change Password</h3>
     <button class="_mcls" onclick="closeModal()" style="color:rgba(255,255,255,0.6);font-size:20px;line-height:1;background:none;border:none;cursor:pointer;padding:0;">×</button>
   </div>
   <div class="_mbdy">
@@ -930,11 +930,11 @@ existing updateUser action. No new Apps Script action needed.
     </div>
     <div id="cp_msg" style="font-size:12px;min-height:18px;margin-bottom:4px;"></div>
   </div>
-  <div class="_mft" style="border-top:2px solid rgba(247,160,26,0.15);background:linear-gradient(90deg,rgba(247,160,26,0.04),transparent);">
+  <div class="_mft" style="border-top:2px solid rgba(15, 118, 110,0.15);background:linear-gradient(90deg,rgba(15, 118, 110,0.04),transparent);">
     <button class="_mbtn" style="background:#64748b;box-shadow:none;" onclick="closeModal()">
       Cancel
     </button>
-    <button class="_mbtn" id="cp_save_btn" style="background:linear-gradient(135deg,#f7a01a,#e8920a);box-shadow:0 3px 10px rgba(247,160,26,0.35);"
+    <button class="_mbtn" id="cp_save_btn" style="background:linear-gradient(135deg,#0F766E,#F59E0B);box-shadow:0 3px 10px rgba(15, 118, 110,0.35);"
       onclick="saveNewPassword()">
       <i class="fa-solid fa-key"></i> Update Password
     </button>
@@ -971,7 +971,7 @@ existing updateUser action. No new Apps Script action needed.
     if (/[0-9]/.test(val)) score++;
     if (/[^A-Za-z0-9]/.test(val)) score++;
     var pct = [0, 25, 50, 70, 85, 100][Math.min(score, 5)];
-    var color = score <= 1 ? "#ef4444" : score <= 2 ? "#f59e0b" : score <= 3 ? "#3b82f6" : "#22c55e";
+    var color = score <= 1 ? "#ef4444" : score <= 2 ? "#f59e0b" : score <= 3 ? "#14B8A6" : "#22c55e";
     bar.style.width = pct + "%";
     bar.style.background = color;
   }
@@ -1243,7 +1243,7 @@ existing updateUser action. No new Apps Script action needed.
     ov.id = "forcePwdOverlay";
     ov.style.cssText = [
       "position:fixed;inset:0;z-index:99999",
-      "background:linear-gradient(135deg,#1a0800 0%,#2d1200 50%,#1a0800 100%)",
+      "background:linear-gradient(135deg,#0F172A 0%,#1E1B4B 50%,#0F172A 100%)",
       "display:flex;align-items:center;justify-content:center",
       "padding:20px;box-sizing:border-box",
       "animation:fadeIn .35s ease"
@@ -1253,31 +1253,31 @@ existing updateUser action. No new Apps Script action needed.
       '<style>',
       '@keyframes fadeIn{from{opacity:0}to{opacity:1}}',
       '@keyframes slideUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}',
-      '#forcePwdCard{background:linear-gradient(160deg,#2d1a00,#1e1000);border:1.5px solid rgba(247,160,26,0.35);border-radius:24px;padding:32px 28px 28px;max-width:400px;width:100%;box-shadow:0 24px 80px rgba(0,0,0,0.6);animation:slideUp .4s cubic-bezier(.22,1,.36,1);}',
-      '#forcePwdCard input{width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1.5px solid rgba(247,160,26,0.25);border-radius:12px;color:#f1e8d8;font-size:15px;padding:12px 44px 12px 14px;outline:none;transition:border .2s;}',
-      '#forcePwdCard input:focus{border-color:rgba(247,160,26,0.7);}',
-      '#forcePwdCard input::placeholder{color:rgba(241,232,216,0.35);}',
-      '.fpwd-eye{position:absolute;right:13px;top:50%;transform:translateY(-50%);cursor:pointer;color:rgba(247,160,26,0.6);font-size:14px;}',
-      '.fpwd-eye:hover{color:#f7a01a;}',
+      '#forcePwdCard{background:linear-gradient(160deg,#0F172A,#1E1B4B);border:1.5px solid rgba(15, 118, 110,0.35);border-radius:24px;padding:32px 28px 28px;max-width:400px;width:100%;box-shadow:0 24px 80px rgba(0,0,0,0.6);animation:slideUp .4s cubic-bezier(.22,1,.36,1);}',
+      '#forcePwdCard input{width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1.5px solid rgba(15, 118, 110,0.25);border-radius:12px;color:#E2E8F0;font-size:15px;padding:12px 44px 12px 14px;outline:none;transition:border .2s;}',
+      '#forcePwdCard input:focus{border-color:rgba(15, 118, 110,0.7);}',
+      '#forcePwdCard input::placeholder{color:rgba(226,232,240,0.35);}',
+      '.fpwd-eye{position:absolute;right:13px;top:50%;transform:translateY(-50%);cursor:pointer;color:rgba(15, 118, 110,0.6);font-size:14px;}',
+      '.fpwd-eye:hover{color:#0F766E;}',
       '#fpwd_strength_bar{height:5px;border-radius:3px;transition:width .3s,background .3s;width:0%;}',
-      '#fpwd_save_btn{width:100%;padding:14px;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#f7a01a,#e8920a);color:#1a0800;box-shadow:0 4px 16px rgba(247,160,26,0.35);transition:opacity .2s;letter-spacing:.3px;}',
+      '#fpwd_save_btn{width:100%;padding:14px;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#0F766E,#F59E0B);color:#fff;box-shadow:0 4px 16px rgba(15, 118, 110,0.35);transition:opacity .2s;letter-spacing:.3px;}',
       '#fpwd_save_btn:disabled{opacity:.5;cursor:not-allowed;}',
       '#fpwd_save_btn:not(:disabled):hover{opacity:.88;}',
       '</style>',
       '<div id="forcePwdCard">',
         // Header
         '<div style="text-align:center;margin-bottom:24px;">',
-          '<div style="width:56px;height:56px;background:rgba(247,160,26,0.15);border:2px solid rgba(247,160,26,0.4);border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">',
-            '<i class="fa-solid fa-shield-halved" style="color:#f7a01a;font-size:24px;"></i>',
+          '<div style="width:56px;height:56px;background:rgba(15, 118, 110,0.15);border:2px solid rgba(15, 118, 110,0.4);border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">',
+            '<i class="fa-solid fa-shield-halved" style="color:#0F766E;font-size:24px;"></i>',
           '</div>',
-          '<div style="color:#f7a01a;font-size:20px;font-weight:700;margin-bottom:6px;">Set Your Password</div>',
-          '<div style="color:rgba(241,232,216,0.65);font-size:13px;line-height:1.6;">',
+          '<div style="color:#0F766E;font-size:20px;font-weight:700;margin-bottom:6px;">Set Your Password</div>',
+          '<div style="color:rgba(226,232,240,0.65);font-size:13px;line-height:1.6;">',
             'Your account is using a temporary password.<br>',
             'Please set a new secure password to continue.',
           '</div>',
         '</div>',
         // New Password
-        '<div style="margin-bottom:6px;color:rgba(241,232,216,0.7);font-size:12px;font-weight:600;letter-spacing:.4px;">NEW PASSWORD</div>',
+        '<div style="margin-bottom:6px;color:rgba(226,232,240,0.7);font-size:12px;font-weight:600;letter-spacing:.4px;">NEW PASSWORD</div>',
         '<div style="position:relative;margin-bottom:6px;">',
           '<input type="password" id="fpwd_new" placeholder="Enter new password" autocomplete="new-password" oninput="_fpwdStrength(this.value);_fpwdMatchCheck()" />',
           '<span class="fpwd-eye" onclick="_fpwdToggle(\'fpwd_new\',this)"><i class="fa-solid fa-eye"></i></span>',
@@ -1286,9 +1286,9 @@ existing updateUser action. No new Apps Script action needed.
         '<div style="background:rgba(255,255,255,0.08);border-radius:3px;margin-bottom:4px;overflow:hidden;">',
           '<div id="fpwd_strength_bar"></div>',
         '</div>',
-        '<div id="fpwd_strength_label" style="font-size:11px;color:rgba(241,232,216,0.45);margin-bottom:16px;min-height:16px;"></div>',
+        '<div id="fpwd_strength_label" style="font-size:11px;color:rgba(226,232,240,0.45);margin-bottom:16px;min-height:16px;"></div>',
         // Confirm Password
-        '<div style="margin-bottom:6px;color:rgba(241,232,216,0.7);font-size:12px;font-weight:600;letter-spacing:.4px;">CONFIRM PASSWORD</div>',
+        '<div style="margin-bottom:6px;color:rgba(226,232,240,0.7);font-size:12px;font-weight:600;letter-spacing:.4px;">CONFIRM PASSWORD</div>',
         '<div style="position:relative;margin-bottom:6px;">',
           '<input type="password" id="fpwd_confirm" placeholder="Repeat new password" autocomplete="new-password" oninput="_fpwdMatchCheck()" />',
           '<span class="fpwd-eye" onclick="_fpwdToggle(\'fpwd_confirm\',this)"><i class="fa-solid fa-eye"></i></span>',
@@ -1300,7 +1300,7 @@ existing updateUser action. No new Apps Script action needed.
         '<button id="fpwd_save_btn" onclick="_fpwdSave()">',
           '<i class="fa-solid fa-key"></i> Set New Password',
         '</button>',
-        '<div style="text-align:center;margin-top:14px;color:rgba(241,232,216,0.3);font-size:11px;">',
+        '<div style="text-align:center;margin-top:14px;color:rgba(226,232,240,0.3);font-size:11px;">',
           '🔒 You will be logged out after changing your password.',
         '</div>',
       '</div>'
@@ -1470,7 +1470,7 @@ existing updateUser action. No new Apps Script action needed.
     }
     if (count > maxDots) {
       var more = document.createElement("span");
-      more.style.cssText = "font-size:9px;font-weight:700;color:#b45309;font-family:var(--font-b);margin-left:2px;";
+      more.style.cssText = "font-size:9px;font-weight:700;color:#115E59;font-family:var(--font-b);margin-left:2px;";
       more.textContent = "+" + (count - maxDots);
       container.appendChild(more);
     }
@@ -1683,8 +1683,8 @@ existing updateUser action. No new Apps Script action needed.
     c.innerHTML = `<div class="sec-lbl"><i class="fa-solid fa-bullseye"></i> Mandir Goals</div>` +
       enabled.map(g => {
         let col = Number(g.CurrentAmount || 0), tgt = Number(g.TargetAmount || 1), pct = Math.min(100, Math.round(col / tgt * 100));
-        let bc = pct >= 100 ? "#22c55e" : pct >= 60 ? "#f7a01a" : "#ef4444";
-        let sp = pct >= 100 ? `<span class="goal-pill" style="background:rgba(34,197,94,0.13);color:#16a34a;">✓ Achieved</span>` : `<span class="goal-pill" style="background:rgba(247,160,26,0.12);color:#f7a01a;">${pct}% funded</span>`;
+        let bc = pct >= 100 ? "#22c55e" : pct >= 60 ? "#0F766E" : "#ef4444";
+        let sp = pct >= 100 ? `<span class="goal-pill" style="background:rgba(34,197,94,0.13);color:#16a34a;">✓ Achieved</span>` : `<span class="goal-pill" style="background:rgba(15, 118, 110,0.12);color:#0F766E;">${pct}% funded</span>`;
         return `<div class="goal-item" style="border-left-color:${bc};">
             <div class="goal-top"><div class="goal-name"><i class="fa-solid fa-bullseye" style="color:${bc};font-size:11px;"></i> ${escapeHtml(g.GoalName)}</div>${sp}</div>
             <div class="goal-track"><div class="goal-fill${pct >= 100 ? ' goal-fill--done' : ''}" style="width:${pct}%;background:linear-gradient(90deg,${bc}cc,${bc});"></div></div>
@@ -1712,7 +1712,7 @@ existing updateUser action. No new Apps Script action needed.
     const recent = showAll ? bs : bs.slice(0, 5);
     const tIco = { announcement: "📢", poll: "🗳️", innovation: "💡" };
     const tLbl = { announcement: "Announcement", poll: "Poll", innovation: "New Idea" };
-    const pC = { urgent: "#ef4444", important: "#f7a01a", normal: "#334155" };
+    const pC = { urgent: "#ef4444", important: "#0F766E", normal: "#334155" };
     const pB = { urgent: "#fee2e2", important: "#fef9ee", normal: "#f1f5f9" };
     const viewAllBtn = bs.length > 5
       ? '<button onclick="document.getElementById(\'broadcastContainer\').dataset.showAll=document.getElementById(\'broadcastContainer\').dataset.showAll===\'1\'?\'0\':\'1\';renderBroadcasts();" style="font-size:11px;background:none;border:1px solid var(--gold);color:var(--gold);border-radius:6px;padding:3px 10px;cursor:pointer;">' + (showAll ? 'Show Less' : 'View All (' + bs.length + ')') + '</button>'
@@ -1722,7 +1722,7 @@ existing updateUser action. No new Apps Script action needed.
       const bPriority = b.priority || "normal";
       const cls = b.type === "poll" ? "poll" : b.type === "innovation" ? "innovation" : bPriority === "urgent" ? "urgent" : bPriority === "important" ? "important" : "";
       const pollBtns = b.type === "poll"
-        ? '<div style="margin-top:9px;display:flex;gap:7px;flex-wrap:wrap;"><span style="background:rgba(34,197,94,0.12);color:#16a34a;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">✅ Yes</span><span style="background:rgba(239,68,68,0.10);color:#ef4444;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">❌ No</span><span style="background:rgba(247,160,26,0.10);color:#f7a01a;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">💬 Suggestion</span></div>'
+        ? '<div style="margin-top:9px;display:flex;gap:7px;flex-wrap:wrap;"><span style="background:rgba(34,197,94,0.12);color:#16a34a;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">✅ Yes</span><span style="background:rgba(239,68,68,0.10);color:#ef4444;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">❌ No</span><span style="background:rgba(15, 118, 110,0.10);color:#0F766E;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">💬 Suggestion</span></div>'
         : '';
       return '<div class="bc-item ' + cls + '">'
         + '<div class="bc-meta">'
@@ -1763,7 +1763,7 @@ existing updateUser action. No new Apps Script action needed.
             <span class="s-lbl">${m}</span><span class="s-val" style="font-size:12px;">₹ ${fmt(mM[m])}</span>
           </div>
           <div style="background:var(--bg2);border-radius:4px;height:5px;overflow:hidden;">
-            <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--gold),#e8920a);border-radius:4px;transition:width 1s cubic-bezier(.4,0,.2,1);"></div>
+            <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--gold),#F59E0B);border-radius:4px;transition:width 1s cubic-bezier(.4,0,.2,1);"></div>
           </div>
         </div>`;
       }).join("") ||
@@ -2047,6 +2047,10 @@ existing updateUser action. No new Apps Script action needed.
     if (id === "panelEvents" && !_eventsLoaded) {
       _loadUserEvents(); _eventsLoaded = true;
     }
+    if (id === "panelMaintenance") {
+      if (typeof hmRenderIssues === "function") hmRenderIssues();
+      if (typeof hmRenderBills === "function") hmRenderBills();
+    }
     if (id === "panelPayment") {
       try { _loadUserContribRequests(); } catch(e) { console.error("[panelPayment] _loadUserContribRequests failed:", e); }
     }
@@ -2166,7 +2170,8 @@ existing updateUser action. No new Apps Script action needed.
     panelEvents:   { icon: "fa-calendar-star",        title: "Events & Festivals" },
     panelPayment:  { icon: "fa-hand-holding-dollar",  title: "Submit Payment" },
     panelFeedback: { icon: "fa-comment-dots",         title: "Feedback" },
-    panelContact:  { icon: "fa-phone",                title: "Temple Contact" },
+    panelMaintenance: { icon: "fa-screwdriver-wrench", title: "Maintenance & Bills" },
+    panelContact:  { icon: "fa-phone",                title: "Household Contact" },
   };
 
   // ── Open bottom sheet with panel content
@@ -2418,7 +2423,7 @@ existing updateUser action. No new Apps Script action needed.
       if (c.UtrRef) tipRows.push(["UTR/Ref", escapeHtml(c.UtrRef)]);
       if (c.Note) tipRows.push(["Note", escapeHtml(c.Note)]);
       var tipHtml = tipRows.map(function(r) {
-        return '<div style="display:flex;justify-content:space-between;gap:12px;padding:3px 0;border-bottom:1px solid rgba(247,160,26,0.08);">'
+        return '<div style="display:flex;justify-content:space-between;gap:12px;padding:3px 0;border-bottom:1px solid rgba(15, 118, 110,0.08);">'
           + '<span style="color:var(--ink-faint);font-size:10px;white-space:nowrap;">' + r[0] + '</span>'
           + '<span style="font-weight:600;font-size:11px;color:var(--ink);">' + r[1] + '</span>'
           + '</div>';
@@ -2434,7 +2439,7 @@ existing updateUser action. No new Apps Script action needed.
         + '<div class="ra-status" style="color:' + statusColor + ';font-size:10px;">' + escapeHtml(status) + '</div>'
         + '</div>'
         + '<div class="ra-tooltip">'
-        + '<div style="font-family:var(--font-h);font-size:11px;font-weight:700;color:var(--gold);margin-bottom:6px;padding-bottom:5px;border-bottom:1.5px solid rgba(247,160,26,0.2);">Transaction Details</div>'
+        + '<div style="font-family:var(--font-h);font-size:11px;font-weight:700;color:var(--gold);margin-bottom:6px;padding-bottom:5px;border-bottom:1.5px solid rgba(15, 118, 110,0.2);">Transaction Details</div>'
         + tipHtml
         + '</div>'
         + '</div>';
@@ -2454,7 +2459,7 @@ existing updateUser action. No new Apps Script action needed.
     var rowsHtml = Array.from(rows).map(function(r) {
       var label = r.children[0] ? r.children[0].textContent : '';
       var value = r.children[1] ? r.children[1].textContent : '';
-      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(247,160,26,0.1);">'
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(15, 118, 110,0.1);">'
         + '<span style="font-size:12px;color:var(--ink-faint);font-weight:500;">' + label + '</span>'
         + '<span style="font-size:13px;font-weight:700;color:var(--ink);max-width:60%;word-break:break-word;">' + value + '</span>'
         + '</div>';
@@ -2465,11 +2470,11 @@ existing updateUser action. No new Apps Script action needed.
     var overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.55);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);animation:fadeInBg .2s ease;';
     overlay.innerHTML = '<div style="background:' + bgCard + ';width:100%;max-width:480px;border-radius:20px 20px 0 0;padding:0 0 20px;box-shadow:0 -8px 40px rgba(0,0,0,0.3);animation:slideUpSheet .22s ease;">'
-      + '<div style="width:40px;height:4px;background:rgba(247,160,26,0.35);border-radius:2px;margin:10px auto 0;"></div>'
-      + '<div style="background:linear-gradient(135deg,#2a0f00,#3c1a00);padding:13px 16px 11px;margin:8px 0 0;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid rgba(247,160,26,0.3);">'
+      + '<div style="width:40px;height:4px;background:rgba(15, 118, 110,0.35);border-radius:2px;margin:10px auto 0;"></div>'
+      + '<div style="background:linear-gradient(135deg,#0F172A,#115E59);padding:13px 16px 11px;margin:8px 0 0;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid rgba(15, 118, 110,0.3);">'
       + '<div style="display:flex;align-items:center;gap:9px;">'
-      + '<div style="width:30px;height:30px;background:rgba(247,160,26,0.18);border-radius:8px;display:flex;align-items:center;justify-content:center;">'
-      + '<i class="fa-solid fa-receipt" style="color:#f7a01a;font-size:0.8rem;"></i></div>'
+      + '<div style="width:30px;height:30px;background:rgba(15, 118, 110,0.18);border-radius:8px;display:flex;align-items:center;justify-content:center;">'
+      + '<i class="fa-solid fa-receipt" style="color:#0F766E;font-size:0.8rem;"></i></div>'
       + '<span style="font-family:var(--font-h);font-weight:700;font-size:14px;color:#fff;">Transaction Details</span>'
       + '</div>'
       + '<button onclick="document.querySelector(\\"[data-ra-modal]\\").remove()" style="background:rgba(255,255,255,0.1);border:none;color:rgba(255,255,255,0.7);width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;">&#x2715;</button>'
@@ -2525,11 +2530,11 @@ existing updateUser action. No new Apps Script action needed.
     doc.setFillColor(42, 15, 0);
     doc.rect(0, 0, w, 32, "F");
     // Gold accent line
-    doc.setFillColor(247, 160, 26);
+    doc.setFillColor(15, 118, 110);
     doc.rect(0, 32, w, 1.2, "F");
 
     // Temple name
-    doc.setTextColor(247, 160, 26);
+    doc.setTextColor(15, 118, 110);
     doc.setFontSize(15); doc.setFont(undefined, "bold");
     doc.text(APP.name.toUpperCase(), w / 2, 10, { align: "center" });
 
@@ -2546,7 +2551,7 @@ existing updateUser action. No new Apps Script action needed.
     let Y = 40;
     doc.setFillColor(253, 248, 240);
     doc.rect(10, Y - 5, w - 20, 22, "F");
-    doc.setDrawColor(247, 160, 26);
+    doc.setDrawColor(15, 118, 110);
     doc.setLineWidth(0.4);
     doc.rect(10, Y - 5, w - 20, 22);
 
@@ -2587,7 +2592,7 @@ existing updateUser action. No new Apps Script action needed.
     // Total summary pill
     doc.setFillColor(42, 15, 0);
     doc.roundedRect(14, Y - 4, 80, 10, 2, 2, "F");
-    doc.setTextColor(247, 160, 26);
+    doc.setTextColor(15, 118, 110);
     doc.setFontSize(9); doc.setFont(undefined, "bold");
     doc.text(`Total: Rs. ${tot.toLocaleString("en-IN")}  (${filtered.length} record${filtered.length !== 1 ? "s" : ""})`, 18, Y + 2.5);
 
@@ -2606,7 +2611,7 @@ existing updateUser action. No new Apps Script action needed.
         head: [["#", "Amount (Rs.)", "Month", "Year", "Type", "Tracking ID", "Date"]],
         body: rows, startY: Y,
         theme: "grid",
-        headStyles: { fillColor: [42, 15, 0], textColor: [247, 160, 26], fontStyle: "bold", fontSize: 9 },
+        headStyles: { fillColor: [42, 15, 0], textColor: [15, 118, 110], fontStyle: "bold", fontSize: 9 },
         styles: { fontSize: 8.5, cellPadding: 3, textColor: [30, 41, 59] },
         columnStyles: { 0: { cellWidth: 8 }, 1: { cellWidth: 26 }, 5: { cellWidth: 36 } },
         alternateRowStyles: { fillColor: [253, 248, 240] },
@@ -2627,7 +2632,7 @@ existing updateUser action. No new Apps Script action needed.
       let ph = doc.internal.pageSize.getHeight();
       doc.setFillColor(42, 15, 0);
       doc.rect(0, ph - 10, w, 10, "F");
-      doc.setFillColor(247, 160, 26);
+      doc.setFillColor(15, 118, 110);
       doc.rect(0, ph - 10, w, 0.8, "F");
       doc.setFontSize(6.5); doc.setTextColor(180, 140, 80); doc.setFont(undefined, "normal");
       doc.text((APP.name + ", " + APP.location + "  ·  " + APP.footerNote).toUpperCase(), w / 2, ph - 4, { align: "center" });
@@ -2688,7 +2693,7 @@ Uses jsPDF already loaded. No server call needed.
       });
 
       const INK = [30, 41, 59];
-      const GOLD = [247, 160, 26];
+      const GOLD = [15, 118, 110];
       const WHITE = [255, 255, 255];
       const LIGHT = [248, 250, 252];
       const MUTED = [100, 116, 139];
@@ -2870,7 +2875,7 @@ Uses jsPDF already loaded. No server call needed.
       if (ov && errEl) {
         if (loadEl) loadEl.style.display = "none";
         errEl.classList.add("show");
-        if (reason) reason.innerHTML = "<strong style='color:#78350f;'>⚠️ App Failed to Load</strong><br/><span>A required script could not be loaded. Check your connection and tap Retry, or try a hard refresh.</span>";
+        if (reason) reason.innerHTML = "<strong style='color:#B91C1C;'>⚠️ App Failed to Load</strong><br/><span>A required script could not be loaded. Check your connection and tap Retry, or try a hard refresh.</span>";
         ov.classList.add("show");
       }
     })();
@@ -2908,7 +2913,7 @@ Uses jsPDF already loaded. No server call needed.
           + " | Amount: Rs." + Number(stored.c.Amount || 0).toLocaleString("en-IN")
           + " | Month: " + (stored.c.ForMonth || "") + " " + (stored.c.Year || "")
           + " | Date: " + formatPaymentDate(stored.c.PaymentDate)
-          + " | Mandir: " + APP.name + ", " + APP.location;
+          + " | Home: " + APP.name + ", " + APP.location;
       }
       if (_origQR) return _origQR(richText, sizePx);
       return null;
@@ -2931,7 +2936,7 @@ Uses jsPDF already loaded. No server call needed.
       const hdrBand = modal.querySelector("[data-receipt-header]") ||
                       modal.firstElementChild;
       if (hdrBand) {
-        hdrBand.style.background = "linear-gradient(135deg,#2a0f00 0%,#3c1a00 60%,#2a0f00 100%)";
+        hdrBand.style.background = "linear-gradient(135deg,#0F172A 0%,#115E59 60%,#0F172A 100%)";
       }
     }, 30);
   };
@@ -3024,7 +3029,7 @@ Uses jsPDF already loaded. No server call needed.
           return dt.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
         } catch (e) { return String(d); }
       }
-      const catColors = { Festival: "#f7a01a", Pooja: "#8b5cf6", Maintenance: "#64748b", Community: "#22c55e", Other: "#3b82f6" };
+      const catColors = { Festival: "#0F766E", Pooja: "#8b5cf6", Maintenance: "#64748b", Community: "#22c55e", Other: "#14B8A6" };
       const catIcons = { Festival: "fa-holly-berry", Pooja: "fa-hands-praying", Maintenance: "fa-screwdriver-wrench", Community: "fa-people-group", Other: "fa-calendar-day" };
       container.innerHTML = visible.map(function (ev) {
         // Whitelist category — only use known keys, fall back to "Other" for unknown server values
@@ -3112,7 +3117,7 @@ Uses jsPDF already loaded. No server call needed.
     const bgPage = isDark ? "rgba(0,0,0,0.75)" : "rgba(0,0,0,0.55)";
     const txtSub  = isDark ? "#94a3b8" : "#64748b";
     const txtMain = isDark ? "#f1f5f9" : "#141b2d";
-    const borderC = isDark ? "rgba(247,160,26,0.22)" : "rgba(247,160,26,0.18)";
+    const borderC = isDark ? "rgba(15, 118, 110,0.22)" : "rgba(15, 118, 110,0.18)";
     const dividerC = isDark ? "rgba(255,255,255,0.07)" : "#f1f5f9";
     const isAnnual = type === "annual";
     const iconClass = isAnnual ? "fa-file-invoice" : "fa-file-pdf";
@@ -3125,21 +3130,21 @@ Uses jsPDF already loaded. No server call needed.
       <div style="background:${bgCard};border-radius:20px;max-width:370px;width:100%;box-shadow:0 24px 80px rgba(0,0,0,0.45);border:1.5px solid ${borderC};overflow:hidden;animation:dropFade .2s ease;">
 
         <!-- Header -->
-        <div style="background:linear-gradient(135deg,#2a0f00 0%,#3c1a00 60%,#2a0f00 100%);padding:16px 18px;display:flex;align-items:center;gap:11px;border-bottom:2px solid rgba(247,160,26,0.35);">
-          <div style="width:38px;height:38px;background:rgba(247,160,26,0.18);border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-            <i class="fa-solid ${iconClass}" style="color:#f7a01a;font-size:1rem;"></i>
+        <div style="background:linear-gradient(135deg,#0F172A 0%,#115E59 60%,#0F172A 100%);padding:16px 18px;display:flex;align-items:center;gap:11px;border-bottom:2px solid rgba(15, 118, 110,0.35);">
+          <div style="width:38px;height:38px;background:rgba(15, 118, 110,0.18);border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <i class="fa-solid ${iconClass}" style="color:#0F766E;font-size:1rem;"></i>
           </div>
           <div class="_u-flex-1">
             <div style="font-weight:700;font-size:13.5px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${title}</div>
-            <div style="font-size:10px;color:rgba(247,160,26,0.65);margin-top:1px;">Download confirmation</div>
+            <div style="font-size:10px;color:rgba(15, 118, 110,0.65);margin-top:1px;">Download confirmation</div>
           </div>
           <button onclick="document.getElementById('_pdfConfirmOverlay').remove()" style="background:none;border:none;color:rgba(255,255,255,0.45);font-size:17px;cursor:pointer;padding:0;margin-left:4px;box-shadow:none;line-height:1;flex-shrink:0;">✕</button>
         </div>
 
         <!-- Confirmation message -->
         <div style="padding:20px 18px 6px;text-align:center;">
-          <div style="width:52px;height:52px;background:rgba(247,160,26,0.12);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
-            <i class="fa-solid fa-file-arrow-down" style="color:#f7a01a;font-size:1.4rem;"></i>
+          <div style="width:52px;height:52px;background:rgba(15, 118, 110,0.12);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
+            <i class="fa-solid fa-file-arrow-down" style="color:#0F766E;font-size:1.4rem;"></i>
           </div>
           <div style="font-size:15px;font-weight:700;color:${txtMain};margin-bottom:8px;">Download PDF?</div>
           <div style="font-size:12.5px;color:${txtSub};line-height:1.7;margin-bottom:4px;">
@@ -3148,7 +3153,7 @@ Uses jsPDF already loaded. No server call needed.
               : `Your <strong style="color:${txtMain};">Full Contribution History</strong> will be downloaded as a PDF — includes all records based on your current filters. Useful for auditing or personal archives.`
             }
           </div>
-          <div style="display:inline-flex;align-items:center;gap:5px;margin-top:8px;background:rgba(247,160,26,0.08);border:1px solid rgba(247,160,26,0.18);border-radius:8px;padding:5px 11px;">
+          <div style="display:inline-flex;align-items:center;gap:5px;margin-top:8px;background:rgba(15, 118, 110,0.08);border:1px solid rgba(15, 118, 110,0.18);border-radius:8px;padding:5px 11px;">
             <i class="fa-solid fa-shield-halved" class="_u-gold-icon-xs"></i>
             <span style="font-size:10.5px;color:${txtSub};font-weight:500;">Saved directly to your device</span>
           </div>
@@ -3161,7 +3166,7 @@ Uses jsPDF already loaded. No server call needed.
             <i class="fa-solid fa-xmark" style="font-size:12px;"></i> No
           </button>
           <button id="_pdfConfirmBtn" onclick="_doPdfDownload('${type}')"
-            style="min-width:140px;padding:12px 20px;background:linear-gradient(135deg,#f7a01a,#e8920a);color:#fff;border:none;border-radius:11px;font-family:var(--font-b);font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(247,160,26,0.38);display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+            style="min-width:140px;padding:12px 20px;background:linear-gradient(135deg,#0F766E,#F59E0B);color:#fff;border:none;border-radius:11px;font-family:var(--font-b);font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(15, 118, 110,0.38);display:inline-flex;align-items:center;justify-content:center;gap:6px;">
             <i class="fa-solid fa-download" style="font-size:12px;"></i> Yes, Download
           </button>
         </div>
@@ -3209,10 +3214,10 @@ Uses jsPDF already loaded. No server call needed.
       // ── EXACT SAME header as exportPDF ──
       doc.setFillColor(42, 15, 0);
       doc.rect(0, 0, w, 32, "F");
-      doc.setFillColor(247, 160, 26);
+      doc.setFillColor(15, 118, 110);
       doc.rect(0, 32, w, 1.2, "F");
 
-      doc.setTextColor(247, 160, 26);
+      doc.setTextColor(15, 118, 110);
       doc.setFontSize(15); doc.setFont(undefined, "bold");
       doc.text(APP.name.toUpperCase(), w / 2, 10, { align: "center" });
 
@@ -3221,7 +3226,7 @@ Uses jsPDF already loaded. No server call needed.
       doc.text(APP.address, w / 2, 16, { align: "center" });
       doc.text("ANNUAL CONTRIBUTION STATEMENT — " + yr + " — OFFICIAL DOCUMENT", w / 2, 21, { align: "center" });
 
-      doc.setTextColor(247, 160, 26);
+      doc.setTextColor(15, 118, 110);
       doc.setFontSize(18);
       // OM symbol removed per user request
 
@@ -3229,7 +3234,7 @@ Uses jsPDF already loaded. No server call needed.
       let Y = 40;
       doc.setFillColor(253, 248, 240);
       doc.rect(10, Y - 5, w - 20, 22, "F");
-      doc.setDrawColor(247, 160, 26);
+      doc.setDrawColor(15, 118, 110);
       doc.setLineWidth(0.4);
       doc.rect(10, Y - 5, w - 20, 22);
 
@@ -3253,7 +3258,7 @@ Uses jsPDF already loaded. No server call needed.
       // ── EXACT SAME total summary pill as exportPDF ──
       doc.setFillColor(42, 15, 0);
       doc.roundedRect(14, Y - 4, 80, 10, 2, 2, "F");
-      doc.setTextColor(247, 160, 26);
+      doc.setTextColor(15, 118, 110);
       doc.setFontSize(9); doc.setFont(undefined, "bold");
       doc.text(`Total: Rs. ${tot.toLocaleString("en-IN")}  (${filtered.length} record${filtered.length !== 1 ? "s" : ""})`, 18, Y + 2.5);
 
@@ -3272,7 +3277,7 @@ Uses jsPDF already loaded. No server call needed.
           head: [["#", "Amount (Rs.)", "Month", "Year", "Type", "Tracking ID", "Date"]],
           body: rows, startY: Y,
           theme: "grid",
-          headStyles: { fillColor: [42, 15, 0], textColor: [247, 160, 26], fontStyle: "bold", fontSize: 9 },
+          headStyles: { fillColor: [42, 15, 0], textColor: [15, 118, 110], fontStyle: "bold", fontSize: 9 },
           styles: { fontSize: 8.5, cellPadding: 3, textColor: [30, 41, 59] },
           columnStyles: { 0: { cellWidth: 8 }, 1: { cellWidth: 26 }, 5: { cellWidth: 36 } },
           alternateRowStyles: { fillColor: [253, 248, 240] },
@@ -3289,7 +3294,7 @@ Uses jsPDF already loaded. No server call needed.
         let ph = doc.internal.pageSize.getHeight();
         doc.setFillColor(42, 15, 0);
         doc.rect(0, ph - 10, w, 10, "F");
-        doc.setFillColor(247, 160, 26);
+        doc.setFillColor(15, 118, 110);
         doc.rect(0, ph - 10, w, 0.8, "F");
         doc.setFontSize(6.5); doc.setTextColor(180, 140, 80); doc.setFont(undefined, "normal");
         doc.text((APP.name + ", " + APP.location + "  ·  " + APP.footerNote).toUpperCase(), w / 2, ph - 4, { align: "center" });
@@ -3390,10 +3395,10 @@ if (isDark) {
     ["#menuTitle-panelStats",               "Statistics",                 "आंकड़े"],
     ["#menuDesc-panelStats",                "Month-wise & type breakdown","माहवार और प्रकार अनुसार विवरण"],
     ["#menuTitle-panelEvents",              "Events & Festivals",         "कार्यक्रम और त्योहार"],
-    ["#menuDesc-panelEvents",               "Upcoming · ongoing temple events","आगामी · चल रहे मंदिर कार्यक्रम"],
+    ["#menuDesc-panelEvents",               "Upcoming · ongoing household events","आगामी घरेलू कार्यक्रम"],
     ["#menuTitle-panelFeedback",            "Feedback",                   "सुझाव / प्रतिक्रिया"],
-    ["#menuDesc-panelFeedback",             "Share suggestions with temple admin","मंदिर प्रशासन को सुझाव दें"],
-    ["#menuTitle-panelContact",             "Temple Contact",             "मंदिर संपर्क"],
+    ["#menuDesc-panelFeedback",             "Share suggestions with household admin","घर प्रशासन को सुझाव दें"],
+    ["#menuTitle-panelContact",             "Household Contact",             "घर से संपर्क"],
     ["#menuDesc-panelContact",              "Phone, email & address",     "फ़ोन, ईमेल और पता"],
     // Dropdown menu items
     ["#dropItem-profile",                   "My Profile",                 "मेरी प्रोफ़ाइल"],
@@ -3414,8 +3419,8 @@ if (isDark) {
     "Submit Payment Request":   "भुगतान अनुरोध जमा करें",
     "My Payment Requests":      "मेरे भुगतान अनुरोध",
     "Submit Feedback":          "सुझाव / प्रतिक्रिया दें",
-    "Temple Contact":           "मंदिर संपर्क",
-    "Mandir Goals":             "मंदिर लक्ष्य",
+    "Household Contact":           "घर से संपर्क",
+    "Household Goals":             "घर के लक्ष्य",
     "Filter & Search":          "फ़िल्टर और खोज",
     // Card titles
     "Records":                  "रिकॉर्ड",
@@ -3658,14 +3663,14 @@ if (isDark) {
   // The duplicate window.load listener was removed to prevent double DOM writes.
 
 
-  function _populateTempleContact() {
-    const ph = document.getElementById("templePhone");
-    const em = document.getElementById("templeEmail");
-    const ad = document.getElementById("templeAddress");
+  function _populateHomeContact() {
+    const ph = document.getElementById("homePhone");
+    const em = document.getElementById("homeEmail");
+    const ad = document.getElementById("homeAddress");
     if (ph && APP.phone) { ph.textContent = APP.phone; ph.href = "tel:" + APP.phone; }
     if (em && APP.email) { em.textContent = APP.email; em.href = "mailto:" + APP.email; }
     if (ad && APP.address) {
-      const adText = document.getElementById("templeAddressText");
+      const adText = document.getElementById("homeAddressText");
       if (adText) adText.textContent = APP.address;
       ad.href = "https://www.google.com/maps/search/" + encodeURIComponent(APP.address);
     }
@@ -3698,7 +3703,7 @@ if (isDark) {
       PAYMENT_MODES.forEach(m => { const o = document.createElement("option"); o.value = m; o.textContent = m; prMode.appendChild(o); });
     }
   }
-  window.addEventListener("load", _populateTempleContact);
+  window.addEventListener("load", _populateHomeContact);
 
   // ── M4: Handle payment slip file selection
   let _prSlipB64 = "";
@@ -3847,7 +3852,7 @@ if (isDark) {
           actionBtns = `
               <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
                 ${slipUrl ? `<button class="btn-sm btn-blue" onclick="previewContribSlip('${slipUrl}')" style="font-size:11px;padding:6px 12px;border-radius:20px;"><i class="fa-solid fa-image"></i> Preview Slip</button>` : ""}
-                <button class="btn-sm req-edit-btn" onclick="_editBtnClick(this,'${reqId}')" style="font-size:11px;padding:6px 14px;border-radius:20px;background:linear-gradient(135deg,#2a0f00,#3c1a00);color:#f7a01a;border:1.5px solid rgba(247,160,26,0.35);font-weight:700;box-shadow:0 2px 8px rgba(42,15,0,0.2);transition:all 0.18s;"><i class="fa-solid fa-pen-to-square"></i> Edit Request</button>
+                <button class="btn-sm req-edit-btn" onclick="_editBtnClick(this,'${reqId}')" style="font-size:11px;padding:6px 14px;border-radius:20px;background:linear-gradient(135deg,#0F172A,#115E59);color:#0F766E;border:1.5px solid rgba(15, 118, 110,0.35);font-weight:700;box-shadow:0 2px 8px rgba(15,23,42,0.2);transition:all 0.18s;"><i class="fa-solid fa-pen-to-square"></i> Edit Request</button>
               </div>`;
         } else {
           actionBtns = "";
@@ -3873,7 +3878,7 @@ if (isDark) {
                 <div style="font-size:11px;font-weight:700;color:#991b1b;margin-bottom:${r.RejectionNote ? "4px" : "0"};">❌ This request was rejected by admin.</div>
                 ${r.RejectionNote ? `<div style="font-size:12px;color:#b91c1c;"><b>Reason:</b> ${escapeHtml(r.RejectionNote)}</div>` : `<div style="font-size:11px;color:#b91c1c;">No reason provided. Please contact admin.</div>`}
               </div>` : ""}
-              ${isPending ? `<div style="margin-top:6px;font-size:11.5px;color:#92400e;background:rgba(247,160,26,0.1);padding:6px 10px;border-radius:6px;">Admin will review and record this payment soon.</div>` : ""}
+              ${isPending ? `<div style="margin-top:6px;font-size:11.5px;color:#115E59;background:rgba(15, 118, 110,0.1);padding:6px 10px;border-radius:6px;">Admin will review and record this payment soon.</div>` : ""}
               ${isApproved ? `<div style="margin-top:6px;font-size:11.5px;color:#166534;background:rgba(34,197,94,0.1);padding:6px 10px;border-radius:6px;">✅ Verified and added to your Contribution Records above.</div>` : ""}
             </div>
           </div>`;
@@ -3885,7 +3890,7 @@ if (isDark) {
         <div class="card-body" style="text-align:center;padding:22px 16px;">
           <i class="fa-solid fa-circle-exclamation" style="font-size:1.4rem;color:#ef4444;display:block;margin-bottom:8px;"></i>
           <div style="font-size:13px;color:#ef4444;font-weight:600;margin-bottom:10px;">Could not load requests.</div>
-          <button onclick="_contribReqsLoaded=false;_loadUserContribRequests();" style="background:linear-gradient(135deg,#f7a01a,#e8920a);color:#fff;border:none;border-radius:20px;padding:7px 18px;font-size:12px;font-weight:700;cursor:pointer;">
+          <button onclick="_contribReqsLoaded=false;_loadUserContribRequests();" style="background:linear-gradient(135deg,#0F766E,#F59E0B);color:#fff;border:none;border-radius:20px;padding:7px 18px;font-size:12px;font-weight:700;cursor:pointer;">
             <i class="fa-solid fa-rotate-right"></i> Retry
           </button>
         </div>
@@ -3946,9 +3951,9 @@ if (isDark) {
     m.id = "_slipPreviewModal";
     m.style.cssText = "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;padding:20px;";
     m.innerHTML = `<div style="background:var(--white);border-radius:16px;max-width:540px;width:100%;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,0.45);">
-        <div style="padding:13px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(247,160,26,0.15);background:var(--bg);">
+        <div style="padding:13px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(15, 118, 110,0.15);background:var(--bg);">
           <span style="font-weight:700;font-size:14px;color:var(--ink);display:flex;align-items:center;gap:7px;"><i class="fa-solid fa-image" style="color:var(--gold);"></i> Payment Slip Preview</span>
-          <button onclick="document.getElementById('_slipPreviewModal').remove()" style="background:none;border:none;font-size:20px;color:var(--ink-faint);cursor:pointer;padding:0;box-shadow:none;line-height:1;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:6px;" onmouseover="this.style.background=document.body.classList.contains('user-dark')?'rgba(247,160,26,0.10)':'#f1f5f9'" onmouseout="this.style.background='none'">✕</button>
+          <button onclick="document.getElementById('_slipPreviewModal').remove()" style="background:none;border:none;font-size:20px;color:var(--ink-faint);cursor:pointer;padding:0;box-shadow:none;line-height:1;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:6px;" onmouseover="this.style.background=document.body.classList.contains('user-dark')?'rgba(15, 118, 110,0.10)':'#f1f5f9'" onmouseout="this.style.background='none'">✕</button>
         </div>
         <div style="background:#f8fafc;min-height:320px;display:flex;align-items:center;justify-content:center;position:relative;">
           ${isGDrive
@@ -3957,7 +3962,7 @@ if (isDark) {
       }
         </div>
         <div style="padding:11px 16px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #f0f3f9;">
-          <a href="${openUrl}" target="_blank" rel="noopener" style="font-size:12px;font-weight:600;color:#3b82f6;text-decoration:none;display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid #bfdbfe;border-radius:7px;background:#eff6ff;"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size:10px;"></i> Open in Drive</a>
+          <a href="${openUrl}" target="_blank" rel="noopener" style="font-size:12px;font-weight:600;color:#14B8A6;text-decoration:none;display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid #C7D2FE;border-radius:7px;background:#F0FDFA;"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size:10px;"></i> Open in Drive</a>
           <button onclick="document.getElementById('_slipPreviewModal').remove()" style="background:var(--ink-mid);color:#fff;font-size:12px;padding:7px 18px;border-radius:8px;">Close</button>
         </div>
       </div>`;
@@ -3989,7 +3994,7 @@ if (isDark) {
     m.id = "_editContribModal";
     m.style.cssText = "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;padding:16px;";
     m.innerHTML = `<div style="background:var(--white);border-radius:16px;max-width:480px;width:100%;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.35);">
-        <div style="padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(247,160,26,0.15);background:var(--bg);">
+        <div style="padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(15, 118, 110,0.15);background:var(--bg);">
           <span style="font-weight:700;font-size:14px;color:var(--ink);"><i class="fa-solid fa-pen-to-square" style="color:var(--gold);margin-right:6px;"></i>Edit Payment Request</span>
           <button onclick="document.getElementById('_editContribModal').remove()" style="background:none;border:none;font-size:18px;color:var(--ink-faint);cursor:pointer;padding:0;box-shadow:none;line-height:1;">✕</button>
         </div>
@@ -4026,7 +4031,7 @@ if (isDark) {
               </div>
               <input type="file" id="_ecr_slip" accept="image/*" style="display:none;" onchange="handleEditSlip(this)"/>
             </div>
-            ${req.SlipURL ? `<div style="margin-top:5px;"><button onclick="previewContribSlip('${escapeHtml(req.SlipURL)}')" style="background:none;border:1px solid #bfdbfe;color:#3b82f6;font-size:11px;padding:4px 10px;border-radius:6px;box-shadow:none;"><i class="fa-solid fa-eye"></i> Preview current slip</button></div>` : ""}
+            ${req.SlipURL ? `<div style="margin-top:5px;"><button onclick="previewContribSlip('${escapeHtml(req.SlipURL)}')" style="background:none;border:1px solid #C7D2FE;color:#14B8A6;font-size:11px;padding:4px 10px;border-radius:6px;box-shadow:none;"><i class="fa-solid fa-eye"></i> Preview current slip</button></div>` : ""}
           </div>
           <div id="_ecr_msg" style="font-size:12px;display:none;padding:8px 12px;border-radius:7px;border-left:3px solid;"></div>
         </div>
@@ -4058,7 +4063,7 @@ if (isDark) {
       '@keyframes _bdayFadeIn{from{opacity:0}to{opacity:1}}',
       '@keyframes _bdayFadeOut{from{opacity:1}to{opacity:0}}',
       '@keyframes _bdayCardIn{from{opacity:0;transform:translateY(60px) scale(0.88)}to{opacity:1;transform:translateY(0) scale(1)}}',
-      '@keyframes _bdayGlow{0%,100%{box-shadow:0 0 35px rgba(247,160,26,0.3),0 20px 60px rgba(0,0,0,0.8)}50%{box-shadow:0 0 70px rgba(247,160,26,0.55),0 20px 60px rgba(0,0,0,0.8)}}',
+      '@keyframes _bdayGlow{0%,100%{box-shadow:0 0 35px rgba(15, 118, 110,0.3),0 20px 60px rgba(0,0,0,0.8)}50%{box-shadow:0 0 70px rgba(15, 118, 110,0.55),0 20px 60px rgba(0,0,0,0.8)}}',
       '@keyframes _bdayFlicker{0%,100%{transform:scaleY(1) scaleX(1);opacity:1}30%{transform:scaleY(1.12) scaleX(0.9);opacity:0.9}60%{transform:scaleY(0.92) scaleX(1.08);opacity:1}80%{transform:scaleY(1.06) scaleX(0.95);opacity:0.85}}',
       '@keyframes _bdayShine{0%{left:-120%}100%{left:220%}}',
       '@keyframes _bdayTimerShrink{from{width:100%}to{width:0%}}',
@@ -4075,28 +4080,28 @@ if (isDark) {
       /* ── Scroll wrapper for small screens ── */
       '#_bdayCelebScroll{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;-webkit-overflow-scrolling:touch;}',
       /* ── Card ── */
-      '#_bdayCelebCard{position:relative;z-index:2;background:linear-gradient(170deg,#3d1a00 0%,#260e00 55%,#160700 100%);border:1.5px solid rgba(247,160,26,0.5);border-radius:26px;padding:28px 24px 22px;max-width:370px;width:100%;text-align:center;animation:_bdayCardIn 0.65s cubic-bezier(.22,1,.36,1) 0.1s both,_bdayGlow 3s ease 0.8s infinite;flex-shrink:0;}',
+      '#_bdayCelebCard{position:relative;z-index:2;background:linear-gradient(170deg,#3d1a00 0%,#260e00 55%,#160700 100%);border:1.5px solid rgba(15, 118, 110,0.5);border-radius:26px;padding:28px 24px 22px;max-width:370px;width:100%;text-align:center;animation:_bdayCardIn 0.65s cubic-bezier(.22,1,.36,1) 0.1s both,_bdayGlow 3s ease 0.8s infinite;flex-shrink:0;}',
       /* ── Shine sweep ── */
-      '#_bdayCelebCard::after{content:"";position:absolute;top:0;left:-120%;width:55%;height:100%;background:linear-gradient(90deg,transparent,rgba(247,160,26,0.06),transparent);border-radius:26px;animation:_bdayShine 4s ease 1.2s infinite;pointer-events:none;}',
+      '#_bdayCelebCard::after{content:"";position:absolute;top:0;left:-120%;width:55%;height:100%;background:linear-gradient(90deg,transparent,rgba(15, 118, 110,0.06),transparent);border-radius:26px;animation:_bdayShine 4s ease 1.2s infinite;pointer-events:none;}',
       /* ── Content styles ── */
-      '._bday-om{font-size:1rem;color:rgba(247,160,26,0.65);letter-spacing:8px;margin-bottom:8px;display:block;}',
-      '._bday-divider{width:90px;height:1px;background:linear-gradient(90deg,transparent,rgba(247,160,26,0.55),transparent);margin:8px auto;}',
+      '._bday-om{font-size:1rem;color:rgba(15, 118, 110,0.65);letter-spacing:8px;margin-bottom:8px;display:block;}',
+      '._bday-divider{width:90px;height:1px;background:linear-gradient(90deg,transparent,rgba(15, 118, 110,0.55),transparent);margin:8px auto;}',
       '._bday-diyas{display:flex;justify-content:center;align-items:flex-end;gap:14px;margin:10px 0 4px;}',
       '._bday-diya{display:inline-block;line-height:1;}',
       '._bday-diya span{display:inline-block;animation:_bdayFlicker ease-in-out infinite;}',
       '._bday-diya:nth-child(1) span{font-size:1.8rem;animation-duration:1.4s;}',
       '._bday-diya:nth-child(2) span{font-size:2.3rem;animation-duration:1.1s;animation-delay:0.2s;}',
       '._bday-diya:nth-child(3) span{font-size:1.8rem;animation-duration:1.6s;animation-delay:0.5s;}',
-      '._bday-title{font-family:\'Sora\',sans-serif;font-size:1.5rem;font-weight:800;background:linear-gradient(135deg,#f7a01a 0%,#fde68a 50%,#f7a01a 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.25;margin:10px 0 2px;padding:0 4px;}',
-      '._bday-sub{font-size:0.72rem;font-weight:700;color:rgba(247,160,26,0.6);letter-spacing:2.5px;margin-bottom:10px;}',
+      '._bday-title{font-family:\'Sora\',sans-serif;font-size:1.5rem;font-weight:800;background:linear-gradient(135deg,#0F766E 0%,#99F6E4 50%,#0F766E 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.25;margin:10px 0 2px;padding:0 4px;}',
+      '._bday-sub{font-size:0.72rem;font-weight:700;color:rgba(15, 118, 110,0.6);letter-spacing:2.5px;margin-bottom:10px;}',
       '._bday-name{font-family:\'Sora\',sans-serif;font-size:1.1rem;font-weight:700;color:#fff;margin-bottom:3px;}',
-      '._bday-sanskrit{font-size:10.5px;color:rgba(247,160,26,0.6);letter-spacing:0.8px;margin-bottom:10px;font-style:italic;line-height:1.5;}',
+      '._bday-sanskrit{font-size:10.5px;color:rgba(15, 118, 110,0.6);letter-spacing:0.8px;margin-bottom:10px;font-style:italic;line-height:1.5;}',
       '._bday-msg{font-size:12.5px;color:rgba(255,255,255,0.8);line-height:1.78;margin-bottom:5px;padding:0 2px;}',
-      '._bday-msg2{font-size:11.5px;color:rgba(247,160,26,0.72);line-height:1.65;margin-bottom:18px;padding:0 2px;}',
-      '._bday-btn{background:linear-gradient(135deg,#f7a01a,#e8920a);color:#fff;border:none;border-radius:50px;padding:13px 40px;font-family:\'DM Sans\',sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 22px rgba(247,160,26,0.55);transition:transform 0.15s;}',
+      '._bday-msg2{font-size:11.5px;color:rgba(15, 118, 110,0.72);line-height:1.65;margin-bottom:18px;padding:0 2px;}',
+      '._bday-btn{background:linear-gradient(135deg,#0F766E,#F59E0B);color:#fff;border:none;border-radius:50px;padding:13px 40px;font-family:\'DM Sans\',sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 22px rgba(15, 118, 110,0.55);transition:transform 0.15s;}',
       '._bday-btn:active{transform:scale(0.95);}',
       '._bday-timer-wrap{height:3px;background:rgba(255,255,255,0.08);border-radius:3px;margin-top:16px;overflow:hidden;}',
-      '._bday-timer-fill{height:100%;background:linear-gradient(90deg,#f7a01a,#fde68a);border-radius:3px;animation:_bdayTimerShrink 18s linear forwards;}',
+      '._bday-timer-fill{height:100%;background:linear-gradient(90deg,#0F766E,#99F6E4);border-radius:3px;animation:_bdayTimerShrink 18s linear forwards;}',
       '._bday-petal{position:fixed;pointer-events:none;animation:_bdayPetal linear forwards;}',
       '._bday-spark{position:fixed;pointer-events:none;border-radius:50%;animation:_bdaySpark linear forwards;}',
       '</style>',
@@ -4104,9 +4109,9 @@ if (isDark) {
       /* ── Background layers ── */
       '<div id="_bdayCelebBg"></div>',
       /* Glowing orbs */
-      '<div class="_bday-orb" style="width:320px;height:320px;top:-80px;left:-80px;background:radial-gradient(circle,rgba(247,160,26,0.22),transparent 70%);animation-duration:5s;"></div>',
+      '<div class="_bday-orb" style="width:320px;height:320px;top:-80px;left:-80px;background:radial-gradient(circle,rgba(15, 118, 110,0.22),transparent 70%);animation-duration:5s;"></div>',
       '<div class="_bday-orb" style="width:260px;height:260px;bottom:-60px;right:-60px;background:radial-gradient(circle,rgba(180,60,0,0.28),transparent 70%);animation-duration:4s;animation-delay:1s;"></div>',
-      '<div class="_bday-orb" style="width:180px;height:180px;top:40%;left:60%;background:radial-gradient(circle,rgba(247,160,26,0.16),transparent 70%);animation-duration:6s;animation-delay:2s;"></div>',
+      '<div class="_bday-orb" style="width:180px;height:180px;top:40%;left:60%;background:radial-gradient(circle,rgba(15, 118, 110,0.16),transparent 70%);animation-duration:6s;animation-delay:2s;"></div>',
 
       /* ── Scroll wrapper ── */
       '<div id="_bdayCelebScroll">',
@@ -4125,7 +4130,7 @@ if (isDark) {
       '  <div class="_bday-sanskrit">~ ईश्वर की असीम कृपा सदा आप पर बनी रहे ~</div>',
       '  <div class="_bday-divider"></div>',
       '  <div class="_bday-msg" style="margin-top:10px;">भगवान की असीम कृपा और आशीर्वाद से आपका यह जन्मदिन मंगलमय हो। जीवन में सुख, समृद्धि और ईश्वर भक्ति सदैव बनी रहे। 🙏</div>',
-      '  <div class="_bday-msg2">मंदिर परिवार की ओर से हार्दिक शुभकामनाएं।<br>आप स्वस्थ रहें, प्रसन्न रहें, धन्य रहें। 🌺</div>',
+      '  <div class="_bday-msg2">परिवार की ओर से हार्दिक शुभकामनाएं।<br>आप स्वस्थ रहें, प्रसन्न रहें, धन्य रहें। 🌺</div>',
       '  <div class="_bday-divider"></div>',
       '  <button class="_bday-btn" style="margin-top:16px;" onclick="(function(){var o=document.getElementById(\'_bdayCelebOverlay\');if(o){o.style.animation=\'_bdayFadeOut 0.5s ease forwards\';setTimeout(function(){o.remove();},500);}})()">🙏 Jai Shri Ram &nbsp;🚩</button>',
       '  <div class="_bday-timer-wrap"><div class="_bday-timer-fill"></div></div>',
@@ -4159,7 +4164,7 @@ if (isDark) {
       // Floating particles
       var particles = [];
       for (var j = 0; j < 25; j++) {
-        particles.push({ x: Math.random() * 1, y: Math.random() * 1, vy: -(Math.random() * 0.0008 + 0.0003), r: Math.random() * 3 + 1.5, alpha: Math.random() * 0.5 + 0.3, color: Math.random() > 0.5 ? [247,160,26] : [253,230,138] });
+        particles.push({ x: Math.random() * 1, y: Math.random() * 1, vy: -(Math.random() * 0.0008 + 0.0003), r: Math.random() * 3 + 1.5, alpha: Math.random() * 0.5 + 0.3, color: Math.random() > 0.5 ? [15, 118, 110] : [143,185,168] });
       }
 
       var frame = 0;
@@ -4176,7 +4181,7 @@ if (isDark) {
           var alpha = (Math.sin(s.phase) + 1) / 2 * 0.7 + 0.1;
           ctx.beginPath();
           ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(253,230,138," + alpha + ")";
+          ctx.fillStyle = "rgba(143,185,168," + alpha + ")";
           ctx.fill();
         }
 
@@ -4206,7 +4211,7 @@ if (isDark) {
     var _petalCount = _isLowEnd ? 12 : 30;
     var _sparkCount = _isLowEnd ? 18 : 45;
     var _petalEmoji = ["🌸","🌺","🌼","🪷","🌹","✨","🌻"];
-    var _sparkRgb = [[247,160,26],[253,230,138],[251,191,36],[255,255,255],[251,146,60]];
+    var _sparkRgb = [[15, 118, 110],[143,185,168],[251,191,36],[255,255,255],[251,146,60]];
 
     (function() {
       var pc = document.createElement("canvas");
