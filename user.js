@@ -3100,7 +3100,16 @@ Uses jsPDF already loaded. No server call needed.
   }
 
   // ── L12: Submit feedback
-  function submitFeedback() {
+  // FIX: made async so this ALWAYS returns a Promise — the button in user.html
+  // calls submitFeedback().finally(()=>_btnDone(...)); before this fix, the
+  // early "return;" on validation failure (or missing session) returned
+  // `undefined` instead of a Promise, so .finally() threw and _btnDone()
+  // never ran — that's why the submit button kept spinning forever.
+  // FIX: Name/Mobile/Address are now auto-filled from the logged-in user's
+  // own profile (same lookup pattern used elsewhere, e.g. openEditProfileDirect)
+  // instead of being sent blank — no need to ask a logged-in user to
+  // re-type details we already have.
+  async function submitFeedback() {
     const subject = (document.getElementById("fb_subject") || {}).value || "";
     const message = (document.getElementById("fb_message") || {}).value || "";
     const msgEl = document.getElementById("fbMsg");
@@ -3110,14 +3119,22 @@ Uses jsPDF already loaded. No server call needed.
     }
     const s = _sess();
     if (!s) return;
+
+    // Auto-fill from the logged-in member's own profile — already known, no need to ask again
+    const myProfile   = users.find(u => String(u.UserId) === String(s.userId));
+    const userName    = s.name || myProfile?.Name || "";
+    const userMobile  = myProfile?.Mobile || "";
+    const userAddress = myProfile?.Address || "";
+
     if (msgEl) { msgEl.textContent = "Submitting…"; msgEl.style.color = "var(--ink-soft)"; msgEl.style.display = "block"; }
-    postData({
-      action: "submitFeedback",
-      Name: s.name || "",
-      Mobile: "",
-      Address: "",
-      Message: (subject ? "[" + subject + "] " : "") + message
-    }).then(function (res) {
+    try {
+      const res = await postData({
+        action: "submitFeedback",
+        Name: userName,
+        Mobile: userMobile,
+        Address: userAddress,
+        Message: (subject ? "[" + subject + "] " : "") + message
+      });
       if (res && res.status === "success") {
         if (msgEl) { msgEl.textContent = "✅ Feedback submitted! Thank you."; msgEl.style.color = "#22c55e"; }
         document.getElementById("fb_subject").value = "";
@@ -3126,9 +3143,9 @@ Uses jsPDF already loaded. No server call needed.
       } else {
         if (msgEl) { msgEl.textContent = "❌ Could not submit. Please try again."; msgEl.style.color = "#e74c3c"; }
       }
-    }).catch(function (err) {
+    } catch (err) {
       if (msgEl) { msgEl.textContent = "❌ " + err.message; msgEl.style.color = "#e74c3c"; }
-    });
+    }
   }
 
   // ── M16: Direct edit profile shortcut
