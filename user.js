@@ -2093,7 +2093,7 @@ existing updateUser action. No new Apps Script action needed.
       if (placeholder) {
         var mapContainer = placeholder.parentNode;
         var iframe = document.createElement("iframe");
-        iframe.src = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3576.167950147388!2d82.20519597492734!3d26.321060585267084!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x399a790bd4e8dff3%3A0x93c61c2049ae55f2!2sHanuman%20Mandir!5e0!3m2!1sen!2sin!4v1776331902479!5m2!1sen!2sin";
+        iframe.src = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d849.8414927304128!2d82.2058416695775!3d26.316155998562984!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x399a79fe680ff1d7%3A0x6161b25ff92ace37!2sVishwakarma%20House!5e1!3m2!1sen!2sin!4v1783874146777!5m2!1sen!2sin";
         iframe.width = "100%";
         iframe.height = "100%";
         iframe.style.cssText = "border:0;vertical-align:middle;";

@@ -29,6 +29,7 @@ const CFG = {
   designation:   "Household Head",
   tagline:       "Jai Shree Ram",
   thankYouMsg:   "Thank you for your generous contribution",
+  websiteUrl:    "https://amar2796.github.io/Home_Maintenance/",   // TODO: replace with your live app URL — used as the "Open Website" button in emails
   // ── PUBLIC DISPLAY FIELDS (shown on homepage — change for any temple/institution)
   splashText:    "॥ जय श्री राम ॥",          // Splash screen greeting
   heroText:      "|| श्री हनुमत आश्रम ||",    // Hero section heading
@@ -606,7 +607,7 @@ function autoBackupSystem() {
           MailApp.sendEmail({
             to:       String(admin.Email).trim(),
             subject:  CFG.name + " — BACKUP FAILED " + Utilities.formatDate(new Date(), "GMT+5:30", "dd-MM-yyyy"),
-            htmlBody: "<h3 style='color:red;'>Automatic Backup Failed</h3><p>Error: " + err.message + "</p><p>Please backup manually from Google Sheets → File → Download.</p>"
+            htmlBody: "<div style='max-width:480px;margin:0 auto;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#fff;border-radius:14px;overflow:hidden;border:1px solid #e7ebe9;'><div style='background:#dc2626;padding:16px 24px;'><span style='color:#fff;font-size:15px;font-weight:700;'>Automatic Backup Failed</span></div><div style='padding:20px 24px;'><p style='color:#475569;font-size:13px;margin:0 0 8px;'>Error: " + err.message + "</p><p style='color:#64748b;font-size:12.5px;margin:0;'>Please backup manually from Google Sheets → File → Download.</p></div></div>"
           });
         } catch(mailErr) {}
       });
@@ -971,11 +972,98 @@ function _getLogoUrl() {
 function _logoHtml() {
   const url = _getLogoUrl();
   if (url) {
-    return `<img src="${url}" alt="${CFG.name}" width="60" height="60"
-              style="width:60px;height:60px;border-radius:50%;border:3px solid rgba(15,118,110,0.7);
-                     object-fit:cover;display:block;margin:0 auto 10px;">`;
+    return `<img src="${url}" alt="${CFG.name}" width="52" height="52"
+              style="width:52px;height:52px;border-radius:50%;border:2px solid rgba(255,255,255,0.85);
+                     object-fit:cover;display:block;margin:0 auto 12px;">`;
   }
-  return `<div style="font-size:36px;margin-bottom:10px;">${CFG.symbol||"🕉️"}</div>`;
+  return `<div style="width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,0.14);
+              display:flex;align-items:center;justify-content:center;margin:0 auto 12px;
+              font-size:24px;line-height:52px;text-align:center;">${CFG.symbol||"🕉️"}</div>`;
+}
+
+// ── Shared design tokens for a calmer, lighter email look ──
+const _EM = {
+  bg:      "#eef2f1",                 // soft neutral page background (was a loud 4-stop gradient)
+  brand:   "#0F766E",                 // single accent colour, used consistently
+  brandDk: "#0B5B54",
+  ink:     "#1e293b",
+  sub:     "#64748b",
+  faint:   "#94a3b8",
+  line:    "#e7ebe9",
+  panel:   "#f6f9f8",
+  card:    "#ffffff",
+  radius:  "14px"
+};
+
+// Shared header block — solid brand colour, no gradients, one badge.
+function _emHeader(badgeText, badgeColor, bgColor) {
+  const badge = badgeText
+    ? `<span style="display:inline-block;margin-top:14px;background:${badgeColor||"rgba(255,255,255,0.16)"};
+         color:#fff;padding:5px 16px;border-radius:20px;font-size:11px;font-weight:600;
+         letter-spacing:0.4px;">${badgeText}</span>`
+    : "";
+  return `<tr><td style="background:${bgColor||_EM.brand};padding:30px 32px 26px;text-align:center;">
+    ${_logoHtml()}
+    <div style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:0.3px;">${CFG.name.toUpperCase()}</div>
+    <div style="color:rgba(255,255,255,0.72);font-size:12px;margin-top:3px;">${CFG.location}</div>
+    ${badge}
+  </td></tr>`;
+}
+
+// Shared footer block — quiet, consistent across every email.
+function _emFooter(noteText) {
+  return `<tr><td style="background:${_EM.panel};padding:16px 32px;text-align:center;border-top:1px solid ${_EM.line};">
+    <div style="color:${_EM.sub};font-size:11px;font-weight:600;">${CFG.name}</div>
+    <div style="color:${_EM.faint};font-size:10.5px;margin-top:2px;">${CFG.address}</div>
+    ${noteText ? `<div style="color:${_EM.faint};font-size:10px;margin-top:8px;">${noteText}</div>` : ""}
+  </td></tr>`;
+}
+
+// Lighter-weight header/footer pair — used for reminder & birthday emails where
+// a quieter, more personal tone reads better than the full branded badge header.
+function _emHeadSimple(label) {
+  return `<tr><td style="background:${_EM.brand};padding:26px 32px 22px;text-align:center;">
+    ${_logoHtml()}
+    <div style="color:#ffffff;font-size:16px;font-weight:700;">${CFG.name}</div>
+    <div style="color:rgba(255,255,255,0.72);font-size:11.5px;margin-top:2px;">${CFG.location}</div>
+    ${label ? `<span style="display:inline-block;margin-top:14px;background:rgba(255,255,255,0.16);
+         color:#fff;padding:5px 16px;border-radius:20px;font-size:11px;font-weight:600;
+         letter-spacing:0.4px;">✓ ${label}</span>` : ""}
+  </td></tr>`;
+}
+function _emFooterSimple(noteText) {
+  return `<tr><td style="background:#fafafa;padding:14px 32px;text-align:center;border-top:1px solid #eef0ef;">
+    <div style="color:${_EM.faint};font-size:10.5px;">${CFG.name} &nbsp;|&nbsp; ${CFG.address}</div>
+    ${noteText ? `<div style="color:#c1c5c3;font-size:10px;margin-top:6px;">${noteText}</div>` : ""}
+  </td></tr>`;
+}
+
+// Button link — used on Approval / Admin-Added emails to open the app/website directly.
+function _emButton(text, url) {
+  if (!url) return "";
+  return `<tr><td style="padding:4px 32px 22px;text-align:center;">
+    <a href="${url}" target="_blank"
+       style="display:inline-block;background:${_EM.brand};color:#ffffff;text-decoration:none;
+              font-size:13px;font-weight:700;padding:11px 28px;border-radius:8px;">
+      ${text} →
+    </a>
+  </td></tr>`;
+}
+
+// Shared outer shell — one place controls page background, card width/shadow.
+function _emShell(innerWidth, bodyHtml) {
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/></head>
+<body style="margin:0;padding:0;background:${_EM.bg};font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:${_EM.bg};padding:36px 0;">
+<tr><td align="center">
+<table width="${innerWidth}" cellpadding="0" cellspacing="0" style="max-width:${innerWidth}px;width:92%;
+  background:${_EM.card};border-radius:${_EM.radius};overflow:hidden;
+  box-shadow:0 1px 3px rgba(15,23,42,0.06),0 8px 24px rgba(15,23,42,0.06);">
+  ${bodyHtml}
+</table>
+</td></tr></table>
+</body></html>`;
 }
 
 // ── Monthly receipt summary email (member contributed)
@@ -996,165 +1084,65 @@ function _buildMonthlyReceiptEmail(member, contribs, types, month, year, totalAm
       CFG.currencyText + " " + Number(c.Amount||0).toLocaleString("en-IN") + " · " + (c.PaymentMode||"") + " · " + payDateStr);
   }).join("");
 
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
-<body style="margin:0;padding:0;background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:30px 0;">
-<tr><td align="center">
-<table width="580" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.10);max-width:580px;width:100%;">
-  <tr><td style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:28px 32px 22px;text-align:center;border-top:4px solid #0F766E;">
-    ${_logoHtml()}
-    <div style="color:#0F766E;font-size:20px;font-weight:700;letter-spacing:1px;">${CFG.name.toUpperCase()}</div>
-    <div style="color:#94a3b8;font-size:12px;margin-top:4px;">${CFG.location}</div>
-    <div style="margin-top:12px;">
-      <span style="background:#22c55e;color:#fff;padding:4px 16px;border-radius:20px;font-size:11px;font-weight:700;">✓ MONTHLY CONTRIBUTION SUMMARY</span>
+  const body = `
+  ${_emHeader("✓ MONTHLY SUMMARY")}
+  <tr><td style="padding:10px 32px 0;text-align:center;">
+    <div style="color:${_EM.sub};font-size:12px;margin-top:14px;">${month} ${year} — Personal summary for
+      <strong style="color:${_EM.ink};">${member.Name}</strong>
     </div>
   </td></tr>
-  <tr><td style="background:linear-gradient(90deg,#F0FDFA,#99F6E4,#F0FDFA);padding:12px 32px;text-align:center;">
-    <span style="color:#134E4A;font-size:12px;font-weight:600;">📅 ${month} ${year} — Personal Summary for </span>
-    <span style="color:#115E59;font-size:14px;font-weight:700;">${member.Name}</span>
+  <tr><td style="padding:18px 32px 6px;text-align:center;">
+    <div style="color:${_EM.faint};font-size:11px;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">Total Contributed</div>
+    <div style="color:#15803d;font-size:36px;font-weight:700;">${amountFmt}</div>
+    <div style="color:${_EM.sub};font-size:12px;margin-top:2px;">in ${month} ${year}</div>
   </td></tr>
-  <tr><td style="padding:24px 32px 16px;text-align:center;border-bottom:1px dashed #e2e8f0;background:#fafffe;">
-    <div style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">Total Contributed</div>
-    <div style="color:#15803d;font-size:38px;font-weight:800;">${amountFmt}</div>
-    <div style="color:#16a34a;font-size:12px;margin-top:4px;">in ${month} ${year}</div>
-  </td></tr>
-  <tr><td style="padding:16px 32px;">
-    <div style="font-weight:700;color:#334155;font-size:13px;margin-bottom:8px;">📋 Contribution Details</div>
+  <tr><td style="padding:20px 32px 8px;">
+    <div style="font-weight:700;color:${_EM.ink};font-size:13px;margin-bottom:8px;">Contribution Details</div>
     <table width="100%" cellpadding="0" cellspacing="0">${rowsHtml}</table>
   </td></tr>
-  <tr><td style="background:#F0FDFA;padding:18px 32px;text-align:center;border-top:2px solid #99F6E4;">
-    <div style="color:#115E59;font-size:14px;font-weight:700;">🙏 ${CFG.thankYouMsg}</div>
-    <div style="color:#0F766E;font-size:12px;margin-top:4px;font-style:italic;">${CFG.tagline}</div>
+  <tr><td style="padding:8px 32px 22px;text-align:center;">
+    <div style="color:${_EM.brand};font-size:13px;font-weight:600;">🙏 ${CFG.thankYouMsg}</div>
+    <div style="color:${_EM.sub};font-size:11.5px;margin-top:3px;">${CFG.tagline}</div>
   </td></tr>
-  <tr><td style="background:#f8fafc;padding:12px 32px;text-align:center;border-top:1px solid #e2e8f0;">
-    <div style="color:#94a3b8;font-size:10px;">${CFG.name} | ${CFG.address}</div>
-    <div style="color:#cbd5e1;font-size:10px;margin-top:2px;">This email was sent only to you — your data is private and not shared with others.</div>
-  </td></tr>
-</table></td></tr></table></body></html>`;
+  ${_emFooter("This email was sent only to you — your data is private and not shared with others.")}`;
+  return _emShell(580, body);
 }
 
 // ── Monthly reminder email (member did NOT contribute)
 function _buildReminderEmail(member, month, year) {
   var firstName = (member.Name || "Friend").split(" ")[0];
-  return `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-</head>
-<body style="margin:0;padding:0;background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);font-family:Georgia,'Times New Roman',serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:30px 0;">
-<tr><td align="center">
-<table width="580" cellpadding="0" cellspacing="0"
-  style="max-width:580px;width:92%;background:#ffffff;border-radius:20px;overflow:hidden;
-         box-shadow:0 8px 40px rgba(0,0,0,0.12);border:1px solid #99F6E4;">
+  const body = `
+  ${_emHeadSimple("Gentle Reminder")}
 
-  <!-- ═══ HEADER ═══ -->
-  <tr><td style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);
-                 padding:30px 28px 24px;text-align:center;
-                 border-bottom:3px solid #0F766E;">
-    ${_logoHtml()}
-    <div style="color:#0F766E;font-size:21px;font-weight:700;letter-spacing:1.5px;margin-bottom:3px;">
-      ${CFG.name.toUpperCase()}
-    </div>
-    <div style="color:#94a3b8;font-size:11px;letter-spacing:2px;margin-bottom:14px;">
-      ${CFG.location.toUpperCase()}
-    </div>
-    <span style="display:inline-block;background:linear-gradient(135deg,#0F766E,#115E59);
-                 color:#fff;padding:5px 20px;border-radius:20px;font-size:11px;font-weight:700;
-                 letter-spacing:1px;font-family:Arial,sans-serif;
-                 box-shadow:0 3px 10px rgba(79, 70, 229,0.4);">
-      🙏 GENTLE REMINDER
-    </span>
-  </td></tr>
+  <tr><td style="padding:26px 32px;">
+    <p style="color:${_EM.ink};font-size:14px;margin:0 0 14px;">Dear ${firstName} जी,</p>
 
-  <!-- ═══ DIVIDER STRIP ═══ -->
-  <tr><td style="background:linear-gradient(90deg,#F0FDFA,#99F6E4,#CCFBF1,#99F6E4,#F0FDFA);
-                 padding:9px 28px;text-align:center;">
-    <span style="color:#115E59;font-size:11px;font-weight:600;letter-spacing:2px;font-family:Arial,sans-serif;">
-      ✦ &nbsp; A GENTLE REQUEST FROM HOME &nbsp; ✦
-    </span>
-  </td></tr>
-
-  <!-- ═══ BODY ═══ -->
-  <tr><td style="padding:30px 36px 24px;">
-
-    <!-- Greeting -->
-    <p style="color:#1e293b;font-size:16px;margin:0 0 6px;font-weight:600;">
-      प्रिय (Dear) <span style="color:#115E59;">${firstName}</span> जी,
-    </p>
-    <div style="width:50px;height:2px;background:linear-gradient(90deg,#0F766E,transparent);
-                margin:0 0 18px;border-radius:2px;"></div>
-
-    <!-- Opening line -->
-    <p style="color:#475569;font-size:13.5px;line-height:1.85;margin:0 0 18px;font-family:Arial,sans-serif;">
-      We hope you and your family are keeping well. 🙏<br/>
-      With great respect, we wish to gently bring to your attention that your
-      contribution for <strong style="color:#1e293b;">${month} ${year}</strong>
-      has not yet been recorded in our system.
+    <p style="color:${_EM.sub};font-size:13.5px;line-height:1.85;margin:0 0 16px;">
+      Hope you and your family are doing well 🙏। This is a gentle reminder कि आपका contribution
+      <strong style="color:${_EM.ink};">${month} ${year}</strong> के लिए अभी तक हमारे records में नहीं आया है।
     </p>
 
-    <!-- Highlighted pending box -->
-    <div style="background:linear-gradient(135deg,#F0FDFA,#CCFBF1);
-                border:1.5px solid #5EEAD4;border-left:4px solid #0F766E;
-                border-radius:12px;padding:18px 22px;margin:0 0 20px;text-align:center;">
-      <div style="font-size:22px;margin-bottom:6px;">📅</div>
-      <div style="color:#115E59;font-size:14px;font-weight:700;font-family:Arial,sans-serif;margin-bottom:6px;">
-        ${month} ${year} — Contribution Awaited
+    <div style="background:${_EM.panel};border-left:3px solid ${_EM.brand};padding:14px 18px;margin:0 0 18px;">
+      <div style="color:${_EM.ink};font-size:13px;font-weight:600;margin-bottom:4px;">
+        ${month} ${year} — Contribution Pending
       </div>
-      <div style="color:#0F766E;font-size:12px;line-height:1.7;font-family:Arial,sans-serif;">
-        If you have already made your contribution, kindly coordinate<br/>
-        with the household admin to have it recorded. 🙏
+      <div style="color:${_EM.sub};font-size:12.5px;line-height:1.7;">
+        अगर आपने already contribute कर दिया है, तो कृपया household admin से coordinate करके इसे record करवा दें।
       </div>
     </div>
 
-    <!-- Warm message -->
-    <div style="background:#f8fafc;border-radius:12px;padding:18px 20px;
-                border:1px solid #e2e8f0;margin-bottom:20px;">
-      <p style="color:#475569;font-size:13px;line-height:1.9;margin:0;font-family:Arial,sans-serif;">
-        Your association with <strong style="color:#1e293b;">${CFG.name}</strong>
-        is a source of great strength for our entire household.
-        Your generosity helps us keep the home running smoothly, cover shared
-        expenses, and take care of the family's needs together. ${CFG.symbol||"🏠"}
-      </p>
-      <p style="color:#475569;font-size:13px;line-height:1.9;margin:12px 0 0;font-family:Arial,sans-serif;">
-        Every contribution — however big or small — makes a real difference
-        for our home, and is received with heartfelt gratitude. 🌸
-      </p>
-    </div>
-
-    <!-- Thank you line -->
-    <p style="color:#115E59;font-size:13px;line-height:1.8;margin:0;
-              font-style:italic;text-align:center;font-family:Arial,sans-serif;">
-      🙏 &nbsp;<em>${CFG.thankYouMsg}</em> &nbsp;🙏
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.8;margin:0 0 18px;">
+      यह contribution हमारे घर के मासिक खर्चों को manage करने के लिए है, and every family member's timely
+      share helps us run things smoothly — आपकी भागीदारी हमेशा गिनी जाती है। 🌸
     </p>
 
+    <p style="color:${_EM.brand};font-size:12.5px;line-height:1.7;margin:0;font-style:italic;text-align:center;">
+      धन्यवाद — Thank you for being part of our home. 🙏
+    </p>
   </td></tr>
 
-  <!-- ═══ FOOTER ═══ -->
-  <tr><td style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);
-                 padding:20px 28px;text-align:center;
-                 border-top:2px solid #0F766E;">
-    <div style="color:#0F766E;font-size:15px;font-weight:700;letter-spacing:0.5px;margin-bottom:4px;">
-      ${CFG.tagline} ${CFG.symbol||"🕉️"}
-    </div>
-    <div style="color:#94a3b8;font-size:11px;font-style:italic;">
-      ${CFG.tagline} 🙏 &nbsp;|&nbsp; ${CFG.name}
-    </div>
-  </td></tr>
-
-  <!-- ═══ DISCLAIMER ═══ -->
-  <tr><td style="background:#f8fafc;padding:10px 28px;text-align:center;
-                 border-top:1px solid #e2e8f0;">
-    <div style="color:#94a3b8;font-size:10px;font-family:Arial,sans-serif;">
-      ${CFG.name} &nbsp;|&nbsp; ${CFG.address}
-    </div>
-    <div style="color:#cbd5e1;font-size:10px;margin-top:2px;font-family:Arial,sans-serif;">
-      This is a private reminder sent only to you. Your information is not shared with others.
-    </div>
-  </td></tr>
-
-</table>
-</td></tr></table>
-</body></html>`;
+  ${_emFooterSimple("This is a private reminder sent only to you.")}`;
+  return _emShell(520, body);
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1174,99 +1162,55 @@ function sendReceiptEmail(toEmail, donorName, receiptId, amount, forMonth, year,
   const modeLabel = paymentMode || "—";
   const amountFmt = CFG.currencyText + " " + Number(amount || 0).toLocaleString("en-IN");
 
-  const htmlBody = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"/></head>
-<body style="margin:0;padding:0;background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);font-family:Poppins,Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:30px 0;">
-<tr><td align="center">
-<table width="580" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.10);max-width:580px;width:100%;">
-
-  <!-- HEADER -->
-  <tr>
-    <td style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:28px 32px 22px;text-align:center;border-top:4px solid #0F766E;">
-      ${_logoHtml()}
-      <div style="color:#0F766E;font-size:20px;font-weight:700;letter-spacing:1px;">${CFG.name.toUpperCase()}</div>
-      <div style="color:#94a3b8;font-size:12px;margin-top:4px;">${CFG.location}</div>
-      <div style="margin-top:12px;">
-        <span style="background:#22c55e;color:#fff;padding:4px 16px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.5px;">✓ OFFICIAL CONTRIBUTION RECEIPT</span>
-      </div>
-    </td>
-  </tr>
-
-  <!-- RECEIPT ID BAND -->
-  <tr>
-    <td style="background:#F0FDFA;padding:12px 32px;text-align:center;border-bottom:1px solid #99F6E4;">
-      <span style="color:#115E59;font-size:13px;font-weight:600;">Receipt No: </span>
-      <span style="color:#115E59;font-size:15px;font-weight:700;font-family:monospace;letter-spacing:1px;">${receiptId}</span>
-    </td>
-  </tr>
-
-  <!-- AMOUNT HERO -->
-  <tr>
-    <td style="padding:28px 32px 16px;text-align:center;border-bottom:1px dashed #e2e8f0;">
-      <div style="color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Amount Received</div>
-      <div style="color:#16a34a;font-size:36px;font-weight:700;">${amountFmt}</div>
-      <div style="color:#94a3b8;font-size:12px;margin-top:4px;">Payment Mode: <strong style="color:#334155;">${modeLabel}</strong></div>
-    </td>
-  </tr>
-
-  <!-- DETAILS TABLE -->
-  <tr>
-    <td style="padding:20px 32px;">
-      <table width="100%" cellpadding="0" cellspacing="0">
+  const detailRows = `
         ${_emailRow("Donor Name", donorName || "—")}
         ${_emailRow("For Month", (forMonth || "—") + " " + (year || ""))}
         ${_emailRow("Contribution Type", typeName || "—")}
         ${occasionName && occasionName !== "—" ? _emailRow("Occasion", occasionName) : ""}
         ${note ? _emailRow("Note", note) : ""}
         ${_emailRow("Date Recorded", paymentDate || "—")}
-        ${_emailRow("Receipt ID", receiptId)}
-      </table>
-    </td>
-  </tr>
+        ${_emailRow("Receipt ID", receiptId)}`;
 
-  <!-- SIGNATURE -->
-  <tr>
-    <td style="padding:8px 32px 24px;">
-      <table width="100%" cellpadding="0" cellspacing="0">
-        <tr>
-          <td style="text-align:left;padding-top:16px;border-top:1px solid #e2e8f0;">
-            <div style="color:#334155;font-size:12px;font-weight:700;">${CFG.signatory}</div>
-            <div style="color:#64748b;font-size:11px;">${CFG.designation}</div>
-            <div style="color:#64748b;font-size:11px;">${CFG.name}</div>
-          </td>
-          <td style="text-align:right;padding-top:16px;border-top:1px solid #e2e8f0;">
-            <div style="color:#94a3b8;font-size:11px;">This is a system-generated</div>
-            <div style="color:#94a3b8;font-size:11px;">receipt. No signature required.</div>
-          </td>
-        </tr>
-      </table>
-    </td>
-  </tr>
+  const body = `
+  ${_emHeader("✓ OFFICIAL RECEIPT")}
 
-  <!-- THANK YOU -->
-  <tr>
-    <td style="background:linear-gradient(135deg,#F0FDFA,#CCFBF1);padding:18px 32px;text-align:center;border-top:2px solid #99F6E4;">
-      <div style="color:#115E59;font-size:14px;font-weight:700;">🙏 ${CFG.thankYouMsg}</div>
-      <div style="color:#0F766E;font-size:12px;margin-top:4px;font-style:italic;">${CFG.tagline}</div>
-    </td>
-  </tr>
+  <tr><td style="padding:16px 32px 0;text-align:center;">
+    <span style="color:${_EM.sub};font-size:12px;">Receipt No.</span>
+    <span style="color:${_EM.brand};font-size:14px;font-weight:700;font-family:monospace;letter-spacing:0.5px;"> ${receiptId}</span>
+  </td></tr>
 
-  <!-- FOOTER -->
-  <tr>
-    <td style="background:#f8fafc;padding:14px 32px;text-align:center;border-top:1px solid #e2e8f0;">
-      <div style="color:#94a3b8;font-size:10px;">${CFG.name} | ${CFG.address}</div>
-      <div style="color:#cbd5e1;font-size:10px;margin-top:2px;">System Generated Receipt — This email was sent only to you. Do not reply.</div>
-    </td>
-  </tr>
+  <tr><td style="padding:20px 32px 8px;text-align:center;">
+    <div style="color:${_EM.faint};font-size:11px;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px;">Amount Received</div>
+    <div style="color:#16a34a;font-size:34px;font-weight:700;">${amountFmt}</div>
+    <div style="color:${_EM.sub};font-size:12px;margin-top:2px;">Payment Mode: <strong style="color:${_EM.ink};">${modeLabel}</strong></div>
+  </td></tr>
 
-</table>
-</td></tr>
-</table>
-</body>
-</html>`;
+  <tr><td style="padding:20px 32px 4px;">
+    <table width="100%" cellpadding="0" cellspacing="0">${detailRows}</table>
+  </td></tr>
+
+  <tr><td style="padding:16px 32px 22px;">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td style="text-align:left;padding-top:16px;border-top:1px solid ${_EM.line};">
+        <div style="color:${_EM.ink};font-size:12px;font-weight:700;">${CFG.signatory}</div>
+        <div style="color:${_EM.sub};font-size:11px;">${CFG.designation}</div>
+        <div style="color:${_EM.sub};font-size:11px;">${CFG.name}</div>
+      </td>
+      <td style="text-align:right;padding-top:16px;border-top:1px solid ${_EM.line};">
+        <div style="color:${_EM.faint};font-size:11px;">System-generated receipt.</div>
+        <div style="color:${_EM.faint};font-size:11px;">No signature required.</div>
+      </td>
+    </tr></table>
+  </td></tr>
+
+  <tr><td style="padding:0 32px 22px;text-align:center;">
+    <div style="color:${_EM.brand};font-size:13px;font-weight:600;">🙏 ${CFG.thankYouMsg}</div>
+    <div style="color:${_EM.sub};font-size:11.5px;margin-top:3px;">${CFG.tagline}</div>
+  </td></tr>
+
+  ${_emFooter("System-generated receipt — sent only to you. Please do not reply to this email.")}`;
+
+  const htmlBody = _emShell(580, body);
 
   try {
     MailApp.sendEmail({
@@ -1293,8 +1237,8 @@ function _htmlEscape(str) {
 // Helper: one row in the receipt email table
 function _emailRow(label, value) {
   return `<tr>
-    <td style="padding:8px 0;color:#64748b;font-size:12px;border-bottom:1px solid #f1f5f9;width:45%;">${_htmlEscape(label)}</td>
-    <td style="padding:8px 0;color:#1e293b;font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;text-align:right;">${_htmlEscape(value)}</td>
+    <td style="padding:9px 0;color:#64748b;font-size:12px;border-bottom:1px solid #f1f5f9;width:45%;">${_htmlEscape(label)}</td>
+    <td style="padding:9px 0;color:#1e293b;font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;text-align:right;">${_htmlEscape(value)}</td>
   </tr>`;
 }
 
@@ -2257,12 +2201,19 @@ function doGet(e) {
         MailApp.sendEmail({
           to: user.Email,
           subject: CFG.name + " — Password Reset Code",
-          htmlBody: `<div style="font-family:sans-serif;padding:20px;border:1px solid #0F766E;border-radius:8px;max-width:480px;">
-            <h2 style="color:#115E59;">${CFG.name}</h2>
-            <p style="color:#475569;">A password reset was requested for your account. Use this code:</p>
-            <h1 style="color:#0F766E;font-size:48px;letter-spacing:8px;margin:16px 0;">${otp}</h1>
-            <p style="color:#64748b;font-size:13px;">This code expires in 10 minutes. If you did not request this, please ignore this email.</p>
-            <p style="color:#94a3b8;font-size:11px;">${CFG.name} | ${CFG.location}</p>
+          htmlBody: `<div style="max-width:480px;margin:0 auto;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+              background:#fff;border-radius:14px;overflow:hidden;border:1px solid #e7ebe9;">
+            <div style="background:#0F766E;padding:20px 28px;text-align:center;">
+              <div style="color:#fff;font-size:16px;font-weight:700;">${CFG.name}</div>
+            </div>
+            <div style="padding:26px 28px;">
+              <p style="color:#475569;font-size:13.5px;margin:0 0 6px;">A password reset was requested for your account. Use this code:</p>
+              <div style="text-align:center;color:#0F766E;font-size:42px;font-weight:700;letter-spacing:8px;margin:18px 0;">${otp}</div>
+              <p style="color:#64748b;font-size:12.5px;margin:0;">This code expires in 10 minutes. If you did not request this, please ignore this email.</p>
+            </div>
+            <div style="background:#f6f9f8;padding:12px 28px;text-align:center;border-top:1px solid #e7ebe9;">
+              <div style="color:#94a3b8;font-size:11px;">${CFG.name} | ${CFG.location}</div>
+            </div>
           </div>`
         });
         logAction(userId, "FORGOT_PASSWORD_OTP_SENT", "UserId: " + userId, "Password reset OTP sent to registered email", "", { severity:"INFO", result:"SUCCESS" });
@@ -2901,12 +2852,19 @@ function doGet(e) {
           MailApp.sendEmail({
             to: String(user.Email).trim(),
             subject: CFG.name + " — Mobile Number Change OTP",
-            htmlBody: `<div style="font-family:sans-serif;padding:20px;border:1px solid #0F766E;border-radius:8px;">
-              <h2 style="color:#115E59;">Mobile Number Change Verification</h2>
-              <p>You requested to change your registered mobile to: <strong>${newMobile}</strong></p>
-              <h1 style="color:#0F766E;font-size:48px;letter-spacing:8px;">${otp}</h1>
-              <p style="color:#666;">This code expires in 10 minutes. Do not share it.</p>
-              <p style="color:#999;font-size:12px;">${CFG.name} | ${CFG.location}</p>
+            htmlBody: `<div style="max-width:480px;margin:0 auto;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+              background:#fff;border-radius:14px;overflow:hidden;border:1px solid #e7ebe9;">
+              <div style="background:#0F766E;padding:20px 28px;text-align:center;">
+                <div style="color:#fff;font-size:16px;font-weight:700;">Mobile Number Change</div>
+              </div>
+              <div style="padding:26px 28px;">
+                <p style="color:#475569;font-size:13.5px;margin:0 0 6px;">You requested to change your registered mobile to: <strong style="color:#1e293b;">${newMobile}</strong></p>
+                <div style="text-align:center;color:#0F766E;font-size:42px;font-weight:700;letter-spacing:8px;margin:18px 0;">${otp}</div>
+                <p style="color:#64748b;font-size:12.5px;margin:0;">This code expires in 10 minutes. Do not share it.</p>
+              </div>
+              <div style="background:#f6f9f8;padding:12px 28px;text-align:center;border-top:1px solid #e7ebe9;">
+                <div style="color:#94a3b8;font-size:11px;">${CFG.name} | ${CFG.location}</div>
+              </div>
             </div>`
           });
           logAction(userId, "MOBILE_CHANGE_OTP_SENT", "UserId: " + userId + " | NewMobile: " + newMobile.substring(0,4) + "***", "Mobile change OTP sent to registered email", "", { severity:"INFO", result:"SUCCESS" });
@@ -3283,12 +3241,19 @@ function doGet(e) {
         MailApp.sendEmail({
           to: email,
           subject: CFG.name + " — Email Verification Code",
-          htmlBody: `<div style="font-family:sans-serif;padding:20px;border:1px solid #0F766E;border-radius:8px;max-width:480px;">
-            <h2 style="color:#115E59;">${CFG.name}</h2>
-            <p style="color:#475569;">You are registering a new account. Please verify your email with this code:</p>
-            <h1 style="color:#0F766E;font-size:48px;letter-spacing:8px;margin:16px 0;">${otp}</h1>
-            <p style="color:#64748b;font-size:13px;">This code expires in 10 minutes. Do not share it with anyone.</p>
-            <p style="color:#94a3b8;font-size:11px;">${CFG.name} | ${CFG.address}</p>
+          htmlBody: `<div style="max-width:480px;margin:0 auto;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+              background:#fff;border-radius:14px;overflow:hidden;border:1px solid #e7ebe9;">
+            <div style="background:#0F766E;padding:20px 28px;text-align:center;">
+              <div style="color:#fff;font-size:16px;font-weight:700;">${CFG.name}</div>
+            </div>
+            <div style="padding:26px 28px;">
+              <p style="color:#475569;font-size:13.5px;margin:0 0 6px;">You are registering a new account. Please verify your email with this code:</p>
+              <div style="text-align:center;color:#0F766E;font-size:42px;font-weight:700;letter-spacing:8px;margin:18px 0;">${otp}</div>
+              <p style="color:#64748b;font-size:12.5px;margin:0;">This code expires in 10 minutes. Do not share it with anyone.</p>
+            </div>
+            <div style="background:#f6f9f8;padding:12px 28px;text-align:center;border-top:1px solid #e7ebe9;">
+              <div style="color:#94a3b8;font-size:11px;">${CFG.name} | ${CFG.address}</div>
+            </div>
           </div>`
         });
         result = { status: "success", otpKey: otpKey };
@@ -4185,7 +4150,7 @@ function uploadUserPhoto(base64Data, fileName) {
 
 function verifyEmailSystem() {
   try {
-    MailApp.sendEmail({ to:"amarjeetvish@gmail.com", subject:CFG.name+" - Verification Test", htmlBody:"<h2>It Works!</h2><p>Email system is operational.</p>" });
+    MailApp.sendEmail({ to:"amarjeetvish@gmail.com", subject:CFG.name+" - Verification Test", htmlBody:"<div style='max-width:400px;margin:0 auto;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#fff;border-radius:14px;overflow:hidden;border:1px solid #e7ebe9;'><div style='background:#0F766E;padding:18px 24px;text-align:center;'><span style='color:#fff;font-size:15px;font-weight:700;'>It Works!</span></div><div style='padding:18px 24px;text-align:center;color:#475569;font-size:13px;'>Email system is operational.</div></div>" });
     logAction("System", "EMAIL_VERIFY_TEST", "Test email sent successfully to amarjeetvish@gmail.com", "", "", { severity:"INFO", result:"SUCCESS" });
   } catch(e) {
     logAction("System", "EMAIL_VERIFY_TEST_FAILED", "Test email failed", e.message, "", { severity:"ERROR", result:"FAILURE", error:e });
@@ -4340,17 +4305,24 @@ function _checkGoalCompletion(goalId) {
           MailApp.sendEmail({
             to:       String(admin.Email).trim(),
             subject:  "🎉 " + CFG.name + " — Goal Fully Funded: " + goalName,
-            htmlBody: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#fff;border-radius:12px;border:2px solid #22c55e;padding:28px;">
-              <div style="text-align:center;font-size:36px;margin-bottom:8px;">🎉</div>
-              <h2 style="color:#15803d;text-align:center;">Goal Fully Funded!</h2>
-              <p style="color:#334155;font-size:14px;">Dear ${admin.Name},</p>
-              <p style="font-size:14px;color:#475569;">The fundraising goal <strong>"${goalName}"</strong> has been fully funded.</p>
-              <table style="width:100%;font-size:13px;border-collapse:collapse;margin:12px 0;">
-                <tr style="background:#f0fdf4;"><td style="padding:8px 12px;font-weight:700;color:#15803d;">Target</td><td style="padding:8px 12px;">${targetFmt}</td></tr>
-                <tr><td style="padding:8px 12px;font-weight:700;color:#15803d;">Collected</td><td style="padding:8px 12px;">${amountFmt}</td></tr>
-              </table>
-              <p style="color:#475569;font-size:13px;">The goal has been automatically marked as Completed in the system.</p>
-              <p style="color:#0F766E;font-size:12px;text-align:center;margin-top:20px;">${CFG.name} | ${CFG.location}</p>
+            htmlBody: `<div style="max-width:520px;margin:0 auto;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+              background:#fff;border-radius:14px;overflow:hidden;border:1px solid #e7ebe9;">
+              <div style="background:#0F766E;padding:26px 28px;text-align:center;">
+                <div style="font-size:30px;margin-bottom:4px;">🎉</div>
+                <div style="color:#fff;font-size:17px;font-weight:700;">Goal Fully Funded!</div>
+              </div>
+              <div style="padding:24px 28px;">
+                <p style="color:#1e293b;font-size:14px;margin:0 0 8px;">Dear ${admin.Name},</p>
+                <p style="font-size:13.5px;color:#475569;margin:0 0 14px;">The fundraising goal <strong>"${goalName}"</strong> has been fully funded.</p>
+                <table style="width:100%;font-size:13px;border-collapse:collapse;margin:0 0 14px;">
+                  <tr><td style="padding:8px 0;color:#64748b;border-bottom:1px solid #f1f5f9;">Target</td><td style="padding:8px 0;text-align:right;font-weight:700;color:#1e293b;border-bottom:1px solid #f1f5f9;">${targetFmt}</td></tr>
+                  <tr><td style="padding:8px 0;color:#64748b;">Collected</td><td style="padding:8px 0;text-align:right;font-weight:700;color:#16a34a;">${amountFmt}</td></tr>
+                </table>
+                <p style="color:#475569;font-size:12.5px;margin:0;">The goal has been automatically marked as Completed in the system.</p>
+              </div>
+              <div style="background:#f6f9f8;padding:12px 28px;text-align:center;border-top:1px solid #e7ebe9;">
+                <div style="color:#94a3b8;font-size:11px;">${CFG.name} | ${CFG.location}</div>
+              </div>
             </div>`
           });
         } catch(mailErr) {}
@@ -4363,36 +4335,21 @@ function _checkGoalCompletion(goalId) {
 
 // ── Reminder email body (used by sendMonthlyReminders)
 function _buildMonthlyReminderEmail(member, month, year) {
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
-<body style="margin:0;padding:0;background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:30px 0;">
-<tr><td align="center">
-<table width="540" cellpadding="0" cellspacing="0"
-  style="background:#fff;border-radius:16px;overflow:hidden;
-         box-shadow:0 4px 20px rgba(0,0,0,0.08);max-width:540px;width:100%;
-         border-top:4px solid #0F766E;">
-  <tr><td style="background:#334155;padding:24px 32px;text-align:center;">
-    ${_logoHtml()}
-    <div style="color:#0F766E;font-size:18px;font-weight:700;">${CFG.name.toUpperCase()}</div>
-    <div style="color:#94a3b8;font-size:12px;margin-top:4px;">${CFG.location}</div>
-  </td></tr>
-  <tr><td style="padding:24px 32px;">
-    <p style="color:#334155;font-size:14px;">Dear <strong>${member.Name}</strong>,</p>
-    <p style="color:#475569;font-size:13px;line-height:1.6;">
-      🙏 We hope this finds you well.<br><br>
+  const body = `
+  ${_emHeader()}
+  <tr><td style="padding:26px 32px;">
+    <p style="color:${_EM.ink};font-size:14px;margin:0 0 12px;">Dear <strong>${member.Name}</strong>,</p>
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.8;margin:0;">
+      🙏 We hope this finds you well.<br/><br/>
       This is a gentle reminder that your contribution for
-      <strong>${month} ${year}</strong> has not yet been recorded
+      <strong style="color:${_EM.ink};">${month} ${year}</strong> has not yet been recorded
       in our system. If you have already contributed, please coordinate
-      with the household admin to get it updated.<br><br>
+      with the household admin to get it updated.<br/><br/>
       If you need any assistance, please contact us.
     </p>
   </td></tr>
-  <tr><td style="background:#F0FDFA;padding:14px 32px;text-align:center;border-top:1px solid #99F6E4;">
-    <div style="color:#0F766E;font-size:11px;">${CFG.name} | ${CFG.address}</div>
-    <div style="color:#0F766E;font-size:11px;margin-top:2px;">${CFG.tagline}</div>
-  </td></tr>
-</table></td></tr></table>
-</body></html>`;
+  ${_emFooter(CFG.tagline)}`;
+  return _emShell(540, body);
 }
 
 // ── CHATBOT CONFIG ────────────────────────────────────────────
@@ -4617,30 +4574,23 @@ function registerUser(params) {
           to: email,
           subject: CFG.name + " — Registration Received",
           htmlBody: `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
-<body style="margin:0;padding:0;background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:30px 0;">
+<body style="margin:0;padding:0;background:${_EM.bg};font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:${_EM.bg};padding:36px 0;">
 <tr><td align="center">
-<table width="540" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);max-width:540px;width:100%;border-top:4px solid #0F766E;">
-  <tr><td style="background:#334155;padding:24px 32px;text-align:center;">
-    ${_logoHtml()}
-    <div style="color:#0F766E;font-size:18px;font-weight:700;">${CFG.name.toUpperCase()}</div>
-    <div style="color:#94a3b8;font-size:12px;margin-top:4px;">${CFG.location}</div>
-    <div style="margin-top:10px;"><span style="background:#0F766E;color:#fff;padding:3px 14px;border-radius:20px;font-size:11px;font-weight:700;">REGISTRATION RECEIVED</span></div>
-  </td></tr>
+<table width="540" cellpadding="0" cellspacing="0" style="max-width:540px;width:92%;background:${_EM.card};border-radius:${_EM.radius};overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,0.06),0 8px 24px rgba(15,23,42,0.06);">
+  ${_emHeader("REGISTRATION RECEIVED")}
   <tr><td style="padding:24px 28px;">
-    <p style="color:#334155;font-size:15px;font-weight:700;margin:0 0 8px;">${CFG.tagline}, ${name}!</p>
-    <p style="color:#475569;font-size:13px;line-height:1.7;margin:0 0 16px;">Thank you for registering with <strong>${CFG.name}</strong>. Your request has been received and is pending review by the household admin.</p>
-    <div style="background:#F0FDFA;border:1px solid #99F6E4;border-radius:12px;padding:16px 20px;margin:0 0 16px;">
-      <div style="color:#115E59;font-size:13px;font-weight:700;margin-bottom:10px;">Your Registration Details</div>
-      <div style="color:#134E4A;font-size:13px;margin-bottom:5px;"><strong>Name:</strong> ${name}</div>
-      <div style="color:#134E4A;font-size:13px;margin-bottom:5px;"><strong>Mobile (Login ID):</strong> ${mobile}</div>
-      <div style="color:#134E4A;font-size:13px;"><strong>Email:</strong> ${email}</div>
+    <p style="color:${_EM.ink};font-size:14.5px;font-weight:700;margin:0 0 8px;">${CFG.tagline}, ${name}!</p>
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.7;margin:0 0 16px;">Thank you for registering with <strong>${CFG.name}</strong>. Your request has been received and is pending review by the household admin.</p>
+    <div style="background:${_EM.panel};border-radius:10px;padding:16px 20px;margin:0 0 16px;">
+      <div style="color:${_EM.ink};font-size:12.5px;font-weight:700;margin-bottom:10px;">Your Registration Details</div>
+      <div style="color:${_EM.sub};font-size:13px;margin-bottom:5px;"><strong style="color:${_EM.ink};">Name:</strong> ${name}</div>
+      <div style="color:${_EM.sub};font-size:13px;margin-bottom:5px;"><strong style="color:${_EM.ink};">Mobile (Login ID):</strong> ${mobile}</div>
+      <div style="color:${_EM.sub};font-size:13px;"><strong style="color:${_EM.ink};">Email:</strong> ${email}</div>
     </div>
-    <p style="color:#64748b;font-size:13px;line-height:1.7;margin:0;">You will receive another email once the admin approves your account. Your <strong>mobile number</strong> will be your Login ID.</p>
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.7;margin:0;">You will receive another email once the admin approves your account. Your <strong>mobile number</strong> will be your Login ID.</p>
   </td></tr>
-  <tr><td style="background:#F0FDFA;padding:14px 28px;text-align:center;border-top:1px solid #99F6E4;">
-    <div style="color:#0F766E;font-size:11px;">${CFG.name} | ${CFG.address} | ${CFG.tagline}</div>
-  </td></tr>
+  ${_emFooter()}
 </table></td></tr></table></body></html>`
         });
       }
@@ -4660,28 +4610,25 @@ function registerUser(params) {
           MailApp.sendEmail({
             to: String(admin.Email).trim(),
             subject: CFG.name + " — New Registration Request from " + name,
-            htmlBody: `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:30px;">
-<table width="540" style="background:#fff;border-radius:16px;overflow:hidden;border-top:4px solid #0F766E;box-shadow:0 4px 20px rgba(0,0,0,0.08);margin:0 auto;">
-  <tr><td style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:24px;text-align:center;">
-    ${_logoHtml()}
-    <div style="color:#0F766E;font-size:18px;font-weight:700;">${CFG.name.toUpperCase()}</div>
-    <div style="margin-top:10px;"><span style="background:#0F766E;color:#fff;padding:3px 14px;border-radius:20px;font-size:11px;font-weight:700;">NEW REGISTRATION REQUEST</span></div>
-  </td></tr>
+            htmlBody: `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:${_EM.bg};font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:${_EM.bg};padding:36px 0;">
+<tr><td align="center">
+<table width="540" cellpadding="0" cellspacing="0" style="max-width:540px;width:92%;background:${_EM.card};border-radius:${_EM.radius};overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,0.06),0 8px 24px rgba(15,23,42,0.06);">
+  ${_emHeader("NEW REGISTRATION REQUEST")}
   <tr><td style="padding:24px 28px;">
-    <p style="color:#334155;font-size:14px;">Hello <strong>${admin.Name}</strong>,</p>
-    <p style="color:#475569;font-size:13px;">A new user has submitted a registration request:</p>
-    <table style="width:100%;border-collapse:collapse;font-size:13px;margin:12px 0;">
-      <tr style="background:#F0FDFA;"><td style="padding:8px 12px;font-weight:700;color:#115E59;border:1px solid #99F6E4;">Name</td><td style="padding:8px 12px;border:1px solid #99F6E4;">${name}</td></tr>
-      <tr><td style="padding:8px 12px;font-weight:700;color:#334155;border:1px solid #e2e8f0;background:#f8fafc;">Mobile</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">${mobile}</td></tr>
-      <tr style="background:#f8fafc;"><td style="padding:8px 12px;font-weight:700;color:#334155;border:1px solid #e2e8f0;">Email</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">${email}</td></tr>
-      <tr><td style="padding:8px 12px;font-weight:700;color:#334155;border:1px solid #e2e8f0;background:#f8fafc;">Village</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">${village || "—"}</td></tr>
+    <p style="color:${_EM.ink};font-size:14px;margin:0 0 6px;">Hello <strong>${admin.Name}</strong>,</p>
+    <p style="color:${_EM.sub};font-size:13px;margin:0 0 12px;">A new user has submitted a registration request:</p>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      ${_emailRow("Name", name)}
+      ${_emailRow("Mobile", mobile)}
+      ${_emailRow("Email", email)}
+      ${_emailRow("Village", village || "—")}
     </table>
-    <p style="color:#64748b;font-size:12px;">Please login to the admin panel → Users tab → Pending to approve or reject.</p>
+    <p style="color:${_EM.sub};font-size:12px;margin:16px 0 0;">Please login to the admin panel → Users tab → Pending to approve or reject.</p>
   </td></tr>
-  <tr><td style="background:#F0FDFA;padding:14px 28px;text-align:center;border-top:1px solid #99F6E4;">
-    <div style="color:#0F766E;font-size:11px;">${CFG.name} | ${CFG.address}</div>
-  </td></tr>
-</table></body></html>`
+  ${_emFooter()}
+</table></td></tr></table></body></html>`
           });
         } catch(mailErr) {
           logAction("System", "ADMIN_NOTIFY_EMAIL_ERROR", "Admin: " + (admin.Name||admin.Email||"") + " | NewUser: " + name, mailErr.message, "", { severity:"WARN", result:"FAILURE", error:mailErr });
@@ -4802,123 +4749,80 @@ function rejectUser(params) {
 }
  
 function _buildApprovalEmail(user) {
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
-<body style="margin:0;padding:0;background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:30px 0;">
-<tr><td align="center">
-<table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.10);max-width:560px;width:100%;">
-  <tr><td style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:28px 32px;text-align:center;border-top:4px solid #0F766E;">
-    ${_logoHtml()}
-    <div style="color:#0F766E;font-size:20px;font-weight:700;letter-spacing:1px;">${CFG.name.toUpperCase()}</div>
-    <div style="color:#94a3b8;font-size:12px;margin-top:4px;">${CFG.location}</div>
-    <div style="margin-top:12px;"><span style="background:#22c55e;color:#fff;padding:5px 18px;border-radius:20px;font-size:11px;font-weight:700;">REGISTRATION APPROVED</span></div>
-  </td></tr>
-  <tr><td style="padding:28px 32px;">
-    <p style="color:#334155;font-size:16px;font-weight:700;margin:0 0 8px;">${CFG.tagline}, <span style="color:#0F766E;">${user.Name}</span>!</p>
-    <p style="color:#475569;font-size:13px;line-height:1.8;margin:0 0 20px;">Your registration request for <strong>${CFG.name}</strong> has been <strong style="color:#16a34a;">approved</strong> by the admin. You can now login to access your account.</p>
-    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:18px 22px;margin:0 0 20px;">
-      <div style="color:#15803d;font-size:13px;font-weight:700;margin-bottom:12px;border-bottom:1px solid #bbf7d0;padding-bottom:8px;">Your Login Details</div>
-      <div style="color:#166534;font-size:13px;margin-bottom:6px;"><strong>Login ID (Mobile):</strong> ${user.Mobile}</div>
-      <div style="color:#166534;font-size:13px;"><strong>Password:</strong> The password you set during registration</div>
+  const body = `
+  ${_emHeader("✓ REGISTRATION APPROVED", "#22c55e")}
+  <tr><td style="padding:26px 32px;">
+    <p style="color:${_EM.ink};font-size:15px;font-weight:700;margin:0 0 8px;">${CFG.tagline}, <span style="color:${_EM.brand};">${user.Name}</span>!</p>
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.8;margin:0 0 18px;">Your registration request for <strong>${CFG.name}</strong> has been <strong style="color:#16a34a;">approved</strong> by the admin. You can now login to access your account.</p>
+    <div style="background:${_EM.panel};border-radius:10px;padding:16px 20px;margin:0 0 18px;">
+      <div style="color:${_EM.ink};font-size:12.5px;font-weight:700;margin-bottom:10px;">Your Login Details</div>
+      <div style="color:${_EM.sub};font-size:13px;margin-bottom:6px;"><strong style="color:${_EM.ink};">Login ID (Mobile):</strong> ${user.Mobile}</div>
+      <div style="color:${_EM.sub};font-size:13px;"><strong style="color:${_EM.ink};">Password:</strong> The password you set during registration</div>
     </div>
-    <p style="color:#64748b;font-size:13px;line-height:1.7;margin:0;">You can now view your donation history, download receipts, and more. Welcome to the ${CFG.name} family!</p>
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.7;margin:0;">You can now view your donation history, download receipts, and more. Welcome to the ${CFG.name} family!</p>
   </td></tr>
-  <tr><td style="background:#F0FDFA;padding:18px 32px;text-align:center;border-top:2px solid #99F6E4;">
-    <div style="color:#115E59;font-size:14px;font-weight:700;">${CFG.tagline}</div>
-    <div style="color:#0F766E;font-size:12px;margin-top:4px;">${CFG.tagline}</div>
-  </td></tr>
-  <tr><td style="background:#f8fafc;padding:12px 32px;text-align:center;border-top:1px solid #e2e8f0;">
-    <div style="color:#94a3b8;font-size:10px;">${CFG.name} | ${CFG.address}</div>
-  </td></tr>
-</table></td></tr></table></body></html>`;
+  ${_emButton("Open Website", CFG.websiteUrl)}
+  ${_emFooter()}`;
+  return _emShell(560, body);
 }
  
 // Welcome email sent when an admin manually adds a user (account Active from day one).
 // Same design language as _buildApprovalEmail — green badge, login details box.
 function _buildAdminAddedEmail(user) {
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
-<body style="margin:0;padding:0;background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:30px 0;">
-<tr><td align="center">
-<table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.10);max-width:560px;width:100%;">
-  <tr><td style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:28px 32px;text-align:center;border-top:4px solid #0F766E;">
-    ${_logoHtml()}
-    <div style="color:#0F766E;font-size:20px;font-weight:700;letter-spacing:1px;">${CFG.name.toUpperCase()}</div>
-    <div style="color:#94a3b8;font-size:12px;margin-top:4px;">${CFG.location}</div>
-    <div style="margin-top:12px;"><span style="background:#22c55e;color:#fff;padding:5px 18px;border-radius:20px;font-size:11px;font-weight:700;">ACCOUNT CREATED</span></div>
-  </td></tr>
-  <tr><td style="padding:28px 32px;">
-    <p style="color:#334155;font-size:16px;font-weight:700;margin:0 0 8px;">${CFG.tagline}, <span style="color:#0F766E;">${user.Name}</span>!</p>
-    <p style="color:#475569;font-size:13px;line-height:1.8;margin:0 0 20px;">
+  const body = `
+  ${_emHeader("✓ ACCOUNT CREATED", "#22c55e")}
+  <tr><td style="padding:26px 32px;">
+    <p style="color:${_EM.ink};font-size:15px;font-weight:700;margin:0 0 8px;">${CFG.tagline}, <span style="color:${_EM.brand};">${user.Name}</span>!</p>
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.8;margin:0 0 18px;">
       Welcome to <strong>${CFG.name}</strong>! Your account has been created by the admin
       and is <strong style="color:#16a34a;">active immediately</strong>.
       You can login right away using the details below.
     </p>
-    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:18px 22px;margin:0 0 20px;">
-      <div style="color:#15803d;font-size:13px;font-weight:700;margin-bottom:12px;border-bottom:1px solid #bbf7d0;padding-bottom:8px;">Your Login Details</div>
-      <div style="color:#166534;font-size:13px;margin-bottom:6px;"><strong>Login ID (Mobile):</strong> ${user.Mobile}</div>
-      <div style="color:#166534;font-size:13px;margin-bottom:6px;"><strong>Member ID:</strong> ${user.UserId}</div>
-      <div style="color:#166534;font-size:13px;margin-bottom:6px;"><strong>Password:</strong> <span style="background:#dcfce7;border:1px solid #86efac;border-radius:6px;padding:2px 10px;font-family:monospace;font-size:14px;font-weight:700;letter-spacing:1px;color:#15803d;">JaiShreeRam</span></div>
-      <div style="background:#fefce8;border:1px solid #fde047;border-radius:8px;padding:10px 14px;margin-top:10px;">
+    <div style="background:${_EM.panel};border-radius:10px;padding:16px 20px;margin:0 0 18px;">
+      <div style="color:${_EM.ink};font-size:12.5px;font-weight:700;margin-bottom:10px;">Your Login Details</div>
+      <div style="color:${_EM.sub};font-size:13px;margin-bottom:6px;"><strong style="color:${_EM.ink};">Login ID (Mobile):</strong> ${user.Mobile}</div>
+      <div style="color:${_EM.sub};font-size:13px;margin-bottom:6px;"><strong style="color:${_EM.ink};">Member ID:</strong> ${user.UserId}</div>
+      <div style="color:${_EM.sub};font-size:13px;"><strong style="color:${_EM.ink};">Password:</strong> <span style="background:#eef2f2;border:1px solid #d6e2e0;border-radius:6px;padding:2px 10px;font-family:monospace;font-size:13px;font-weight:700;letter-spacing:0.5px;color:${_EM.brand};">JaiShreeRam</span></div>
+      <div style="background:#fffbeb;border-radius:8px;padding:10px 14px;margin-top:12px;">
         <div style="color:#854d0e;font-size:12px;font-weight:700;margin-bottom:4px;">⚠️ Important — First Login Instruction</div>
-        <div style="color:#713f12;font-size:12px;line-height:1.7;">This is a <strong>temporary password</strong> set by the admin. For your account's security, you will be asked to <strong>set a new password immediately after your first login</strong>. Please keep your new password safe and do not share it with anyone.</div>
+        <div style="color:#78500e;font-size:12px;line-height:1.7;">This is a <strong>temporary password</strong> set by the admin. For your account's security, you will be asked to <strong>set a new password immediately after your first login</strong>. Please keep your new password safe and do not share it with anyone.</div>
       </div>
     </div>
-    <p style="color:#64748b;font-size:13px;line-height:1.7;margin:0;">
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.7;margin:0;">
       You can view your donation history, download receipts, and more.
       Welcome to the ${CFG.name} family!
     </p>
   </td></tr>
-  <tr><td style="background:#F0FDFA;padding:18px 32px;text-align:center;border-top:2px solid #99F6E4;">
-    <div style="color:#115E59;font-size:14px;font-weight:700;">${CFG.tagline}</div>
-    <div style="color:#0F766E;font-size:12px;margin-top:4px;">${CFG.tagline}</div>
-  </td></tr>
-  <tr><td style="background:#f8fafc;padding:12px 32px;text-align:center;border-top:1px solid #e2e8f0;">
-    <div style="color:#94a3b8;font-size:10px;">${CFG.name} | ${CFG.address}</div>
-  </td></tr>
-</table></td></tr></table></body></html>`;
+  ${_emButton("Open Website", CFG.websiteUrl)}
+  ${_emFooter()}`;
+  return _emShell(560, body);
 }
 
 function _buildRejectionEmail(user, reason) {
   const reasonBlock = reason
-    ? `<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:14px 18px;margin:16px 0;">
+    ? `<div style="background:#fef2f2;border-left:3px solid #ef4444;border-radius:10px;padding:14px 18px;margin:16px 0;">
          <div style="color:#991b1b;font-size:12px;font-weight:700;margin-bottom:6px;">Reason:</div>
          <div style="color:#7f1d1d;font-size:13px;line-height:1.6;">${reason}</div>
        </div>`
-    : `<div style="background:#F0FDFA;border:1px solid #99F6E4;border-radius:10px;padding:14px 18px;margin:16px 0;">
-         <div style="color:#115E59;font-size:13px;">If you have questions, please contact the household admin directly.</div>
+    : `<div style="background:${_EM.panel};border-radius:10px;padding:14px 18px;margin:16px 0;">
+         <div style="color:${_EM.sub};font-size:13px;">If you have questions, please contact the household admin directly.</div>
        </div>`;
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
-<body style="margin:0;padding:0;background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:30px 0;">
-<tr><td align="center">
-<table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.10);max-width:560px;width:100%;">
-  <tr><td style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:28px 32px;text-align:center;border-top:4px solid #0F766E;">
-    ${_logoHtml()}
-    <div style="color:#0F766E;font-size:20px;font-weight:700;">${CFG.name.toUpperCase()}</div>
-    <div style="color:#94a3b8;font-size:12px;margin-top:4px;">${CFG.location}</div>
-    <div style="margin-top:12px;"><span style="background:#64748b;color:#fff;padding:5px 18px;border-radius:20px;font-size:11px;font-weight:700;">REGISTRATION UPDATE</span></div>
-  </td></tr>
-  <tr><td style="padding:28px 32px;">
-    <p style="color:#334155;font-size:15px;margin:0 0 12px;">Dear <strong>${user.Name}</strong>,</p>
-    <p style="color:#475569;font-size:13px;line-height:1.8;margin:0 0 12px;">
+  const body = `
+  ${_emHeader("REGISTRATION UPDATE", "rgba(255,255,255,0.18)", "#B45309")}
+  <tr><td style="padding:26px 32px;">
+    <p style="color:${_EM.ink};font-size:14px;margin:0 0 12px;">Dear <strong>${user.Name}</strong>,</p>
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.8;margin:0 0 4px;">
       Thank you for your interest in registering with <strong>${CFG.name}</strong>.
       After review, we are unable to approve your registration request at this time.
     </p>
     ${reasonBlock}
-    <p style="color:#475569;font-size:13px;line-height:1.7;">
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.7;margin:0;">
       For assistance, please contact us at:<br/>
-      <strong>Phone:</strong> ${CFG.address}
+      <strong style="color:${_EM.ink};">Phone:</strong> ${CFG.address}
     </p>
   </td></tr>
-  <tr><td style="background:#F0FDFA;padding:18px 32px;text-align:center;border-top:2px solid #99F6E4;">
-    <div style="color:#115E59;font-size:14px;font-weight:700;">${CFG.tagline}</div>
-    <div style="color:#0F766E;font-size:12px;margin-top:4px;">${CFG.name}</div>
-  </td></tr>
-  <tr><td style="background:#f8fafc;padding:12px 32px;text-align:center;border-top:1px solid #e2e8f0;">
-    <div style="color:#94a3b8;font-size:10px;">${CFG.name} | ${CFG.address}</div>
-  </td></tr>
-</table></td></tr></table></body></html>`;
+  ${_emFooter()}`;
+  return _emShell(560, body);
 }
 
 
@@ -4927,43 +4831,28 @@ function _buildContribRejectionEmail(user, amount, forMonth, year, reason) {
   const name      = user ? (user.Name || "Member") : "Member";
   const amtFmt    = CFG.currencyText + " " + Number(amount).toLocaleString("en-IN");
   const reasonHtml = reason
-    ? `<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:14px 16px;margin:14px 0;">
+    ? `<div style="background:#fef2f2;border-left:3px solid #ef4444;border-radius:10px;padding:14px 16px;margin:14px 0;">
          <div style="color:#991b1b;font-size:12px;font-weight:700;margin-bottom:6px;">Reason from Admin:</div>
          <div style="color:#7f1d1d;font-size:13px;line-height:1.6;">${reason}</div>
        </div>`
-    : `<div style="background:#F0FDFA;border:1px solid #99F6E4;border-radius:10px;padding:12px 16px;margin:14px 0;color:#115E59;font-size:13px;">
+    : `<div style="background:${_EM.panel};border-radius:10px;padding:12px 16px;margin:14px 0;color:${_EM.sub};font-size:13px;">
          No specific reason provided. Please contact the household admin for details.
        </div>`;
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
-<body style="margin:0;padding:0;background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:30px 0;">
-<tr><td align="center">
-<table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.10);max-width:560px;width:100%;">
-  <tr><td style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:24px 32px;text-align:center;border-top:4px solid #0F766E;">
-    ${_logoHtml()}
-    <div style="color:#0F766E;font-size:18px;font-weight:700;">${CFG.name.toUpperCase()}</div>
-    <div style="color:#94a3b8;font-size:12px;margin-top:4px;">${CFG.location}</div>
-    <div style="margin-top:10px;"><span style="background:#64748b;color:#fff;padding:4px 16px;border-radius:20px;font-size:11px;font-weight:700;">PAYMENT REQUEST UPDATE</span></div>
-  </td></tr>
+  const body = `
+  ${_emHeader("PAYMENT REQUEST UPDATE", "rgba(255,255,255,0.18)", "#B45309")}
   <tr><td style="padding:24px 32px;">
-    <p style="color:#334155;font-size:15px;margin:0 0 10px;">Dear <strong>${name}</strong>,</p>
-    <p style="color:#475569;font-size:13px;line-height:1.7;margin:0 0 10px;">
-      Your payment request of <strong>${amtFmt}</strong> for <strong>${forMonth} ${year}</strong>
+    <p style="color:${_EM.ink};font-size:14px;margin:0 0 10px;">Dear <strong>${name}</strong>,</p>
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.7;margin:0 0 4px;">
+      Your payment request of <strong style="color:${_EM.ink};">${amtFmt}</strong> for <strong style="color:${_EM.ink};">${forMonth} ${year}</strong>
       has been reviewed and could not be approved at this time.
     </p>
     ${reasonHtml}
-    <p style="color:#475569;font-size:13px;line-height:1.7;margin:0;">
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.7;margin:0;">
       If you have questions or would like to resubmit with correct details, please contact the household admin.
     </p>
   </td></tr>
-  <tr><td style="background:#F0FDFA;padding:16px 32px;text-align:center;border-top:2px solid #99F6E4;">
-    <div style="color:#115E59;font-size:13px;font-weight:700;">${CFG.tagline} 🙏</div>
-    <div style="color:#0F766E;font-size:12px;margin-top:4px;">${CFG.tagline} | ${CFG.name}</div>
-  </td></tr>
-  <tr><td style="background:#f8fafc;padding:10px 32px;text-align:center;border-top:1px solid #e2e8f0;">
-    <div style="color:#94a3b8;font-size:10px;">${CFG.name} | ${CFG.address}</div>
-  </td></tr>
-</table></td></tr></table></body></html>`;
+  ${_emFooter()}`;
+  return _emShell(560, body);
 }
 
 // ── Public stats — safe aggregated data only, no personal info
@@ -5358,113 +5247,33 @@ function sendBirthdayEmails(isTest, testUserId) {
 // ── Beautiful home-themed birthday HTML email ──────
 function _buildBirthdayEmail(member) {
   var firstName = (member.Name || "Friend").split(" ")[0];
-  var fullName  = member.Name || "Friend";
   var today     = Utilities.formatDate(new Date(), "GMT+5:30", "dd MMMM yyyy");
 
-  return `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-</head>
-<body style="margin:0;padding:0;background:#0F172A;font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0"
-  style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:30px 0;">
-<tr><td align="center">
-<table width="580" cellpadding="0" cellspacing="0"
-  style="max-width:580px;width:92%;border-radius:20px;overflow:hidden;
-         border:1.5px solid rgba(15,118,110,0.45);
-         box-shadow:0 0 60px rgba(15,118,110,0.15),0 24px 80px rgba(0,0,0,0.7);">
+  const body = `
+  ${_emHeadSimple("Happy Birthday 🎂")}
 
-  <!-- HEADER -->
-  <tr><td style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);
-                 padding:30px 28px 22px;text-align:center;
-                 border-bottom:2px solid rgba(15,118,110,0.35);">
-    ${_logoHtml()}
-    <div style="color:rgba(15,118,110,0.6);font-size:1.1rem;letter-spacing:8px;margin-bottom:6px;">${CFG.symbol||"🕉"}</div>
-    <div style="color:#0F766E;font-size:20px;font-weight:700;letter-spacing:1.5px;">${CFG.name.toUpperCase()}</div>
-    <div style="color:rgba(255,255,255,0.4);font-size:11px;margin-top:3px;letter-spacing:1px;">${CFG.location.toUpperCase()}</div>
-    <div style="margin-top:16px;">
-      <span style="background:linear-gradient(135deg,#0F766E,#F59E0B);color:#fff;
-                   padding:6px 22px;border-radius:20px;font-size:12px;font-weight:700;
-                   letter-spacing:0.5px;box-shadow:0 4px 14px rgba(15,118,110,0.45);">
-        🎂 जन्मदिन मुबारक हो! 🎉
-      </span>
-    </div>
-  </td></tr>
+  <tr><td style="padding:28px 32px;">
+    <p style="color:${_EM.ink};font-size:14px;margin:0 0 14px;">Dear ${firstName} जी,</p>
 
-  <!-- DIYAS -->
-  <tr><td style="background:linear-gradient(135deg,#0F3B38,#0A2E2B);
-                 padding:16px 28px 8px;text-align:center;">
-    <div style="font-size:26px;letter-spacing:14px;">🪔 🪔 🪔</div>
-    <div style="width:80px;height:1px;
-                background:linear-gradient(90deg,transparent,rgba(15,118,110,0.5),transparent);
-                margin:12px auto 0;"></div>
-  </td></tr>
+    <p style="color:${_EM.sub};font-size:13.5px;line-height:1.85;margin:0 0 16px;">
+      Wishing you a very Happy Birthday! 🎉 आपका यह दिन खुशियों, अच्छी सेहत और अपनों के साथ प्यार भरे
+      पलों से भरा रहे।
+    </p>
 
-  <!-- MAIN BODY -->
-  <tr><td style="background:linear-gradient(160deg,#0F3B38,#0A2E2B);
-                 padding:20px 32px 28px;text-align:center;">
-    <div style="font-size:26px;font-weight:800;color:#0F766E;line-height:1.2;margin-bottom:4px;">
-      जन्मदिन मुबारक हो!
-    </div>
-    <div style="font-size:12px;font-weight:700;color:rgba(15,118,110,0.55);
-                letter-spacing:3px;margin-bottom:18px;">✦ HAPPY BIRTHDAY ✦</div>
-
-    <div style="font-size:21px;font-weight:700;color:#fff;margin-bottom:4px;">
-      🌸 ${firstName} जी 🌸
-    </div>
-    <div style="font-size:11px;color:rgba(15,118,110,0.55);font-style:italic;
-                letter-spacing:1px;margin-bottom:18px;">
-      ~ आपका दिन खुशियों से भरा रहे ~
-    </div>
-
-    <div style="width:80px;height:1px;
-                background:linear-gradient(90deg,transparent,rgba(15,118,110,0.5),transparent);
-                margin:0 auto 18px;"></div>
-
-    <!-- Blessing box -->
-    <div style="background:rgba(15,118,110,0.07);border:1px solid rgba(15,118,110,0.22);
-                border-radius:14px;padding:20px 22px;text-align:left;margin-bottom:18px;">
-      <p style="color:rgba(255,255,255,0.88);font-size:13.5px;line-height:1.85;margin:0 0 12px;">
-        प्रिय <strong style="color:#fff;">${fullName}</strong> जी,
-      </p>
-      <p style="color:rgba(255,255,255,0.76);font-size:13px;line-height:1.85;margin:0 0 12px;">
-        आपका यह जन्मदिन खुशियों, सेहत और अपनों के साथ प्यार भरे पलों से
-        भरा रहे। जीवन में सुख और समृद्धि सदैव बनी रहे। 🙏
-      </p>
-      <p style="color:rgba(255,255,255,0.76);font-size:13px;line-height:1.85;margin:0;">
-        आप स्वस्थ रहें, प्रसन्न रहें और इसी तरह हमारे घर-परिवार का हिस्सा
-        बने रहें। 🌺
+    <div style="background:${_EM.panel};border-left:3px solid ${_EM.brand};padding:16px 18px;margin:0 0 18px;">
+      <p style="color:${_EM.sub};font-size:13px;line-height:1.8;margin:0;">
+        On behalf of <strong style="color:${_EM.ink};">${CFG.name}</strong>, हम आपकी दीर्घायु,
+        स्वास्थ्य और खुशहाली की कामना करते हैं। May the year ahead bring you much joy and success. 🌸
       </p>
     </div>
 
-    <div style="width:80px;height:1px;
-                background:linear-gradient(90deg,transparent,rgba(15,118,110,0.5),transparent);
-                margin:0 auto 16px;"></div>
-
-    <div style="color:rgba(15,118,110,0.7);font-size:12px;line-height:1.75;">
-      पूरे घर-परिवार की ओर से हार्दिक शुभकामनाएं।<br/>
-      आप स्वस्थ रहें, प्रसन्न रहें, धन्य रहें। 🌺
-    </div>
+    <p style="color:${_EM.brand};font-size:12.5px;line-height:1.7;margin:0;font-style:italic;text-align:center;">
+      जन्मदिन मुबारक हो — ${CFG.tagline} 🙏
+    </p>
   </td></tr>
 
-  <!-- FOOTER -->
-  <tr><td style="background:linear-gradient(135deg,#0A2E2B,#071F1D);
-                 padding:18px 28px;text-align:center;
-                 border-top:1.5px solid rgba(15,118,110,0.28);">
-    <div style="color:#0F766E;font-size:15px;font-weight:700;margin-bottom:5px;">
-      🙏 ${CFG.tagline} 🙏
-    </div>
-    <div style="color:rgba(255,255,255,0.35);font-size:10px;margin-top:4px;font-style:italic;">
-      ${CFG.name} | ${CFG.location}
-    </div>
-    <div style="color:rgba(255,255,255,0.22);font-size:10px;margin-top:3px;">
-      Sent to ${member.Email} on ${today}
-    </div>
-  </td></tr>
-
-</table>
-</td></tr></table>
-</body></html>`;
+  ${_emFooterSimple("Sent to " + member.Email + " on " + today)}`;
+  return _emShell(520, body);
 }
 
 // ════════════════════════════════════════════════════════════════
