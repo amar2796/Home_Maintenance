@@ -4770,7 +4770,10 @@
       let userId = document.getElementById("bk_user").value;
       let year = document.getElementById("bk_year").value;
       let typeId = document.getElementById("bk_type").value;
+      // Default Note to "Jai Shree Ram" when admin leaves it blank; if admin
+      // typed something, that's used as-is. (Same behavior as Add Contribution.)
       let note = document.getElementById("bk_note").value;
+      if (!note || !note.trim()) note = "Jai Shree Ram";
       // Collect all rows
       let rows = [...document.querySelectorAll(".bk-row")]
         .map(r => ({ month: r.querySelector(".bk-mon").value, amount: r.querySelector(".bk-amt").value }))
@@ -5274,7 +5277,10 @@
       const forMonth = document.getElementById("month").value;
       const typeId = document.getElementById("type").value;
       const occasionId = document.getElementById("occasion").value;
-      const note = document.getElementById("note").value;
+      // Default Note to "Jai Shree Ram" when admin leaves it blank; if admin
+      // typed something, that's used as-is.
+      let note = document.getElementById("note").value;
+      if (!note || !note.trim()) note = "Jai Shree Ram";
       const paymentMode = document.getElementById("paymentMode") ? document.getElementById("paymentMode").value : "UPI";
 
       const memberName = selectedUser ? escapeHtml(selectedUser.Name) : userId;
