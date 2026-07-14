@@ -29,7 +29,7 @@ const CFG = {
   designation:   "Household Head",
   tagline:       "Jai Shree Ram",
   thankYouMsg:   "Thank you for your generous contribution",
-  websiteUrl:    "https://amar2796.github.io/Home_Maintenance/",   // TODO: replace with your live app URL — used as the "Open Website" button in emails
+  websiteUrl:    "https://your-app-url-here.web.app",   // TODO: replace with your live app URL — used as the "Open Website" button in emails
   // ── PUBLIC DISPLAY FIELDS (shown on homepage — change for any temple/institution)
   splashText:    "॥ जय श्री राम ॥",          // Splash screen greeting
   heroText:      "|| श्री हनुमत आश्रम ||",    // Hero section heading
@@ -185,12 +185,6 @@ function hashPassword(pwd) {
 // ── Format date for display
 function formatDate() {
   return Utilities.formatDate(new Date(), "GMT+5:30", "dd-MM-yyyy HH:mm:ss");
-}
-
-// ── Generate unique ID (UUID-style) — kept for legacy/fallback use only
-// New code uses generateSheetId() for all sheet IDs.
-function generateId() {
-  return Utilities.getUuid().replace(/-/g, "").substring(0, 16);
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -867,6 +861,7 @@ function _doSendMonthlyReports(overrideMonth, overrideYear) {
 
   const users         = getSheetData(SHEETS.USERS);
   const contributions = getSheetData(SHEETS.CONTRIBUTIONS);
+  const types          = getSheetData(SHEETS.TYPES);
 
   const activeMembers = users.filter(u =>
     String(u.Role||"").toLowerCase() !== "admin" &&
@@ -895,16 +890,23 @@ function _doSendMonthlyReports(overrideMonth, overrideYear) {
       String(c.Year) === year
     );
 
-    // ✅ FIX 1: was "retrun" (typo) — skip members who already contributed
-    if (myContribs.length > 0) return;
-
     // [FIX-5] Removed non-atomic canSendEmail() pre-check here.
     // canSendEmail() is a read-only check with no lock — it could return true
     // for many members in the loop even when quota is about to be exhausted,
     // causing the queue to be overfilled. tryConsumeEmailQuota() in the send
     // loop below is atomic and is the single source of truth for quota.
+
+    if (myContribs.length > 0) {
+      // Member already contributed this month — send a Monthly Summary
+      // of everything they gave, instead of a reminder.
+      const totalAmt = myContribs.reduce((sum, c) => sum + Number(c.Amount || 0), 0);
+      const summaryHtml = _buildMonthlyReceiptEmail(member, myContribs, types, month, year, totalAmt);
+      emailQueue.push({ to: String(member.Email).trim(), htmlBody: summaryHtml, name: member.Name, kind: "summary" });
+      return;
+    }
+
     let htmlBody = _buildReminderEmail(member, month, year);
-    emailQueue.push({ to: String(member.Email).trim(), htmlBody: htmlBody, name: member.Name });
+    emailQueue.push({ to: String(member.Email).trim(), htmlBody: htmlBody, name: member.Name, kind: "reminder" });
   });
 
   emailQueue.forEach(function(item) {
@@ -912,8 +914,9 @@ function _doSendMonthlyReports(overrideMonth, overrideYear) {
       if (!tryConsumeEmailQuota()) { skipped++; return; }
       MailApp.sendEmail({
         to:       item.to,
-        // ✅ FIX 2: subject now correctly says "Contribution Reminder"
-        subject:  CFG.name + " — Gentle Reminder: " + month + " " + year + " Contribution Pending",
+        subject:  item.kind === "summary"
+                    ? CFG.name + " — Your " + month + " " + year + " Contribution Summary"
+                    : CFG.name + " — Final Reminder: " + month + " " + year + " Contribution Still Pending",
         htmlBody: item.htmlBody
       });
       sent++;
@@ -924,7 +927,7 @@ function _doSendMonthlyReports(overrideMonth, overrideYear) {
     }
   });
 
-  logAction("System", "Monthly Reminder Sent", month + " " + year + " — sent:" + sent + ", skipped:" + skipped);
+  logAction("System", "Monthly Report Sent", month + " " + year + " — sent:" + sent + ", skipped:" + skipped);
   const quota = getEmailQuotaStatus();
   return { status: "ok", sent: sent, skipped: skipped, quotaRemaining: quota.remaining };
 }
@@ -1108,26 +1111,27 @@ function _buildMonthlyReceiptEmail(member, contribs, types, month, year, totalAm
   return _emShell(580, body);
 }
 
-// ── Monthly reminder email (member did NOT contribute)
+// ── Month-end reminder email (member still did NOT contribute after the mid-month nudge)
 function _buildReminderEmail(member, month, year) {
   var firstName = (member.Name || "Friend").split(" ")[0];
   const body = `
-  ${_emHeadSimple("Gentle Reminder")}
+  ${_emHeadSimple("Final Reminder")}
 
   <tr><td style="padding:26px 32px;">
     <p style="color:${_EM.ink};font-size:14px;margin:0 0 14px;">Dear ${firstName} जी,</p>
 
     <p style="color:${_EM.sub};font-size:13.5px;line-height:1.85;margin:0 0 16px;">
-      Hope you and your family are doing well 🙏। This is a gentle reminder कि आपका contribution
+      यह इस महीने का last reminder है — आपका contribution
       <strong style="color:${_EM.ink};">${month} ${year}</strong> के लिए अभी तक हमारे records में नहीं आया है।
     </p>
 
     <div style="background:${_EM.panel};border-left:3px solid ${_EM.brand};padding:14px 18px;margin:0 0 18px;">
       <div style="color:${_EM.ink};font-size:13px;font-weight:600;margin-bottom:4px;">
-        ${month} ${year} — Contribution Pending
+        ${month} ${year} — Still Pending
       </div>
       <div style="color:${_EM.sub};font-size:12.5px;line-height:1.7;">
-        अगर आपने already contribute कर दिया है, तो कृपया household admin से coordinate करके इसे record करवा दें।
+        महीना समाप्त हो चुका है, कृपया जल्द से जल्द अपना contribution पूरा करें। अगर already pay कर दिया है,
+        तो कृपया household admin से coordinate करके इसे record करवा दें।
       </div>
     </div>
 
@@ -4333,23 +4337,42 @@ function _checkGoalCompletion(goalId) {
   } catch(err) { /* non-fatal — never crash main operation */ }
 }
 
-// ── Reminder email body (used by sendMonthlyReminders)
+// ── Mid-month reminder email (used by sendMonthlyReminders — fires ~25th, still time to pay)
 function _buildMonthlyReminderEmail(member, month, year) {
+  var firstName = (member.Name || "Friend").split(" ")[0];
   const body = `
-  ${_emHeader()}
+  ${_emHeadSimple("Gentle Reminder")}
+
   <tr><td style="padding:26px 32px;">
-    <p style="color:${_EM.ink};font-size:14px;margin:0 0 12px;">Dear <strong>${member.Name}</strong>,</p>
-    <p style="color:${_EM.sub};font-size:13px;line-height:1.8;margin:0;">
-      🙏 We hope this finds you well.<br/><br/>
-      This is a gentle reminder that your contribution for
-      <strong style="color:${_EM.ink};">${month} ${year}</strong> has not yet been recorded
-      in our system. If you have already contributed, please coordinate
-      with the household admin to get it updated.<br/><br/>
-      If you need any assistance, please contact us.
+    <p style="color:${_EM.ink};font-size:14px;margin:0 0 14px;">Dear ${firstName} जी,</p>
+
+    <p style="color:${_EM.sub};font-size:13.5px;line-height:1.85;margin:0 0 16px;">
+      Hope you and your family are doing well 🙏। यह एक friendly reminder है कि आपका contribution
+      <strong style="color:${_EM.ink};">${month} ${year}</strong> के लिए अभी तक record नहीं हुआ है।
+    </p>
+
+    <div style="background:${_EM.panel};border-left:3px solid ${_EM.brand};padding:14px 18px;margin:0 0 18px;">
+      <div style="color:${_EM.ink};font-size:13px;font-weight:600;margin-bottom:4px;">
+        ${month} ${year} — Contribution Due
+      </div>
+      <div style="color:${_EM.sub};font-size:12.5px;line-height:1.7;">
+        अभी महीना खत्म होने में समय है, तो कृपया जल्द ही अपना contribution complete कर दें। अगर already
+        pay कर दिया है, तो household admin से coordinate करके इसे record करवा दें।
+      </div>
+    </div>
+
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.8;margin:0 0 18px;">
+      यह contribution हमारे घर के मासिक खर्चों को manage करने के लिए है, and every family member's timely
+      share helps us run things smoothly — आपकी भागीदारी हमेशा गिनी जाती है। 🌸
+    </p>
+
+    <p style="color:${_EM.brand};font-size:12.5px;line-height:1.7;margin:0;font-style:italic;text-align:center;">
+      धन्यवाद — Thank you for being part of our home. 🙏
     </p>
   </td></tr>
-  ${_emFooter(CFG.tagline)}`;
-  return _emShell(540, body);
+
+  ${_emFooterSimple("This is a private reminder sent only to you.")}`;
+  return _emShell(520, body);
 }
 
 // ── CHATBOT CONFIG ────────────────────────────────────────────
