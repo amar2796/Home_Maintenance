@@ -783,9 +783,9 @@ function getEmailSettings() {
   const ss    = SpreadsheetApp.getActiveSpreadsheet();
   let sheet   = ss.getSheetByName(SHEETS.SETTINGS);
   // Default OFF — never silently re-enable a toggle the user turned off
-  if (!sheet) return { auto_receipt: false, monthly_report: false };
+  if (!sheet) return { auto_receipt: false, monthly_report: false, admin_monthly_summary: false };
   const data  = sheet.getDataRange().getValues();
-  if (!data || data.length === 0) return { auto_receipt: false, monthly_report: false };
+  if (!data || data.length === 0) return { auto_receipt: false, monthly_report: false, admin_monthly_summary: false };
   // Build map — skip header row where col A is "Key"
   // FIX: Google Sheets stores 1/0 as Number type, coerce to String for reliable comparison
   const map = {};
@@ -795,9 +795,10 @@ function getEmailSettings() {
   });
   return {
     // FIX: === "1" exact string match — "!== 0" was always true for Number 1
-    auto_receipt:   map["auto_receipt"]   === "1",
-    monthly_report: map["monthly_report"] === "1",
-    birthday_email: map["birthday_email"] === "1"
+    auto_receipt:          map["auto_receipt"]          === "1",
+    monthly_report:        map["monthly_report"]        === "1",
+    birthday_email:        map["birthday_email"]        === "1",
+    admin_monthly_summary: map["admin_monthly_summary"] === "1"
     // logo_email_url removed — logo is now auto-loaded from CFG.folderLogo (Drive folder)
   };
 }
@@ -930,6 +931,350 @@ function _doSendMonthlyReports(overrideMonth, overrideYear) {
   logAction("System", "Monthly Report Sent", month + " " + year + " — sent:" + sent + ", skipped:" + skipped);
   const quota = getEmailQuotaStatus();
   return { status: "ok", sent: sent, skipped: skipped, quotaRemaining: quota.remaining };
+}
+
+// ════════════════════════════════════════════════════════════════
+//  #10 — ADMIN MONTHLY SUMMARY (who paid, who didn't, PDF attached)
+//  Set up a Time-based trigger: Last day of month → sendAdminMonthlySummary
+//  Sends ONE email per active admin with a paid/unpaid table + PDF.
+//  Multiple entries by the same member in a month are merged into ONE
+//  total (same reduce() pattern as _doSendMonthlyReports).
+// ════════════════════════════════════════════════════════════════
+function sendAdminMonthlySummary(overrideMonth, overrideYear) {
+  // Same guard as sendMonthlyEndReports — ignore the trigger event object
+  // Apps Script auto-passes when fired by a Time-based trigger.
+  var safeMonth = (typeof overrideMonth === "string" && overrideMonth.trim()) ? overrideMonth.trim() : null;
+  var safeYear  = (typeof overrideYear  === "string" && overrideYear.trim())  ? overrideYear.trim()
+                : (typeof overrideYear  === "number")                         ? String(overrideYear)
+                : null;
+
+  const settings = getEmailSettings();
+  if (!settings.admin_monthly_summary) {
+    logAction("System", "ADMIN_SUMMARY_SKIPPED", "Month: " + (safeMonth||"auto") + " Year: " + (safeYear||"auto"), "admin_monthly_summary toggle is OFF", "", { severity:"INFO", result:"BLOCKED" });
+    return { status: "ok", sent: 0, message: "Disabled" };
+  }
+  return _doSendAdminSummary(safeMonth, safeYear);
+}
+
+// Internal — also called by triggerAdminSummary (manual admin-panel button)
+function _doSendAdminSummary(overrideMonth, overrideYear, withPdf) {
+  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const now    = new Date();
+  const month  = overrideMonth || MONTHS[now.getMonth()];
+  const year   = String(overrideYear || now.getFullYear());
+  const attachPdf = withPdf !== false; // default true when called from the automatic trigger (no 3rd arg)
+
+  const data = _buildAdminSummaryData(month, year);
+
+  const users  = getSheetData(SHEETS.USERS);
+  const admins = users.filter(u =>
+    String(u.Role||"").toLowerCase() === "admin" &&
+    String(u.Email||"").trim() !== "" &&
+    String(u.Status||"Active").toLowerCase() === "active"
+  );
+
+  if (admins.length === 0) {
+    logAction("System", "ADMIN_SUMMARY_NO_ADMIN", month + " " + year, "No active admin with email found", "", { severity:"WARN", result:"BLOCKED" });
+    return { status: "error", message: "No active admin with an email address found." };
+  }
+
+  let pdfBlob = null;
+  if (attachPdf) {
+    try {
+      pdfBlob = _buildAdminSummaryPdf(data);
+    } catch (e) {
+      // Never fail the whole job just because PDF generation failed — send email without it.
+      logAction("System", "ADMIN_SUMMARY_PDF_ERROR", month + " " + year, e.message, "", { severity:"WARN", result:"FAILURE", error:e });
+    }
+  }
+
+  const htmlBody = _buildAdminSummaryEmail(data);
+  let sent = 0, skipped = 0;
+
+  admins.forEach(admin => {
+    try {
+      if (!tryConsumeEmailQuota()) { skipped++; return; }
+      const mailOpts = {
+        to:       String(admin.Email).trim(),
+        subject:  CFG.name + " — " + month + " " + year + " Contribution Summary (Admin)",
+        htmlBody: htmlBody
+      };
+      if (pdfBlob) mailOpts.attachments = [pdfBlob];
+      MailApp.sendEmail(mailOpts);
+      sent++;
+      Utilities.sleep(300);
+    } catch(e) {
+      logAction("System", "ADMIN_SUMMARY_SEND_ERROR", "To: " + admin.Email, e.message, "", { severity:"WARN", result:"FAILURE", error:e });
+      skipped++;
+    }
+  });
+
+  logAction("System", "Admin Monthly Summary Sent", month + " " + year + " — sent:" + sent + ", skipped:" + skipped + ", paid:" + data.paidList.length + ", unpaid:" + data.unpaidList.length);
+  const quota = getEmailQuotaStatus();
+  return {
+    status: "ok", sent: sent, skipped: skipped,
+    paidCount: data.paidList.length, unpaidCount: data.unpaidList.length,
+    walkinCount: data.walkinList.length,
+    totalCollected: data.grandTotal, quotaRemaining: quota.remaining
+  };
+}
+
+// ── Build paid/unpaid data — merges multiple entries per member into ONE total row
+function _buildAdminSummaryData(month, year) {
+  const users         = getSheetData(SHEETS.USERS);
+  const contributions = getSheetData(SHEETS.CONTRIBUTIONS);
+
+  // Same fix as _doSendMonthlyReports: ForMonth may come back as a Date object from Sheets.
+  function _normalizeMonth(val) {
+    if (val instanceof Date) return Utilities.formatDate(val, "GMT+5:30", "MMMM");
+    return String(val || "").trim();
+  }
+
+  // ✅ [FIX] Strict "active" match — was `!== "inactive"`, which also counted
+  // Pending/Rejected/Suspended members as if they should be chased for payment.
+  // Only fully-approved, active members belong in a paid/not-paid list.
+  const activeMembers = users.filter(u =>
+    String(u.Role||"").toLowerCase() !== "admin" &&
+    String(u.Status||"").toLowerCase() === "active"
+  );
+
+  const paidList = [];
+  const unpaidList = [];
+  let totalCollected = 0;
+
+  activeMembers.forEach(member => {
+    const myContribs = contributions.filter(c =>
+      String(c.UserId) === String(member.UserId) &&
+      _normalizeMonth(c.ForMonth) === month &&
+      String(c.Year) === year
+    );
+    if (myContribs.length > 0) {
+      // ✅ Multiple entries this month → summed into ONE total, one row.
+      const totalAmt = myContribs.reduce((sum, c) => sum + Number(c.Amount || 0), 0);
+      totalCollected += totalAmt;
+      paidList.push({ name: member.Name, mobile: member.Mobile, amount: totalAmt, entries: myContribs.length });
+    } else {
+      unpaidList.push({ name: member.Name, mobile: member.Mobile });
+    }
+  });
+
+  paidList.sort((a, b) => b.amount - a.amount); // highest contributor first
+
+  // ── Walk-in contributions (no USERS row — donor's name lives in the Note field
+  // as "Walk-in: <name> | <phone>"). These aren't tracked as "members" so there's
+  // no stable ID to merge repeat visits by the same person — each entry is listed
+  // separately rather than risk merging two different people who share a name.
+  const walkinList = [];
+  let walkinTotal = 0;
+  contributions.forEach(c => {
+    if (!c.UserId || String(c.UserId).indexOf("WALKIN_") !== 0) return;
+    if (_normalizeMonth(c.ForMonth) !== month || String(c.Year) !== year) return;
+    const noteStr   = String(c.Note || "");
+    const nameMatch = noteStr.match(/Walk-in:\s*([^|]+)/);
+    const donorName = nameMatch ? nameMatch[1].trim() : "Walk-in Donor";
+    const amt       = Number(c.Amount || 0);
+    walkinTotal += amt;
+    walkinList.push({ name: donorName, amount: amt, receiptId: c.ReceiptID || "" });
+  });
+  walkinList.sort((a, b) => b.amount - a.amount);
+
+  return {
+    month: month, year: year,
+    paidList: paidList, unpaidList: unpaidList, walkinList: walkinList,
+    totalCollected: totalCollected,       // from registered members only (unchanged meaning)
+    walkinTotal: walkinTotal,
+    grandTotal: totalCollected + walkinTotal
+  };
+}
+
+// ── Build the PDF via direct HTML→PDF blob conversion.
+//    [FIX] Previous version used DocumentApp — a service never called elsewhere in this
+//    project, so its first run needed a NEW OAuth scope the deployment wasn't authorized
+//    for. That threw silently (caught by the try/catch in _doSendAdminSummary) and the
+//    email went out with no attachment. Utilities/MailApp blob conversion below uses only
+//    scopes this project already has authorized — no re-auth needed, no temp Drive file
+//    to create/trash either.
+function _buildAdminSummaryPdf(data) {
+  const html = _buildAdminSummaryPdfHtml(data);
+  return Utilities.newBlob(html, "text/html", "temp.html")
+           .getAs("application/pdf")
+           .setName(CFG.name + "_" + data.month + "_" + data.year + "_Summary.pdf");
+}
+
+function _buildAdminSummaryPdfHtml(data) {
+  function esc(s) { return _htmlEscape(String(s || "")); }
+  const thPaid   = "padding:6px 10px;border:1px solid #bbf7d0;text-align:left;background:#dcfce7;color:#166534;";
+  const thUnpaid = "padding:6px 10px;border:1px solid #fecaca;text-align:left;background:#fee2e2;color:#991b1b;";
+  const thWalkin = "padding:6px 10px;border:1px solid #fde68a;text-align:left;background:#fef3c7;color:#92400e;";
+  const tdPaid   = "padding:6px 10px;border:1px solid #bbf7d0;background:#f0fdf4;";
+  const tdUnpaid = "padding:6px 10px;border:1px solid #fecaca;background:#fef2f2;";
+  const tdWalkin = "padding:6px 10px;border:1px solid #fde68a;background:#fffbeb;";
+  const walkinList = data.walkinList || [];
+
+  // ── Each section is skipped entirely (no heading, no table) when its list is empty —
+  // rather than printing a placeholder row like "— none —".
+  let sections = "";
+
+  if (data.paidList.length > 0) {
+    const paidRows = data.paidList.map(m =>
+      "<tr><td style='" + tdPaid + "'>" + esc(m.name) + "</td>" +
+      "<td style='" + tdPaid + "text-align:right;'>" + CFG.currencyText + " " + m.amount + "</td>" +
+      "<td style='" + tdPaid + "text-align:center;'>" + (m.entries > 1 ? m.entries : "—") + "</td></tr>"
+    ).join("");
+    sections += "<h3 style='color:#166534;'>✅ Paid</h3>" +
+      "<table style='border-collapse:collapse;width:100%;'>" +
+        "<tr><th style='" + thPaid + "'>Name</th><th style='" + thPaid + "text-align:right;'>Amount</th><th style='" + thPaid + "text-align:center;'>Entries</th></tr>" +
+        paidRows +
+      "</table>";
+  }
+
+  if (walkinList.length > 0) {
+    const walkinRows = walkinList.map(m =>
+      "<tr><td style='" + tdWalkin + "'>" + esc(m.name) + "</td>" +
+      "<td style='" + tdWalkin + "text-align:right;'>" + CFG.currencyText + " " + m.amount + "</td></tr>"
+    ).join("");
+    sections += "<h3 style='color:#92400e;margin-top:18px;'>🚶 Walk-in Contributions</h3>" +
+      "<table style='border-collapse:collapse;width:100%;'>" +
+        "<tr><th style='" + thWalkin + "'>Name</th><th style='" + thWalkin + "text-align:right;'>Amount</th></tr>" +
+        walkinRows +
+      "</table>";
+  }
+
+  if (data.unpaidList.length > 0) {
+    const unpaidRows = data.unpaidList.map(m =>
+      "<tr><td style='" + tdUnpaid + "font-weight:600;'>" + esc(m.name) + "</td></tr>"
+    ).join("");
+    sections += "<h3 style='color:#991b1b;margin-top:18px;'>⚠️ Not Yet Paid</h3>" +
+      "<table style='border-collapse:collapse;width:100%;'>" +
+        "<tr><th style='" + thUnpaid + "'>Name</th></tr>" +
+        unpaidRows +
+      "</table>";
+  }
+
+  return "<html><body style='font-family:Arial,sans-serif;color:#1e293b;font-size:13px;'>" +
+    "<h2 style='margin-bottom:2px;'>" + esc(CFG.name) + "</h2>" +
+    "<p style='color:#64748b;margin-top:0;'>" + esc(data.month) + " " + esc(data.year) + " — Contribution Summary</p>" +
+    "<p><strong>Members collected:</strong> " + CFG.currencyText + " " + data.totalCollected +
+      " &nbsp;|&nbsp; <strong>Walk-in collected:</strong> " + CFG.currencyText + " " + (data.walkinTotal||0) + "</p>" +
+    "<p style='font-size:15px;'><strong>Grand total: " + CFG.currencyText + " " + (data.grandTotal != null ? data.grandTotal : data.totalCollected) + "</strong></p>" +
+    "<p>Paid: " + data.paidList.length + " &nbsp;|&nbsp; Not yet paid: " + data.unpaidList.length +
+      " &nbsp;|&nbsp; Walk-in entries: " + walkinList.length + "</p>" +
+    sections +
+    "</body></html>";
+}
+
+// ── Plain-text version, ready to select-all + copy-paste into WhatsApp/group chat.
+//    Email HTML can't run a working "Copy" button in most clients (Gmail strips onclick),
+//    so a pre-formatted block the admin can manually select is the reliable fallback —
+//    it's also shown even when the PDF attaches fine, since forwarding text is often faster.
+function _buildAdminSummaryPlainText(data) {
+  const walkinList = data.walkinList || [];
+  const lines = [];
+  lines.push(CFG.symbol + " " + CFG.name);
+  lines.push("📍 " + CFG.location);
+  lines.push("━━━━━━━━━━━━━━━━━━━━");
+  lines.push("📋 ADMIN MONTHLY SUMMARY");
+  lines.push("📅 " + data.month + " " + data.year);
+
+  if (data.paidList.length > 0) {
+    lines.push("");
+    lines.push("✅ PAID (" + data.paidList.length + ")");
+    data.paidList.forEach((m, i) => {
+      lines.push((i + 1) + ". " + m.name + " — " + CFG.currencyText + " " + m.amount + (m.entries > 1 ? " (" + m.entries + " entries)" : ""));
+    });
+  }
+
+  if (walkinList.length > 0) {
+    lines.push("");
+    lines.push("🚶 WALK-IN (" + walkinList.length + ")");
+    walkinList.forEach((m, i) => {
+      lines.push((i + 1) + ". " + m.name + " — " + CFG.currencyText + " " + m.amount);
+    });
+  }
+
+  if (data.unpaidList.length > 0) {
+    lines.push("");
+    lines.push("⚠️ NOT PAID (" + data.unpaidList.length + ")");
+    data.unpaidList.forEach((m, i) => {
+      lines.push((i + 1) + ". " + m.name);
+    });
+  }
+
+  lines.push("");
+  lines.push("💰 Members Collected: " + CFG.currencyText + " " + data.totalCollected);
+  lines.push("💰 Walk-in Collected: " + CFG.currencyText + " " + (data.walkinTotal||0));
+  lines.push("💰 Grand Total: " + CFG.currencyText + " " + (data.grandTotal != null ? data.grandTotal : data.totalCollected));
+  lines.push("━━━━━━━━━━━━━━━━━━━━");
+  lines.push(CFG.tagline);
+  return lines.join("\n");
+}
+
+// ── HTML email body — Paid → Walk-in → Not-Paid, each section skipped entirely
+//    (no heading, no empty table) when its list has zero entries.
+function _buildAdminSummaryEmail(data) {
+  function esc(s) { return _htmlEscape(String(s || "")); }
+  const walkinList = data.walkinList || [];
+
+  let sectionsHtml = "";
+
+  if (data.paidList.length > 0) {
+    const paidRows = data.paidList.map(m =>
+      _emailRow(m.name, CFG.currencyText + " " + m.amount + (m.entries > 1 ? " (" + m.entries + " entries)" : ""))
+    ).join("");
+    sectionsHtml += `
+    <p style="color:#166534;font-size:13px;font-weight:600;margin:0 0 6px;">✅ Paid</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;">${paidRows}</table>`;
+  }
+
+  if (walkinList.length > 0) {
+    const walkinRows = walkinList.map(m => _emailRow(m.name, CFG.currencyText + " " + m.amount)).join("");
+    sectionsHtml += `
+    <p style="color:#92400e;font-size:13px;font-weight:600;margin:18px 0 6px;">🚶 Walk-in Contributions</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;">${walkinRows}</table>`;
+  }
+
+  if (data.unpaidList.length > 0) {
+    const unpaidRows = data.unpaidList.map(m => "<li style='margin-bottom:6px;font-weight:600;color:#991b1b;'>" + esc(m.name) + "</li>").join("");
+    sectionsHtml += `
+    <p style="color:#991b1b;font-size:13px;font-weight:700;margin:18px 0 6px;">⚠️ Not Yet Paid</p>
+    <ul style="margin:0;padding:12px 14px 12px 30px;font-size:13px;background:#fef2f2;border:1.5px solid #fecaca;border-radius:8px;line-height:1.8;">${unpaidRows}</ul>`;
+  }
+
+  const plainText = _buildAdminSummaryPlainText(data);
+  const preId = "admsum_copy_text";
+
+  const body = `
+  ${_emHeader("ADMIN MONTHLY SUMMARY")}
+  <tr><td style="padding:24px 28px;">
+    <p style="color:${_EM.ink};font-size:14px;margin:0 0 12px;">
+      ${data.month} ${data.year} contribution status — ${data.paidList.length} paid, ${data.unpaidList.length} pending, ${walkinList.length} walk-in.
+    </p>
+    <p style="color:${_EM.ink};font-size:13px;margin:0 0 4px;">
+      Members: ${CFG.currencyText} ${data.totalCollected} &nbsp;+&nbsp; Walk-in: ${CFG.currencyText} ${data.walkinTotal||0}
+    </p>
+    <p style="color:${_EM.ink};font-size:15px;font-weight:600;margin:0 0 16px;">
+      Grand total: ${CFG.currencyText} ${data.grandTotal != null ? data.grandTotal : data.totalCollected}
+    </p>
+    ${sectionsHtml}
+
+    <p style="color:${_EM.sub};font-size:12px;margin:18px 0 6px;">
+      Ready-to-forward text:
+      <!-- Attempts a real click-to-copy — works in mail clients that don't strip
+           inline scripts. Gmail/Outlook web strip <script>/onclick, so this button
+
+           silently does nothing there; the block below is always select-and-copy-able
+           regardless, so nothing is lost if the button doesn't fire. -->
+      <button type="button" onclick="try{var t=document.getElementById('${preId}').innerText;navigator.clipboard.writeText(t);this.innerText='Copied ✓';}catch(e){}" style="border:1px solid #c4b5fd;background:#f5f3ff;color:#5b21b6;font-size:11px;padding:3px 10px;border-radius:6px;cursor:pointer;margin-left:4px;">Copy</button>
+    </p>
+    <pre id="${preId}" style="white-space:pre-wrap;font-family:'Courier New',monospace;font-size:11.5px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;color:#334155;margin:0;">${esc(plainText)}</pre>
+
+    <p style="color:${_EM.sub};font-size:12px;margin:16px 0 0;">
+      A PDF copy of this table is also attached — forward either to the group if needed.
+
+    </p>
+  </td></tr>
+  ${_emFooter()}`;
+  return _emShell(560, body);
 }
 
 // ── Logo URL helper — used by ALL email types
@@ -1285,6 +1630,7 @@ function doGet(e) {
     // Email blast actions — must require auth to prevent spam abuse
     "triggerMonthlyReport","triggerMonthlyReminder","sendMonthlyReminders","sendBirthdayEmails",
     "sendContribReceiptEmail",
+    "triggerAdminSummary","getAdminSummaryStatus",
     // Mobile number change — requires active session
     "sendMobileChangeOTP","verifyMobileChangeOTP",
     // Audit log write — prevent unauthenticated fake entries
@@ -1618,7 +1964,7 @@ function doGet(e) {
     // Admin passes: action=saveEmailSettings&key=auto_receipt&value=1
     const key      = sanitize(e.parameter.key || "", 30);
     const value    = sanitize(e.parameter.value || "0", 2);   // toggles only: "0" or "1"
-    const allowed  = ["auto_receipt", "monthly_report", "birthday_email"];
+    const allowed  = ["auto_receipt", "monthly_report", "birthday_email", "admin_monthly_summary"];
     // logo_email_url removed — logo is now auto-loaded from CFG.folderLogo (Drive folder)
     if (allowed.indexOf(key) !== -1) {
       result = saveEmailSettings(key, value, sanitize(e.parameter.AdminName||"Admin",100));
@@ -1687,6 +2033,61 @@ function doGet(e) {
           // Clean up once read successfully (only if done)
           if (result.status !== "pending") {
             try { PropertiesService.getScriptProperties().deleteProperty("MREPORT_" + jobKey); } catch(e) {}
+          }
+        }
+      } catch(e) {
+        result = { status: "pending" };
+      }
+    }
+  }
+
+  // ── #10: MANUAL TRIGGER — Admin Monthly Summary (fire-and-store pattern, same as #9)
+  else if (action === "triggerAdminSummary") {
+    const month  = sanitize(e.parameter.month,  20);
+    const year   = sanitize(e.parameter.year,   10);
+    const jobKey = sanitize(e.parameter.jobKey, 50) || ("job_" + Date.now());
+    // [FIX] No 1-hour cooldown here — this action is the manual/admin "Send Now" test
+    // button, gated by _verifySession already (a real admin must be logged in to fire
+    // it). A 1-hour lockout on a test tool caused it to silently reject re-clicks, and
+    // the old code never wrote a "pending" record for the throttled case — so the
+    // frontend poll loop waited forever for a jobKey that was never stored. If you want
+    // this un-throttled from anywhere, keep it this way; the automatic month-end trigger
+    // (sendAdminMonthlySummary) is separate and unaffected.
+    const withPdf = sanitize(e.parameter.withPdf, 2) !== "0"; // default true — pass withPdf=0 to skip PDF generation
+    try {
+      PropertiesService.getScriptProperties().setProperty(
+        "ADMSUM_" + jobKey, JSON.stringify({ status: "pending" })
+      );
+    } catch(e) {}
+    let jobResult;
+    try {
+      jobResult = _doSendAdminSummary(month || null, year || null, withPdf);
+    } catch(err) {
+      logAction("System", "ADMIN_SUMMARY_ERROR", "Month: " + (month||"auto") + " | Year: " + (year||"auto"), err.message, "", { severity:"ERROR", result:"FAILURE", error:err });
+      jobResult = { status: "error", message: err.message };
+    }
+    try {
+      PropertiesService.getScriptProperties().setProperty(
+        "ADMSUM_" + jobKey, JSON.stringify(jobResult)
+      );
+    } catch(e) {}
+    result = jobResult;
+  }
+
+  // ── #10b: POLL for admin summary result
+  else if (action === "getAdminSummaryStatus") {
+    const jobKey = sanitize(e.parameter.jobKey, 50);
+    if (!jobKey) {
+      result = { status: "error", message: "Missing jobKey" };
+    } else {
+      try {
+        const raw = PropertiesService.getScriptProperties().getProperty("ADMSUM_" + jobKey);
+        if (!raw) {
+          result = { status: "pending" };
+        } else {
+          result = JSON.parse(raw);
+          if (result.status !== "pending") {
+            try { PropertiesService.getScriptProperties().deleteProperty("ADMSUM_" + jobKey); } catch(e) {}
           }
         }
       } catch(e) {
@@ -2583,6 +2984,26 @@ function doGet(e) {
 
   // ── ADD EXPENSE — [ID] EXP-2025-00001 (year-wise reset)
   else if (action === "addExpense") {
+    // ── [GUARANTEE] Idempotency check — same guard addContribution uses above.
+    // If this exact request (same IdempotencyKey) already ran, replay its
+    // result instead of inserting a second expense row.
+    const expIdemKey = sanitize(e.parameter.IdempotencyKey, 100);
+    if (expIdemKey) {
+      const _expIdemPrior = _idempotencyCheckAndReserve(expIdemKey);
+      if (_expIdemPrior === "__IN_PROGRESS__") {
+        result = { status: "error", message: "Previous request for this entry is still processing. Please wait a moment.", errorCode: "duplicate_in_progress" };
+        return ContentService
+          .createTextOutput(callback + "(" + JSON.stringify(result) + ")")
+          .setMimeType(ContentService.MimeType.JAVASCRIPT);
+      }
+      if (_expIdemPrior) {
+        // Already completed on a prior attempt — hand back the ORIGINAL result verbatim.
+        return ContentService
+          .createTextOutput(callback + "(" + _expIdemPrior + ")")
+          .setMimeType(ContentService.MimeType.JAVASCRIPT);
+      }
+    }
+
     const expYear = sanitize(e.parameter.Year, 10) || String(new Date().getFullYear());
     // [ID] Year-wise expense ID so each year's expenses count from 00001
     const expId = sanitize(e.parameter.Id, 30) || generateSheetId("EXP", true);
@@ -2596,7 +3017,12 @@ function doGet(e) {
       sanitize(e.parameter.ForMonth,       20) || ""
     ]);
     logAction(sanitize(e.parameter.AdminName||"Admin",100), "Add Expense", "Id: " + expId + " | Title: " + e.parameter.Title + " | Amount: ₹" + e.parameter.Amount + " | Year: " + expYear);
-    result = { status: "success" };
+    result = { status: "success", expId: expId };
+
+    // ── [GUARANTEE] Save result under the idempotency key so any retry of
+    // this exact request (same key) replays this result instead of
+    // inserting a second row. Must happen AFTER the row is safely written.
+    if (expIdemKey) _idempotencySave(expIdemKey, result);
   }
 
   else if (action === "deleteContribution") {

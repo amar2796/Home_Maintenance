@@ -9226,18 +9226,23 @@
         var receiptOn  = s === true || (s && s.auto_receipt    === true);
         var monthlyOn  = s === true || (s && s.monthly_report  === true);
         var birthdayOn = s && s.birthday_email === true;
+        var adminSummaryOn = s && s.admin_monthly_summary === true;
         var tReceipt  = document.getElementById("toggle_auto_receipt");
         var tMonthly  = document.getElementById("toggle_monthly_report");
         var tBirthday = document.getElementById("toggle_birthday_email");
+        var tAdminSummary = document.getElementById("toggle_admin_monthly_summary");
         if (tReceipt)  { tReceipt.checked  = receiptOn;  tReceipt.disabled  = false; }
         if (tMonthly)  { tMonthly.checked  = monthlyOn;  tMonthly.disabled  = false; }
         if (tBirthday) { tBirthday.checked = birthdayOn; tBirthday.disabled = false; }
+        if (tAdminSummary) { tAdminSummary.checked = adminSummaryOn; tAdminSummary.disabled = false; }
         _updateToggleStatus("auto_receipt",   receiptOn);
         _updateToggleStatus("monthly_report", monthlyOn);
         _updateToggleStatus("birthday_email", birthdayOn);
+        _updateToggleStatus("admin_monthly_summary", adminSummaryOn);
         _updateCardStyle("ea_card_receipt",  receiptOn);
         _updateCardStyle("ea_card_monthly",  monthlyOn);
         _updateCardStyle("ea_card_birthday", birthdayOn);
+        _updateCardStyle("ea_card_admin_summary", adminSummaryOn);
         // logo_email_url removed from settings — logo now auto-loaded from CFG.folderLogo
         // Load live preview: call getLogoPreview action on Apps Script
         _loadEmailLogoPreview();
@@ -9247,13 +9252,14 @@
         }
       }).catch(function () {
         // Fetch failed — show OFF state, re-enable toggles
-        ["toggle_auto_receipt", "toggle_monthly_report", "toggle_birthday_email"].forEach(function (id) {
+        ["toggle_auto_receipt", "toggle_monthly_report", "toggle_birthday_email", "toggle_admin_monthly_summary"].forEach(function (id) {
           var el = document.getElementById(id);
           if (el) { el.checked = false; el.disabled = false; }
         });
         _updateToggleStatus("auto_receipt",   false);
         _updateToggleStatus("monthly_report", false);
         _updateToggleStatus("birthday_email", false);
+        _updateToggleStatus("admin_monthly_summary", false);
         var el = document.getElementById("ea_quota_display");
         if (el) el.innerHTML = "<span style='color:#f87171;'>Cannot reach server — check Apps Script deployment</span>";
       });
@@ -9304,7 +9310,8 @@
       var statusMap = {
         "auto_receipt":   "ea_receipt_status",
         "monthly_report": "ea_monthly_status",
-        "birthday_email": "ea_birthday_status"
+        "birthday_email": "ea_birthday_status",
+        "admin_monthly_summary": "ea_admin_summary_status"
       };
       var el = document.getElementById(statusMap[key]);
       if (!el) return;
@@ -9326,8 +9333,8 @@
 
     function saveEmailToggle(key, value) {
       // Show saving indicator
-      var cardMap = { "auto_receipt": "ea_card_receipt", "monthly_report": "ea_card_monthly", "birthday_email": "ea_card_birthday" };
-      var labelMap = { "auto_receipt": "Auto Receipt Email", "monthly_report": "Monthly Report", "birthday_email": "Birthday Email" };
+      var cardMap = { "auto_receipt": "ea_card_receipt", "monthly_report": "ea_card_monthly", "birthday_email": "ea_card_birthday", "admin_monthly_summary": "ea_card_admin_summary" };
+      var labelMap = { "auto_receipt": "Auto Receipt Email", "monthly_report": "Monthly Report", "birthday_email": "Birthday Email", "admin_monthly_summary": "Admin Monthly Summary" };
       const cardId = cardMap[key] || "ea_card_receipt";
       const card = document.getElementById(cardId);
       if (card) card.style.opacity = "0.6";
@@ -9533,6 +9540,132 @@
       }
 
       // Start polling after 8s (give the job time to start)
+      setTimeout(_pollResult, 8000);
+    }
+
+    // Manual "Send Now" for Admin Monthly Summary — same fire-and-poll pattern,
+    // reuses ea_test_month/ea_test_year selects from the Monthly Report block above.
+    function triggerManualAdminSummary() {
+      const month = document.getElementById("ea_test_month")?.value;
+      const year = document.getElementById("ea_test_year")?.value;
+      const withPdf = document.getElementById("ea_admin_summary_pdf")?.checked !== false;
+      if (!month || !year) { toast("Select month and year", "warn"); return; }
+      const res = document.getElementById("ea_admin_summary_result");
+      const btn = document.querySelector("[onclick='triggerManualAdminSummary()']");
+
+      if (btn) { btn.disabled = true; btn.textContent = "⏳ Sending..."; }
+      if (res) {
+        res.style.display = "block";
+        res.innerHTML = "⏳ " + (withPdf ? "Building summary + PDF and emailing" : "Emailing") + " admins... this can take up to a minute. Please wait.";
+        res.style.color = "#64748b";
+      }
+
+      // Same 30s-JSONP-cutoff workaround as the monthly report: fire-and-forget,
+      // then poll getAdminSummaryStatus every 5s until the stored result appears.
+      const jobKey = "admsum_" + Date.now();
+      let pollCount = 0;
+      const MAX_POLLS = 36; // 36 × 5s = 3 minutes max wait
+
+      const _asSess = JSON.parse(localStorage.getItem("session") || "{}");
+
+      // Step 1 — Fire the job.
+      // [FIX] Previously this ignored the response entirely — if the backend rejected
+      // the request (e.g. session expired, or the old 1-hour cooldown), the job was
+      // never actually started/stored, but the UI still polled forever showing
+      // "Sending...". Now we read the fire response: if it's an immediate error,
+      // stop right here instead of polling a jobKey that will never exist.
+      (function () {
+        const cbFire = "cb_asf_" + Date.now();
+        const script = document.createElement("script");
+        window[cbFire] = function (r) {
+          try { delete window[cbFire]; script.remove(); } catch (e) { }
+          if (r && r.status === "error") {
+            _summaryDone(r, false); // stop immediately, don't start polling
+          }
+          // status "ok" here just means the request was accepted/ran synchronously —
+          // the real result still comes from polling below either way.
+        };
+        script.onerror = function () {
+          try { delete window[cbFire]; script.remove(); } catch (e) { }
+          _summaryDone({ status: "error", message: "Could not reach server to start the job. Check your connection / Apps Script deployment." }, false);
+        };
+        script.src = API_URL + "?action=triggerAdminSummary&month=" + encodeURIComponent(month) +
+          "&year=" + encodeURIComponent(year) + "&jobKey=" + encodeURIComponent(jobKey) +
+          "&withPdf=" + (withPdf ? "1" : "0") +
+          "&sessionToken=" + encodeURIComponent(_asSess.sessionToken || "") +
+          "&userId=" + encodeURIComponent(_asSess.userId || "") +
+          "&callback=" + cbFire;
+        document.body.appendChild(script);
+      })();
+
+      // Step 2 — Poll every 5s for result
+      let _stopped = false;
+      function _pollResult() {
+        if (_stopped) return;
+        pollCount++;
+        const cbPoll = "cb_asp_" + Date.now();
+        const script = document.createElement("script");
+        const timer = setTimeout(function () {
+          try { delete window[cbPoll]; script.remove(); } catch (e) { }
+          if (_stopped) return;
+          if (pollCount < MAX_POLLS) {
+            setTimeout(_pollResult, 5000);
+          } else {
+            _summaryDone(null, true);
+          }
+        }, 8000);
+        window[cbPoll] = function (r) {
+          clearTimeout(timer);
+          try { delete window[cbPoll]; script.remove(); } catch (e) { }
+          if (_stopped) return;
+          if (r && r.status === "ok") {
+            _summaryDone(r, false);
+          } else if (r && r.status === "pending") {
+            if (pollCount < MAX_POLLS) setTimeout(_pollResult, 5000);
+            else _summaryDone(null, true);
+          } else if (r && r.status === "error") {
+            _summaryDone(r, false);
+          } else {
+            if (pollCount < MAX_POLLS) setTimeout(_pollResult, 5000);
+            else _summaryDone(null, true);
+          }
+        };
+        script.onerror = function () {
+          clearTimeout(timer);
+          try { delete window[cbPoll]; script.remove(); } catch (e) { }
+          if (_stopped) return;
+          if (pollCount < MAX_POLLS) setTimeout(_pollResult, 5000);
+          else _summaryDone(null, true);
+        };
+        script.src = API_URL + "?action=getAdminSummaryStatus&jobKey=" + encodeURIComponent(jobKey) +
+          "&sessionToken=" + encodeURIComponent(_asSess.sessionToken || "") +
+          "&userId=" + encodeURIComponent(_asSess.userId || "") +
+          "&callback=" + cbPoll;
+        document.body.appendChild(script);
+      }
+
+      function _summaryDone(r, timedOut) {
+        _stopped = true;
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Now';
+        }
+        if (!res) return;
+        if (timedOut) {
+          res.innerHTML = "⚠️ Still running in the background — check your Apps Script execution log. The email may still send successfully.";
+          res.style.color = "#92400e";
+        } else if (r && r.status === "ok") {
+          res.innerHTML = "✅ Done — sent to <strong>" + (r.sent || 0) + "</strong> admin(s). Paid: <strong>" +
+            (r.paidCount || 0) + "</strong>, Not paid: <strong>" + (r.unpaidCount || 0) +
+            "</strong>, Total collected: <strong>" + (r.totalCollected || 0) + "</strong>";
+          res.style.color = "#065f46";
+          _refreshEmailQuotaUI();
+        } else {
+          res.innerHTML = "❌ Failed: " + (r && r.message ? r.message : "Unknown error. Check Apps Script logs.");
+          res.style.color = "#991b1b";
+        }
+      }
+
       setTimeout(_pollResult, 8000);
     }
     // showPage lazy-init hooks handled by DOMContentLoaded listener below
@@ -12074,7 +12207,7 @@
       'dash_exportPDF',
       'sendBroadcast','scheduleBroadcast','previewBroadcast',
       'sendTrackerMsg','sendWhatsAppReport','sendWhatsAppPDFReport',
-      'triggerManualMonthlyReport',
+      'triggerManualMonthlyReport','triggerManualAdminSummary',
       'runHealthCheck','runTracker','loadTrafficStats',
       'runBulkInsert','_executeBulkInsert','_retryBulkFailed',
       'loadContributionRequests','loadFeedbackAdmin','loadAuditLog','loadYearSummary',
@@ -12103,7 +12236,7 @@
       dash_exportPDF: 'Generating PDF…',
       sendBroadcast: 'Sending…', sendTrackerMsg: 'Sending…',
       sendWhatsAppReport: 'Preparing…', sendWhatsAppPDFReport: 'Preparing PDF…',
-      triggerManualMonthlyReport: 'Sending…',
+      triggerManualMonthlyReport: 'Sending…', triggerManualAdminSummary: 'Sending…',
       runHealthCheck: 'Checking…', runTracker: 'Loading…', loadTrafficStats: 'Loading…',
       runBulkInsert: 'Inserting…',
       loadContributionRequests: 'Loading…', loadFeedbackAdmin: 'Loading…',

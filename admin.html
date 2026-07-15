@@ -2416,6 +2416,33 @@
                 <i class="fa-solid fa-circle" style="font-size:7px;margin-right:4px;color:#94a3b8;"></i> Loading status...
               </div>
             </div>
+
+            <!-- Toggle 4: Admin Monthly Summary -->
+            <div
+              style="border:1.5px solid #e2e8f0;border-radius:12px;padding:18px;background:#fff;transition:border-color 0.2s;"
+              id="ea_card_admin_summary">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+                <div style="flex:1;">
+                  <div style="font-weight:700;color:#1e293b;font-size:14px;margin-bottom:4px;">
+                    <i class="fa-solid fa-clipboard-list" style="color:#7c3aed;margin-right:6px;"></i>Admin Monthly
+                    Summary
+                  </div>
+                  <div style="font-size:11.5px;color:#64748b;line-height:1.6;">Sends every active admin a
+                    who-paid / who-hasn't table (with a PDF attachment) for the current month — one row per member,
+                    multiple entries combined into a single total.</div>
+                </div>
+                <label class="ea-toggle" style="flex-shrink:0;">
+                  <input type="checkbox" id="toggle_admin_monthly_summary"
+                    onchange="saveEmailToggle('admin_monthly_summary', this.checked)">
+                  <span class="ea-slider"></span>
+                </label>
+              </div>
+              <div style="margin-top:12px;padding-top:10px;border-top:1px solid #f1f5f9;font-size:11px;color:#94a3b8;"
+                id="ea_admin_summary_status">
+                <i class="fa-solid fa-circle" style="font-size:7px;margin-right:4px;color:#94a3b8;"></i> Loading
+                status...
+              </div>
+            </div>
           </div>
 
           <!-- Email Logo — auto-loaded from Drive folder set in CFG.folderLogo -->
@@ -2455,7 +2482,7 @@
           <div style="background:#f8fafc;border-radius:10px;padding:16px 20px;border:1px solid #e2e8f0;">
             <div style="font-weight:700;color:#334155;font-size:13px;margin-bottom:12px;"><i
                 class="fa-solid fa-circle-question" style="color:#14B8A6;margin-right:6px;"></i>How It Works</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;font-size:12px;color:#475569;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;font-size:12px;color:#475569;">
               <div>
                 <div style="font-weight:600;color:#1e293b;margin-bottom:4px;">📧 Auto Receipt Email</div>
                 <ul style="margin:0;padding-left:16px;line-height:1.8;color:#64748b;">
@@ -2483,6 +2510,15 @@
                   <li>Skipped if daily email quota is full</li>
                 </ul>
               </div>
+              <div>
+                <div style="font-weight:600;color:#1e293b;margin-bottom:4px;">📋 Admin Monthly Summary</div>
+                <ul style="margin:0;padding-left:16px;line-height:1.8;color:#64748b;">
+                  <li>Runs on last day of month (separate trigger)</li>
+                  <li>Sent to every active admin, not members</li>
+                  <li>Who paid + who hasn't, PDF attached</li>
+                  <li>Multiple entries per member → one total</li>
+                </ul>
+              </div>
             </div>
             <div style="margin-top:12px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:11.5px;color:#94a3b8;">
               <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i>
@@ -2492,6 +2528,10 @@
               <i class="fa-solid fa-cake-candles" style="color:#ec4899;"></i>
               Birthday email requires a separate daily trigger: Apps Script → Triggers → Add trigger →
               <code>sendBirthdayEmails</code> → <strong>Time-based → Day timer → 8 AM &ndash; 9 AM</strong>.
+              <br/><br/>
+              <i class="fa-solid fa-clipboard-list" style="color:#7c3aed;"></i>
+              Admin Monthly Summary requires its own trigger: Apps Script → Triggers → Add trigger →
+              <code>sendAdminMonthlySummary</code> → Month timer → day of your choice.
             </div>
           </div>
 
@@ -2520,6 +2560,29 @@
               </button>
             </div>
             <div id="ea_manual_result" style="margin-top:10px;font-size:12px;display:none;"></div>
+          </div>
+
+          <!-- Manual Admin Summary Test -->
+          <div
+            style="margin-top:16px;background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:1px solid #c4b5fd;border-radius:10px;padding:16px 20px;">
+            <div style="font-weight:700;color:#5b21b6;font-size:13px;margin-bottom:8px;"><i class="fa-solid fa-clipboard-list"
+                style="color:#7c3aed;margin-right:6px;"></i>Manual Admin Summary (Test)</div>
+            <div style="font-size:12px;color:#4c1d95;margin-bottom:12px;">Send the who-paid / who-hasn't summary +
+              PDF to all active admins for the month selected above.</div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+              <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#4c1d95;cursor:pointer;">
+                <input type="checkbox" id="ea_admin_summary_pdf" checked style="width:14px;height:14px;">
+                Attach PDF
+              </label>
+              <button onclick="triggerManualAdminSummary()"
+                style="background:linear-gradient(135deg,#7c3aed,#5b21b6);padding:9px 18px;font-size:12px;box-shadow:0 2px 8px rgba(124,58,237,0.3);">
+                <i class="fa-solid fa-paper-plane"></i> Send Now
+              </button>
+            </div>
+            <div id="ea_admin_summary_result" style="margin-top:10px;font-size:12px;display:none;"></div>
+            <div style="margin-top:8px;font-size:11px;color:#7c3aed;">
+              Uncheck "Attach PDF" to send email-only — useful if you want to isolate whether a problem is the PDF step or the email step.
+            </div>
           </div>
 
 
