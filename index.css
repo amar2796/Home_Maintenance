@@ -434,7 +434,7 @@
      graceful fallback layer if the photo fails to load */
   .hero {
     /* background-image: url('Image/Background_pic.jpg'), linear-gradient(135deg, #0F172A 0%, #115E59 45%, #0F766E 75%, #F59E0B 100%); */
-    background-image: url('Image/image.png');
+    background-image: url('Image/Hero_Pic.svg');
     background-repeat: no-repeat, no-repeat;
     background-size: cover, 220% 220%;
     background-position: center, 0% 20%;

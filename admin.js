@@ -82,6 +82,18 @@
        Each function is called AFTER app.js's own render calls finish.
     ───────────────────────────────────────────────────────────────── */
     /* ── Helper: rebuild the contribution-form type & occasion <select> dropdowns ── */
+    /* ── Shared idempotency-key generator ──
+       Used across contrib/expense/walkin/bulk so a resend can never create a
+       duplicate if the original attempt actually reached the backend but the
+       response was lost (network blip). Rule of thumb used everywhere below:
+         • "Retry as-is" (no edits) → REUSE the same key → backend safely no-ops
+           if it already has that key, so the exact failed data is sent again.
+         • "Edit & Retry" (data changed) → a FRESH key is generated because the
+           payload is now genuinely different data, not a resend of the same one. */
+    function _genIdemKey(prefix) {
+      return prefix + "_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+    }
+
     function _rebuildContribFormDropdowns() {
       var typeEl = document.getElementById("type");
       if (typeEl && typeof types !== "undefined") {
@@ -100,6 +112,22 @@
           }).join("");
       }
     }
+
+    /* ── Helper: rebuild the expense-form type <select> dropdown ──
+       Needed now that Add Expense also has an editable Review step (see
+       addExpense()/_submitExpenseFromPreview()), which replaces the panel
+       body the same way contribution's does, so the dropdown has to be
+       rebuilt when the form is restored. */
+    function _rebuildExpenseFormDropdowns() {
+      var typeEl = document.getElementById("expenseType");
+      if (typeEl && typeof expenseTypes !== "undefined") {
+        var curType = typeEl.value;
+        typeEl.innerHTML = expenseTypes.map(function(t) {
+          return '<option value="' + t.ExpenseTypeId + '"' + (String(t.ExpenseTypeId) === curType ? ' selected' : '') + '>' + escapeHtml(t.Name || "") + '</option>';
+        }).join("");
+      }
+    }
+    window._rebuildExpenseFormDropdowns = _rebuildExpenseFormDropdowns;
 
     /* ── Helper: rebuild bulk-insert user dropdown ── */
     function _rebuildBkUserDropdown() {
@@ -4642,13 +4670,15 @@
 
     function _bkRenderRows() {
       let rows = document.querySelectorAll(".bk-row");
-      let total = 0;
+      let total = 0, count = 0;
       rows.forEach((r) => {
         let a = parseFloat(r.querySelector(".bk-amt").value) || 0;
-        total += a;
+        if (a > 0) { total += a; count++; }
       });
       let t = document.getElementById("bk_total");
-      if (t) t.textContent = "Total: ₹" + total.toLocaleString(APP.locale||"en-IN");
+      if (t) t.textContent = (APP.currency||"₹") + total.toLocaleString(APP.locale||"en-IN");
+      let c = document.getElementById("bk_total_count");
+      if (c) c.textContent = count + (count === 1 ? " entry added" : " entries added");
     }
 
     function bkAddRow(month, amount) {
@@ -4725,6 +4755,7 @@
       const panelBody = document.getElementById("sp-bulk-body");
       if (!panelBody) return;
       panelBody.innerHTML = `
+        <div class="sp-steps" id="sp-bulk-steps"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
           <div><label class="_fl">Member <span style="color:#e74c3c">*</span></label><select class="_fi" id="bk_user">${userOpts}</select></div>
           <div><label class="_fl">Year <span style="color:#e74c3c">*</span></label><select class="_fi" id="bk_year">${yearOpts}</select></div>
@@ -4733,34 +4764,39 @@
           <div><label class="_fl">Contribution Type <span style="color:#e74c3c">*</span></label><select class="_fi" id="bk_type">${typeOpts}</select></div>
           <div><label class="_fl">Note <span style="font-size:10px;color:#94a3b8;font-weight:400;">(optional)</span></label><input class="_fi" id="bk_note" placeholder="e.g. Annual"/></div>
         </div>
-        <div style="display:flex;align-items:flex-end;gap:10px;margin-bottom:16px;background:#fdf8ee;border-radius:10px;padding:12px 14px;border:1px solid #5EEAD4;">
+
+        <!-- Running total, pinned above the row list so it's always visible -->
+        <div class="bk-total-bar">
+          <span id="bk_total_count">0 entries added</span>
+          <b id="bk_total">₹0</b>
+        </div>
+
+        <div style="display:flex;align-items:flex-end;gap:10px;margin-bottom:14px;background:#fdf8ee;border-radius:10px;padding:12px 14px;border:1px solid #5EEAD4;">
           <div style="flex:1;">
             <label class="_fl" style="margin-top:0;">Default Amount (₹) <span style="font-size:10px;color:#94a3b8;font-weight:400;">— fill all 12 months at once</span></label>
             <input class="_fi" id="bk_default_amt" type="number" min="1" placeholder="e.g. 500" oninput="_bkRenderRows()"/>
           </div>
-          <button type="button" onclick="bkFillAllMonths()" style="background:#334155;box-shadow:none;padding:10px 14px;white-space:nowrap;flex-shrink:0;border-radius:9px;font-size:12px;color:#fff;border:none;cursor:pointer;font-family:Poppins,sans-serif;font-weight:600;">
+          <button type="button" onclick="bkFillAllMonths()" style="background:#0F766E;box-shadow:none;padding:11px 16px;white-space:nowrap;flex-shrink:0;border-radius:9px;font-size:12.5px;color:#fff;border:none;cursor:pointer;font-family:Poppins,sans-serif;font-weight:700;">
             <i class="fa-solid fa-calendar-check"></i> Fill All 12
           </button>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
           <span style="font-size:12px;font-weight:700;color:#334155;"><i class="fa-solid fa-list-ul" style="color:#0F766E;margin-right:5px;"></i> Month Entries</span>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <span id="bk_total" style="font-size:12px;font-weight:700;color:#27ae60;"></span>
-            <button type="button" onclick="bkAddRow('','')" style="background:#0F766E;box-shadow:none;padding:6px 13px;font-size:12px;border-radius:8px;color:#fff;border:none;cursor:pointer;font-family:Poppins,sans-serif;font-weight:600;">
-              <i class="fa-solid fa-plus"></i> Add Row
-            </button>
-          </div>
+          <button type="button" onclick="bkAddRow('','')" style="background:#334155;box-shadow:none;padding:7px 14px;font-size:12px;border-radius:8px;color:#fff;border:none;cursor:pointer;font-family:Poppins,sans-serif;font-weight:600;">
+            <i class="fa-solid fa-plus"></i> Add Row
+          </button>
         </div>
         <div id="bk_rows" style="flex:1;overflow-y:auto;padding-right:2px;"></div>
         <div id="bk_status" style="font-size:12px;color:#27ae60;font-weight:600;min-height:18px;margin-top:8px;"></div>
         <div class="sp-actions" style="margin-top:16px;">
           <button class="sp-save-btn" style="background:#334155;color:#fff;" onclick="runBulkInsert()">
-            <i class="fa-solid fa-check"></i> Insert All
+            <i class="fa-solid fa-arrow-right"></i> Review Entries
           </button>
           <button class="sp-cancel-btn" onclick="spClose()">Cancel</button>
         </div>`;
 
       spOpen("bulk");
+      spRenderSteps("sp-bulk-steps", 1);
       // Add one empty row to start
       bkAddRow("", "");
     }
@@ -4842,6 +4878,7 @@
       const bkPanelBody = document.getElementById("sp-bulk-body");
       if (!bkPanelBody) { openModal(previewHtml, "520px"); return; }
       bkPanelBody.innerHTML = `
+        <div class="sp-steps">${spStepsBar(2)}</div>
         <div style="background:linear-gradient(135deg,#fef9ee,#fff8e1);border:1.5px solid #0F766E55;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:12.5px;color:#946c44;">
           <i class="fa-solid fa-circle-info"></i> Review details below. <b>Edit amounts inline</b> or remove a row before confirming.
         </div>
@@ -5055,6 +5092,7 @@
             '</div>'
           : '';
         bkBodyResult.innerHTML =
+          '<div class="sp-steps">' + spStepsBar(3) + '</div>' +
           '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:340px;text-align:center;padding:20px;">' +
             '<div style="width:72px;height:72px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:18px;border:2px solid #6ee7b7;animation:_csBounce 0.5s cubic-bezier(0.34,1.56,0.64,1) both;">' +
               '<i class="fa-solid fa-circle-check" style="color:#16a34a;font-size:2rem;"></i>' +
@@ -5063,10 +5101,13 @@
             '<div style="font-size:13px;font-weight:600;color:#15803d;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:7px 16px;margin-bottom:6px;">' + actuallySaved + ' of ' + finalRows.length + ' entries added</div>' +
             (failedRows.length > 0 ? '<div style="font-size:12px;color:#dc2626;margin-bottom:4px;">' + failedRows.length + ' entr' + (failedRows.length > 1 ? 'ies' : 'y') + ' failed</div>' + failedMonthsHtml : '') +
           '</div>' +
-          '<div class="sp-actions" style="margin-top:auto;">' +
+          '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
             (failedRows.length > 0
-              ? '<button class="sp-save-btn" style="background:#e74c3c;color:#fff;" onclick="_retryBulkFailed()">' +
-                  '<i class="fa-solid fa-rotate-right"></i> Retry Failed (' + failedRows.length + ')' +
+              ? '<button class="sp-save-btn" style="background:#e74c3c;color:#fff;" onclick="_editRetryBulk()">' +
+                  '<i class="fa-solid fa-pen"></i> Edit &amp; Retry (' + failedRows.length + ')' +
+                '</button>' +
+                '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryBulkFailed()" title="Resend the exact same amounts">' +
+                  '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
                 '</button>'
               : '<button class="sp-save-btn" style="background:#334155;color:#fff;" onclick="openBulkInsert()">' +
                   '<i class="fa-solid fa-plus"></i> Insert More' +
@@ -5094,9 +5135,12 @@
             '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;margin-bottom:4px;">Check your connection and try again.</div>' +
             allFailedHtml +
           '</div>' +
-          '<div class="sp-actions" style="margin-top:auto;">' +
-            '<button class="sp-save-btn" style="background:#e74c3c;color:#fff;" onclick="_retryBulkFailed()">' +
-              '<i class="fa-solid fa-rotate-right"></i> Retry All (' + finalRows.length + ')' +
+          '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+            '<button class="sp-save-btn" style="background:#e74c3c;color:#fff;" onclick="_editRetryBulk()">' +
+              '<i class="fa-solid fa-pen"></i> Edit &amp; Retry (' + finalRows.length + ')' +
+            '</button>' +
+            '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryBulkFailed()" title="Resend the exact same amounts">' +
+              '<i class="fa-solid fa-rotate-right"></i> Retry All as-is' +
             '</button>' +
             '<button class="sp-cancel-btn" onclick="spClose()">' +
               '<i class="fa-solid fa-xmark"></i> Close' +
@@ -5226,10 +5270,13 @@
           (retryDone > 0 ? '<div style="font-size:13px;font-weight:600;color:#15803d;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:7px 16px;margin-bottom:6px;">' + retryDone + ' of ' + rowsToRetry.length + ' entries added</div>' : '') +
           (stillFailed.length > 0 ? '<div style="font-size:12px;color:#dc2626;margin-bottom:4px;">' + stillFailed.length + ' still failed</div>' + stillFailedHtml : '') +
         '</div>' +
-        '<div class="sp-actions" style="margin-top:auto;">' +
+        '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
           (stillFailed.length > 0
-            ? '<button class="sp-save-btn" style="background:#e74c3c;color:#fff;" onclick="_retryBulkFailed()">' +
-                '<i class="fa-solid fa-rotate-right"></i> Retry Again (' + stillFailed.length + ')' +
+            ? '<button class="sp-save-btn" style="background:#e74c3c;color:#fff;" onclick="_editRetryBulk()">' +
+                '<i class="fa-solid fa-pen"></i> Edit &amp; Retry (' + stillFailed.length + ')' +
+              '</button>' +
+              '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryBulkFailed()" title="Resend the exact same amounts">' +
+                '<i class="fa-solid fa-rotate-right"></i> Retry Again as-is' +
               '</button>'
             : '<button class="sp-save-btn" style="background:#334155;color:#fff;" onclick="openBulkInsert()">' +
                 '<i class="fa-solid fa-plus"></i> Insert More' +
@@ -5240,6 +5287,72 @@
         '</div>';
     }
     window._retryBulkFailed = _retryBulkFailed;
+
+    /* ── Edit & Retry for bulk: shows ONLY the rows that are currently in
+       window._bulkFailedRows (already maintained by _retryBulkFailed's dedup
+       logic to be exactly the still-failed subset — nothing that already
+       saved is ever in this list), lets the admin fix an amount or uncheck a
+       row to skip it, then hands the edited list back to _retryBulkFailed()
+       so the existing dedup + sequential-send + result rendering is reused
+       as-is rather than duplicated. ── */
+    function _editRetryBulk() {
+      const stored = window._bulkFailedRows;
+      if (!stored || !stored.rows || stored.rows.length === 0) return toast("No failed entries to edit.", "error");
+      const bkBody = document.getElementById("sp-bulk-body");
+      if (!bkBody) return;
+      const rowsHtml = stored.rows.map(function(r, i) {
+        return '<tr>' +
+          '<td style="padding:7px 8px;font-size:12.5px;">' + escapeHtml(r.month) + '</td>' +
+          '<td style="padding:7px 8px;"><input type="number" min="1" class="_fi" style="margin:0;padding:6px 8px;" id="editretry_amt_' + i + '" value="' + escapeHtml(String(r.amount)) + '"/></td>' +
+          '<td style="padding:7px 8px;text-align:center;"><input type="checkbox" id="editretry_inc_' + i + '" checked/></td>' +
+        '</tr>';
+      }).join("");
+      bkBody.innerHTML = `
+        <div class="sp-steps">${spStepsBar(2)}</div>
+        <div style="background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1.5px solid #e74c3c44;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:#991b1b;">
+          <i class="fa-solid fa-circle-info"></i> Fix any amount below, or uncheck a row to skip it. <b>Only these ${stored.rows.length} failed entr${stored.rows.length===1?"y":"ies"} are affected</b> — entries that already saved are untouched.
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:14px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
+          <thead><tr style="background:#f1f5f9;">
+            <th style="padding:7px 8px;text-align:left;font-size:11px;color:#64748b;">Month</th>
+            <th style="padding:7px 8px;text-align:left;font-size:11px;color:#64748b;">Amount</th>
+            <th style="padding:7px 8px;text-align:center;font-size:11px;color:#64748b;">Retry?</th>
+          </tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+        <div class="sp-actions">
+          <button class="sp-save-btn" style="background:#e74c3c;color:#fff;" onclick="_confirmEditRetryBulk()">
+            <i class="fa-solid fa-check"></i> Confirm &amp; Retry
+          </button>
+          <button class="sp-cancel-btn" onclick="spClose()">Cancel</button>
+        </div>`;
+    }
+    window._editRetryBulk = _editRetryBulk;
+
+    function _confirmEditRetryBulk() {
+      const stored = window._bulkFailedRows;
+      if (!stored) return;
+      const editedRows = [];
+      stored.rows.forEach(function(r, i) {
+        const inc = document.getElementById("editretry_inc_" + i);
+        if (inc && !inc.checked) return; // admin chose to skip this one
+        const amtEl = document.getElementById("editretry_amt_" + i);
+        const newAmt = amtEl ? Number(amtEl.value) : r.amount;
+        if (!newAmt || newAmt <= 0) return; // invalid — skip rather than send bad data
+        editedRows.push({
+          month: r.month,
+          amount: newAmt,
+          // Always a fresh key here: the admin explicitly went through
+          // Edit & Retry, so treat it as a new submission even if the
+          // amount ends up unchanged after review.
+          idemKey: _genIdemKey("bulk_edit"),
+        });
+      });
+      if (editedRows.length === 0) return toast("No rows selected to retry.", "error");
+      window._bulkFailedRows = { rows: editedRows, userId: stored.userId, year: stored.year, typeId: stored.typeId, note: stored.note };
+      _retryBulkFailed();
+    }
+    window._confirmEditRetryBulk = _confirmEditRetryBulk;
 
     // #17 — Auto-suggest last contribution amount when member is selected
     function _suggestLastAmount(userId) {
@@ -5358,6 +5471,7 @@
       const contribPanelBody = document.getElementById("sp-contrib-body");
       if (contribPanelBody) {
         contribPanelBody.innerHTML = `
+          <div class="sp-steps">${spStepsBar(2)}</div>
           <div style="background:linear-gradient(135deg,#fef9ee,#fff8e1);border:1.5px solid #0F766E55;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:#946c44;">
             <i class="fa-solid fa-circle-info"></i> Review the details below. <b>Edit any field inline</b> before submitting.
           </div>
@@ -5508,6 +5622,12 @@
           sessionToken: _ps.sessionToken || "",
           userId:       _ps.userId || "",
           AdminName:    _ps.name || "Admin",
+          // Fresh key each time this function runs — a rerun always means either
+          // a brand-new entry or an edited resend, both genuinely new submissions.
+          // Blind "Retry as-is" (see _retryContribFailed) reuses the stored
+          // payload object directly instead of calling this function again,
+          // which is what keeps that path's key identical to the failed attempt.
+          IdempotencyKey: _genIdemKey("contrib"),
         };
         window._contribFailedPayload = payload; // store for retry
         let res = await postData(payload);
@@ -5536,6 +5656,7 @@
           const cpBody = document.getElementById("sp-contrib-body");
           if (cpBody) {
             cpBody.innerHTML =
+              '<div class="sp-steps">' + spStepsBar(3) + '</div>' +
               '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:340px;text-align:center;padding:20px;">' +
                 '<div style="width:72px;height:72px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:18px;border:2px solid #6ee7b7;animation:_csBounce 0.5s cubic-bezier(0.34,1.56,0.64,1) both;">' +
                   '<i class="fa-solid fa-circle-check" style="color:#16a34a;font-size:2rem;"></i>' +
@@ -5568,13 +5689,16 @@
                 '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Save Failed</div>' +
                 '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;">' + escapeHtml(errMsg) + '</div>' +
               '</div>' +
-              '<div class="sp-actions" style="margin-top:auto;">' +
-                '<button class="sp-save-btn" style="background:#e74c3c;color:#fff;" onclick="_retryContribFailed()">' +
-                  '<i class="fa-solid fa-rotate-right"></i> Retry' +
+              '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+                '<button class="sp-save-btn sp-save-green" onclick="_editRetryContrib()">' +
+                  '<i class="fa-solid fa-pen"></i> Edit &amp; Retry' +
                 '</button>' +
-                '<button class="sp-cancel-btn" onclick="spClose()">' +
-                  '<i class="fa-solid fa-xmark"></i> Close' +
+                '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryContribFailed()" title="Resend the exact same details">' +
+                  '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
                 '</button>' +
+              '</div>' +
+              '<div style="text-align:center;margin-top:8px;">' +
+                '<a href="javascript:void(0)" onclick="spClose()" style="font-size:11.5px;color:#94a3b8;text-decoration:underline;">Close without saving</a>' +
               '</div>';
           } else {
             toast("\u274C " + errMsg, "error");
@@ -5594,13 +5718,16 @@
               '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Save Failed</div>' +
               '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;">' + escapeHtml(errMsg) + '</div>' +
             '</div>' +
-            '<div class="sp-actions" style="margin-top:auto;">' +
-              '<button class="sp-save-btn" style="background:#e74c3c;color:#fff;" onclick="_retryContribFailed()">' +
-                '<i class="fa-solid fa-rotate-right"></i> Retry' +
+            '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+              '<button class="sp-save-btn sp-save-green" onclick="_editRetryContrib()">' +
+                '<i class="fa-solid fa-pen"></i> Edit &amp; Retry' +
               '</button>' +
-              '<button class="sp-cancel-btn" onclick="spClose()">' +
-                '<i class="fa-solid fa-xmark"></i> Close' +
+              '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryContribFailed()" title="Resend the exact same details">' +
+                '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
               '</button>' +
+            '</div>' +
+            '<div style="text-align:center;margin-top:8px;">' +
+              '<a href="javascript:void(0)" onclick="spClose()" style="font-size:11.5px;color:#94a3b8;text-decoration:underline;">Close without saving</a>' +
             '</div>';
         } else {
           toast("\u274C " + errMsg, "error");
@@ -5645,6 +5772,7 @@
           } catch(e) {}
           if (cpBody) {
             cpBody.innerHTML =
+              '<div class="sp-steps">' + spStepsBar(3) + '</div>' +
               '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:340px;text-align:center;padding:20px;">' +
                 '<div style="width:72px;height:72px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:18px;border:2px solid #6ee7b7;animation:_csBounce 0.5s cubic-bezier(0.34,1.56,0.64,1) both;">' +
                   '<i class="fa-solid fa-circle-check" style="color:#16a34a;font-size:2rem;"></i>' +
@@ -5675,13 +5803,16 @@
                 '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Save Failed</div>' +
                 '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;">' + escapeHtml(errMsg) + '</div>' +
               '</div>' +
-              '<div class="sp-actions" style="margin-top:auto;">' +
-                '<button class="sp-save-btn" style="background:#e74c3c;color:#fff;" onclick="_retryContribFailed()">' +
-                  '<i class="fa-solid fa-rotate-right"></i> Retry' +
+              '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+                '<button class="sp-save-btn sp-save-green" onclick="_editRetryContrib()">' +
+                  '<i class="fa-solid fa-pen"></i> Edit &amp; Retry' +
                 '</button>' +
-                '<button class="sp-cancel-btn" onclick="spClose()">' +
-                  '<i class="fa-solid fa-xmark"></i> Close' +
+                '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryContribFailed()" title="Resend the exact same details">' +
+                  '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
                 '</button>' +
+              '</div>' +
+              '<div style="text-align:center;margin-top:8px;">' +
+                '<a href="javascript:void(0)" onclick="spClose()" style="font-size:11.5px;color:#94a3b8;text-decoration:underline;">Close without saving</a>' +
               '</div>';
           }
         }
@@ -5697,18 +5828,45 @@
               '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Save Failed</div>' +
               '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;">' + escapeHtml(errMsg) + '</div>' +
             '</div>' +
-            '<div class="sp-actions" style="margin-top:auto;">' +
-              '<button class="sp-save-btn" style="background:#e74c3c;color:#fff;" onclick="_retryContribFailed()">' +
-                '<i class="fa-solid fa-rotate-right"></i> Retry' +
+            '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+              '<button class="sp-save-btn sp-save-green" onclick="_editRetryContrib()">' +
+                '<i class="fa-solid fa-pen"></i> Edit &amp; Retry' +
               '</button>' +
-              '<button class="sp-cancel-btn" onclick="spClose()">' +
-                '<i class="fa-solid fa-xmark"></i> Close' +
+              '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryContribFailed()" title="Resend the exact same details">' +
+                '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
               '</button>' +
+            '</div>' +
+            '<div style="text-align:center;margin-top:8px;">' +
+              '<a href="javascript:void(0)" onclick="spClose()" style="font-size:11.5px;color:#94a3b8;text-decoration:underline;">Close without saving</a>' +
             '</div>';
         }
       }
     }
     window._retryContribFailed = _retryContribFailed;
+
+    /* ── Edit & Retry: restore the form with the failed entry's values so the
+       admin can fix whatever caused the failure, then re-run addContribution()
+       to rebuild the Review step from those (possibly edited) values. Confirming
+       from there calls _submitContributionFromPreview() normally, which always
+       mints a fresh IdempotencyKey — correct, since edited data is a genuinely
+       new submission, not a resend of the failed one. ── */
+    function _editRetryContrib() {
+      const payload = window._contribFailedPayload;
+      if (!payload) { spClose(); return; }
+      if (typeof window._contribReset === "function") window._contribReset();
+      const _s = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined && val !== null) el.value = val; };
+      _s("user", payload.UserId);
+      _s("amount", payload.Amount);
+      _s("month", payload.ForMonth);
+      _s("contribYear", payload.Year);
+      _s("type", payload.TypeId);
+      _s("occasion", payload.OccasionId);
+      _s("note", payload.Note);
+      _s("paymentMode", payload.PaymentMode);
+      addContribution(); // rebuilds the Review (step 2) screen from these values
+    }
+    window._editRetryContrib = _editRetryContrib;
+
     async function deleteContribution(id) {
       if (!checkSession()) return;
       // UNDO: capture contribution before confirm dialog
@@ -5760,47 +5918,354 @@
         }
       });
     }
-    async function addExpense() {
+    function addExpense() {
       if (!checkSession()) return;
-      // [DUP-FIX-2] Prevent double-submit on expense form
-      var _expBtn = document.querySelector("#expensePage button[onclick*='addExpense']");
-      if (_expBtn) {
-        if (_expBtn._inFlight) return;
-        _expBtn._inFlight = true;
-        _expBtn.disabled = true;
-        _expBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Adding...';
+      let title  = document.getElementById("title").value.trim();
+      let amount = document.getElementById("expAmount").value;
+      let year   = document.getElementById("expYear").value;
+      if (!title || !amount || Number(amount) <= 0) {
+        return toast("Please enter a title and a valid amount.", "error");
       }
-      let title = document.getElementById("title").value,
-        amount = document.getElementById("expAmount").value,
-        year = document.getElementById("expYear").value;
-      if (!title || !amount || amount <= 0) {
-        toast("Please enter a title and amount.", "error");
-        if (_expBtn) { _expBtn._inFlight = false; _expBtn.disabled = false; _expBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Add Expense'; }
-        return;
+
+      const forMonth  = document.getElementById("expMonth").value;
+      const typeId    = document.getElementById("expenseType").value;
+      const typeObj   = (typeof expenseTypes !== "undefined" ? expenseTypes : []).find(t => String(t.ExpenseTypeId) === String(typeId));
+      const typeName  = escapeHtml(typeObj?.Name || "—");
+
+      // Build editable options for the Review step (same approach as addContribution)
+      const monthOpts = MONTHS.map(m => `<option value="${m}"${m===forMonth?" selected":""}>${m}</option>`).join("");
+      const curY = new Date().getFullYear();
+      let yearOptsP = "";
+      for (let y = curY+1; y >= 2023; y--) {
+        let yLbl = y === curY ? y + " (Current)" : y < curY ? y + " (Old Entry)" : y + " (Advance)";
+        yearOptsP += `<option value="${y}"${y===Number(year)?" selected":""}>${yLbl}</option>`;
       }
+      const typeOptsP = (typeof expenseTypes !== "undefined" ? expenseTypes : []).map(t =>
+        `<option value="${t.ExpenseTypeId}"${String(t.ExpenseTypeId)===typeId?" selected":""}>${escapeHtml(t.Name || "")}</option>`
+      ).join("");
+
+      const expPanelBody = document.getElementById("sp-expense-body");
+      if (!expPanelBody) return; // panel not present — nothing to show a review in
+
+      expPanelBody.innerHTML = `
+        <div class="sp-steps">${spStepsBar(2)}</div>
+        <div style="background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1.5px solid #e74c3c44;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:#991b1b;">
+          <i class="fa-solid fa-circle-info"></i> Review the details below. <b>Edit any field inline</b> before submitting.
+        </div>
+        <div class="sp-field-group">
+          <label class="sp-label">Title</label>
+          <input class="sp-input" id="prev_exp_title" value="${escapeHtml(title)}" placeholder="e.g. Electricity Bill" />
+        </div>
+        <div class="sp-row2">
+          <div class="sp-field-group">
+            <label class="sp-label">Amount (₹)</label>
+            <input class="sp-input" id="prev_exp_amount" type="number" min="1" value="${escapeHtml(String(amount))}" />
+          </div>
+          <div class="sp-field-group">
+            <label class="sp-label">Expense Type</label>
+            <select class="sp-input" id="prev_exp_type">${typeOptsP}</select>
+          </div>
+        </div>
+        <div class="sp-row2">
+          <div class="sp-field-group">
+            <label class="sp-label">Month</label>
+            <select class="sp-input" id="prev_exp_month"><option value="">None</option>${monthOpts}</select>
+          </div>
+          <div class="sp-field-group">
+            <label class="sp-label">Year</label>
+            <select class="sp-input" id="prev_exp_year">${yearOptsP}</select>
+          </div>
+        </div>
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;font-size:12px;color:#991b1b;">
+          <i class="fa-solid fa-circle-check"></i> <b>Summary:</b>
+          <span id="prev_exp_summary">${escapeHtml(title)} · ₹${Number(amount).toLocaleString(APP.locale||"en-IN")} · ${forMonth||"General"} ${year} · ${typeName}</span>
+        </div>
+        <div class="sp-actions" style="margin-top:16px;">
+          <button class="sp-save-btn sp-save-red" id="prev_exp_submitBtn" onclick="_submitExpenseFromPreview()">
+            <i class="fa-solid fa-check"></i> Confirm &amp; Save
+          </button>
+          <button class="sp-cancel-btn" onclick="_expenseReset()">
+            <i class="fa-solid fa-arrow-left"></i> Back
+          </button>
+        </div>`;
+      // Panel is already open — do NOT call spOpen() here, it would trigger
+      // _expenseReset() and wipe the review state we just built.
+    }
+
+    var _expenseSubmitInFlight = false; // guard: prevents double-submit
+    async function _submitExpenseFromPreview() {
+      if (_expenseSubmitInFlight) return;
+      _expenseSubmitInFlight = true;
+
+      // Snapshot DOM values now — spOpen()/_expenseReset() will destroy prev_exp_* elements.
+      const _title    = (document.getElementById("prev_exp_title")  || {}).value || "";
+      const _amount   = (document.getElementById("prev_exp_amount") || {}).value || "";
+      const _year     = (document.getElementById("prev_exp_year")   || {}).value || "";
+      const _forMonth = (document.getElementById("prev_exp_month")  || {}).value || "";
+      const _typeId   = (document.getElementById("prev_exp_type")   || {}).value || "";
+
+      const btn = document.getElementById("prev_exp_submitBtn");
+      if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...'; }
+
+      if (!_title.trim() || !_amount || Number(_amount) <= 0) {
+        _expenseSubmitInFlight = false;
+        if (btn) { btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-check"></i> Confirm &amp; Save'; }
+        return toast("Please enter a title and a valid amount.", "error");
+      }
+
+      const payload = {
+        action: "addExpense",
+        // [ID] FIX: No Id passed — backend generates EXP-YYYY-NNNNN sequentially
+        Title: _title.trim(),
+        Amount: _amount,
+        Year: _year,
+        ForMonth: _forMonth,
+        ExpenseTypeId: _typeId,
+        // Fresh key each call — first attempts and "Edit & Retry" resubmits are
+        // both genuinely new data. "Retry as-is" (_retryExpenseAsIs) resends this
+        // exact stored payload object instead of calling this function again,
+        // which is what keeps that path's key identical to the failed attempt.
+        IdempotencyKey: _genIdemKey("expense"),
+      };
+      window._expenseFailedPayload = payload; // store for retry
+
       try {
-        let res = await postData({
-          action: "addExpense",
-          // [ID] FIX: No Id passed — backend generates EXP-YYYY-NNNNN sequentially
-          Title: title,
-          Amount: amount,
-          Year: year,
-          ForMonth: document.getElementById("expMonth").value,
-          ExpenseTypeId: document.getElementById("expenseType").value,
-        });
-        toast(
-          res.status === "success" ? "✅ Expense added." : "❌ Failed.",
-          res.status === "success" ? "" : "error"
-        );
-        document.getElementById("title").value = "";
-        document.getElementById("expAmount").value = "";
-        smartRefresh("expenses");
+        let res = await postData(payload);
+        if (res.status === "success") {
+          _expenseSubmitInFlight = false;
+          const expBody = document.getElementById("sp-expense-body");
+          if (expBody) {
+            expBody.innerHTML =
+              '<div class="sp-steps">' + spStepsBar(3) + '</div>' +
+              '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;text-align:center;padding:20px;">' +
+                '<div style="width:72px;height:72px;background:linear-gradient(135deg,#fef2f2,#fecaca);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:18px;border:2px solid #fca5a5;animation:_csBounce 0.5s cubic-bezier(0.34,1.56,0.64,1) both;">' +
+                  '<i class="fa-solid fa-circle-check" style="color:#dc2626;font-size:2rem;"></i>' +
+                '</div>' +
+                '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:10px;">Expense Saved!</div>' +
+              '</div>' +
+              '<div class="sp-actions" style="margin-top:auto;">' +
+                '<button class="sp-save-btn sp-save-red" onclick="spOpen(\'expense\')">' +
+                  '<i class="fa-solid fa-plus"></i> Add Another' +
+                '</button>' +
+                '<button class="sp-cancel-btn" onclick="spClose()">' +
+                  '<i class="fa-solid fa-xmark"></i> Close' +
+                '</button>' +
+              '</div>';
+          }
+          smartRefresh("expenses");
+        } else {
+          _expenseSubmitInFlight = false;
+          const errMsg = res.message || res.error || "Something went wrong. Please try again.";
+          const expBodyErr = document.getElementById("sp-expense-body");
+          if (expBodyErr) {
+            expBodyErr.innerHTML =
+              '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;text-align:center;padding:20px;">' +
+                '<div style="width:72px;height:72px;background:linear-gradient(135deg,#fef2f2,#fecaca);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:18px;border:2px solid #fca5a5;">' +
+                  '<i class="fa-solid fa-circle-xmark" style="color:#dc2626;font-size:2rem;"></i>' +
+                '</div>' +
+                '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Save Failed</div>' +
+                '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;">' + escapeHtml(errMsg) + '</div>' +
+              '</div>' +
+              '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+                '<button class="sp-save-btn sp-save-red" onclick="_retryExpenseFailed()">' +
+                  '<i class="fa-solid fa-pen"></i> Edit &amp; Retry' +
+                '</button>' +
+                '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryExpenseAsIs()" title="Resend the exact same details">' +
+                  '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
+                '</button>' +
+              '</div>' +
+              '<div style="text-align:center;margin-top:8px;">' +
+                '<a href="javascript:void(0)" onclick="spClose()" style="font-size:11.5px;color:#94a3b8;text-decoration:underline;">Close without saving</a>' +
+              '</div>';
+          } else {
+            toast("❌ " + errMsg, "error");
+            if (btn) { btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-check"></i> Confirm &amp; Save'; }
+          }
+        }
       } catch (err) {
-        toast("❌ " + err.message, "error");
-      } finally {
-        if (_expBtn) { _expBtn._inFlight = false; _expBtn.disabled = false; _expBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Add Expense'; }
+        _expenseSubmitInFlight = false;
+        const errMsg = err.message || "Network error. Please try again.";
+        const expBodyCatch = document.getElementById("sp-expense-body");
+        if (expBodyCatch) {
+          expBodyCatch.innerHTML =
+            '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;text-align:center;padding:20px;">' +
+              '<div style="width:72px;height:72px;background:linear-gradient(135deg,#fef2f2,#fecaca);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:18px;border:2px solid #fca5a5;">' +
+                '<i class="fa-solid fa-circle-xmark" style="color:#dc2626;font-size:2rem;"></i>' +
+              '</div>' +
+              '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Save Failed</div>' +
+              '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;">' + escapeHtml(errMsg) + '</div>' +
+            '</div>' +
+            '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+              '<button class="sp-save-btn sp-save-red" onclick="_retryExpenseFailed()">' +
+                '<i class="fa-solid fa-pen"></i> Edit &amp; Retry' +
+              '</button>' +
+              '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryExpenseAsIs()" title="Resend the exact same details">' +
+                '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
+              '</button>' +
+            '</div>' +
+            '<div style="text-align:center;margin-top:8px;">' +
+              '<a href="javascript:void(0)" onclick="spClose()" style="font-size:11.5px;color:#94a3b8;text-decoration:underline;">Close without saving</a>' +
+            '</div>';
+        } else {
+          toast("❌ " + errMsg, "error");
+          if (btn) { btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-check"></i> Confirm &amp; Save'; }
+        }
       }
     }
+
+    function _retryExpenseFailed() {
+      if (!window._expenseFailedPayload) { spClose(); return; }
+      const p = window._expenseFailedPayload;
+      const expPanelBody = document.getElementById("sp-expense-body");
+      if (!expPanelBody) return;
+      const typeObj  = (typeof expenseTypes !== "undefined" ? expenseTypes : []).find(t => String(t.ExpenseTypeId) === String(p.ExpenseTypeId));
+      const typeName = escapeHtml(typeObj?.Name || "—");
+      const monthOpts = MONTHS.map(m => `<option value="${m}"${m===p.ForMonth?" selected":""}>${m}</option>`).join("");
+      const curY = new Date().getFullYear();
+      let yearOptsP = "";
+      for (let y = curY+1; y >= 2023; y--) {
+        let yLbl = y === curY ? y + " (Current)" : y < curY ? y + " (Old Entry)" : y + " (Advance)";
+        yearOptsP += `<option value="${y}"${y===Number(p.Year)?" selected":""}>${yLbl}</option>`;
+      }
+      const typeOptsP = (typeof expenseTypes !== "undefined" ? expenseTypes : []).map(t =>
+        `<option value="${t.ExpenseTypeId}"${String(t.ExpenseTypeId)===String(p.ExpenseTypeId)?" selected":""}>${escapeHtml(t.Name || "")}</option>`
+      ).join("");
+      expPanelBody.innerHTML = `
+        <div class="sp-steps">${spStepsBar(2)}</div>
+        <div style="background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1.5px solid #e74c3c44;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:#991b1b;">
+          <i class="fa-solid fa-circle-info"></i> Review the details below. <b>Edit any field inline</b> before submitting.
+        </div>
+        <div class="sp-field-group">
+          <label class="sp-label">Title</label>
+          <input class="sp-input" id="prev_exp_title" value="${escapeHtml(p.Title)}" />
+        </div>
+        <div class="sp-row2">
+          <div class="sp-field-group">
+            <label class="sp-label">Amount (₹)</label>
+            <input class="sp-input" id="prev_exp_amount" type="number" min="1" value="${escapeHtml(String(p.Amount))}" />
+          </div>
+          <div class="sp-field-group">
+            <label class="sp-label">Expense Type</label>
+            <select class="sp-input" id="prev_exp_type">${typeOptsP}</select>
+          </div>
+        </div>
+        <div class="sp-row2">
+          <div class="sp-field-group">
+            <label class="sp-label">Month</label>
+            <select class="sp-input" id="prev_exp_month"><option value="">None</option>${monthOpts}</select>
+          </div>
+          <div class="sp-field-group">
+            <label class="sp-label">Year</label>
+            <select class="sp-input" id="prev_exp_year">${yearOptsP}</select>
+          </div>
+        </div>
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;font-size:12px;color:#991b1b;">
+          <i class="fa-solid fa-circle-check"></i> <b>Summary:</b>
+          <span id="prev_exp_summary">${escapeHtml(p.Title)} · ₹${Number(p.Amount).toLocaleString(APP.locale||"en-IN")} · ${p.ForMonth||"General"} ${p.Year} · ${typeName}</span>
+        </div>
+        <div class="sp-actions" style="margin-top:16px;">
+          <button class="sp-save-btn sp-save-red" id="prev_exp_submitBtn" onclick="_submitExpenseFromPreview()">
+            <i class="fa-solid fa-check"></i> Confirm &amp; Save
+          </button>
+          <button class="sp-cancel-btn" onclick="_expenseReset()">
+            <i class="fa-solid fa-arrow-left"></i> Back
+          </button>
+        </div>`;
+    }
+
+    /* ── Retry as-is: resend the exact failed payload unchanged (same
+       IdempotencyKey), for when the failure was clearly transient (network
+       blip) rather than bad data. Use "Edit & Retry" (_retryExpenseFailed)
+       instead if the data itself needs fixing. ── */
+    async function _retryExpenseAsIs() {
+      const payload = window._expenseFailedPayload;
+      if (!payload) { spClose(); return; }
+      if (_expenseSubmitInFlight) return;
+      _expenseSubmitInFlight = true;
+      const expBody = document.getElementById("sp-expense-body");
+      if (expBody) {
+        expBody.innerHTML =
+          '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;text-align:center;padding:20px;">' +
+            '<i class="fa-solid fa-spinner fa-spin" style="font-size:2.5rem;color:#334155;margin-bottom:18px;"></i>' +
+            '<div style="font-size:16px;font-weight:600;color:#1e293b;">Retrying…</div>' +
+            '<div style="font-size:12px;color:#64748b;margin-top:6px;">Please wait, do not close.</div>' +
+          '</div>';
+      }
+      try {
+        const res = await postData(payload);
+        _expenseSubmitInFlight = false;
+        if (res.status === "success") {
+          window._expenseFailedPayload = null;
+          if (expBody) {
+            expBody.innerHTML =
+              '<div class="sp-steps">' + spStepsBar(3) + '</div>' +
+              '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;text-align:center;padding:20px;">' +
+                '<div style="width:72px;height:72px;background:linear-gradient(135deg,#fef2f2,#fecaca);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:18px;border:2px solid #fca5a5;animation:_csBounce 0.5s cubic-bezier(0.34,1.56,0.64,1) both;">' +
+                  '<i class="fa-solid fa-circle-check" style="color:#dc2626;font-size:2rem;"></i>' +
+                '</div>' +
+                '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:10px;">Expense Saved!</div>' +
+              '</div>' +
+              '<div class="sp-actions" style="margin-top:auto;">' +
+                '<button class="sp-save-btn sp-save-red" onclick="spOpen(\'expense\')">' +
+                  '<i class="fa-solid fa-plus"></i> Add Another' +
+                '</button>' +
+                '<button class="sp-cancel-btn" onclick="spClose()">' +
+                  '<i class="fa-solid fa-xmark"></i> Close' +
+                '</button>' +
+              '</div>';
+          }
+          smartRefresh("expenses");
+        } else {
+          const errMsg = res.message || res.error || "Something went wrong. Please try again.";
+          if (expBody) {
+            expBody.innerHTML =
+              '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;text-align:center;padding:20px;">' +
+                '<div style="width:72px;height:72px;background:linear-gradient(135deg,#fef2f2,#fecaca);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:18px;border:2px solid #fca5a5;">' +
+                  '<i class="fa-solid fa-circle-xmark" style="color:#dc2626;font-size:2rem;"></i>' +
+                '</div>' +
+                '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Save Failed</div>' +
+                '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;">' + escapeHtml(errMsg) + '</div>' +
+              '</div>' +
+              '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+                '<button class="sp-save-btn sp-save-red" onclick="_retryExpenseFailed()">' +
+                  '<i class="fa-solid fa-pen"></i> Edit &amp; Retry' +
+                '</button>' +
+                '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryExpenseAsIs()" title="Resend the exact same details">' +
+                  '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
+                '</button>' +
+              '</div>' +
+              '<div style="text-align:center;margin-top:8px;">' +
+                '<a href="javascript:void(0)" onclick="spClose()" style="font-size:11.5px;color:#94a3b8;text-decoration:underline;">Close without saving</a>' +
+              '</div>';
+          }
+        }
+      } catch (err) {
+        _expenseSubmitInFlight = false;
+        const errMsg = err.message || "Network error. Please try again.";
+        if (expBody) {
+          expBody.innerHTML =
+            '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;text-align:center;padding:20px;">' +
+              '<div style="width:72px;height:72px;background:linear-gradient(135deg,#fef2f2,#fecaca);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:18px;border:2px solid #fca5a5;">' +
+                '<i class="fa-solid fa-circle-xmark" style="color:#dc2626;font-size:2rem;"></i>' +
+              '</div>' +
+              '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Save Failed</div>' +
+              '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;">' + escapeHtml(errMsg) + '</div>' +
+            '</div>' +
+            '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+              '<button class="sp-save-btn sp-save-red" onclick="_retryExpenseFailed()">' +
+                '<i class="fa-solid fa-pen"></i> Edit &amp; Retry' +
+              '</button>' +
+              '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryExpenseAsIs()" title="Resend the exact same details">' +
+                '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
+              '</button>' +
+            '</div>' +
+            '<div style="text-align:center;margin-top:8px;">' +
+              '<a href="javascript:void(0)" onclick="spClose()" style="font-size:11.5px;color:#94a3b8;text-decoration:underline;">Close without saving</a>' +
+            '</div>';
+        }
+      }
+    }
+    window._retryExpenseAsIs = _retryExpenseAsIs;
 
     /* ═══ EXPENSE RECEIPT ATTACHMENT ════════════════════════════════
  Opens a modal to manage multiple receipt photos for an expense.
@@ -7983,6 +8448,7 @@
       const wiPanelBody = document.getElementById("sp-walkin-body");
       if (!wiPanelBody) return;
       wiPanelBody.innerHTML = `
+        <div class="sp-steps" id="sp-walkin-steps"></div>
         <div style="background:#fff8e8;border:1px solid #0F766E44;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#946c44;">
           <i class="fa-solid fa-circle-info"></i> Use this for donors who visit in person and do <b>not</b> have a registered account.
         </div>
@@ -8036,6 +8502,7 @@
         </div>`;
 
       spOpen("walkin");
+      spRenderSteps("sp-walkin-steps", 1);
     }
 
     async function saveWalkIn() {
@@ -8121,6 +8588,7 @@
       const wiPrevBody = document.getElementById("sp-walkin-body");
       if (!wiPrevBody) { openModal(previewHtml, "560px"); return; }
       wiPrevBody.innerHTML = `
+        <div class="sp-steps">${spStepsBar(2)}</div>
         <div style="background:linear-gradient(135deg,#fff8e8,#fef3cd);border:1.5px solid #0F766E44;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:#946c44;">
           <i class="fa-solid fa-circle-info"></i> Review all details. <b>Edit any field inline</b> before confirming.
         </div>
@@ -8227,9 +8695,14 @@
           TypeId: typeId,
           OccasionId: occasionId,
           Note: (note ? note + " | " : "") + "Walk-in: " + name + (mobile ? " | " + mobile : ""),
+          // Fresh key each call — see _genIdemKey comment near its definition.
+          // "Retry as-is" (_retryWalkInFailed) resends this exact stored payload
+          // object instead of calling this function again, keeping that path's
+          // key identical to the failed attempt.
+          IdempotencyKey: _genIdemKey("walkin"),
         };
         if (email) payload.WalkInEmail = email;
-        window._walkInFailedPayload = { payload, name, mobile, email, amount, month, year, typeId };
+        window._walkInFailedPayload = { payload, name, mobile, email, amount, month, year, typeId, occasionId, note };
         let res = await postData(payload);
         if (res.status === "success") {
           _walkInInFlight = false;
@@ -8247,6 +8720,7 @@
           const wiBody = document.getElementById("sp-walkin-body");
           if (wiBody) {
             wiBody.innerHTML =
+              '<div class="sp-steps">' + spStepsBar(3) + '</div>' +
               '<div style="display:flex;flex-direction:column;align-items:center;' +
               'justify-content:center;min-height:300px;text-align:center;padding:20px 16px 10px;">' +
                 '<div style="width:72px;height:72px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);' +
@@ -8301,13 +8775,16 @@
                 '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Save Failed</div>' +
                 '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;">' + escapeHtml(errMsg) + '</div>' +
               '</div>' +
-              '<div class="sp-actions" style="margin-top:auto;">' +
-                '<button class="sp-save-btn" style="background:#b45309;color:#fff;" onclick="_retryWalkInFailed()">' +
-                  '<i class="fa-solid fa-rotate-right"></i> Retry' +
+              '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+                '<button class="sp-save-btn" style="background:#b45309;color:#fff;" onclick="_editRetryWalkIn()">' +
+                  '<i class="fa-solid fa-pen"></i> Edit &amp; Retry' +
                 '</button>' +
-                '<button class="sp-cancel-btn" onclick="spClose()">' +
-                  '<i class="fa-solid fa-xmark"></i> Close' +
+                '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryWalkInFailed()" title="Resend the exact same details">' +
+                  '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
                 '</button>' +
+              '</div>' +
+              '<div style="text-align:center;margin-top:8px;">' +
+                '<a href="javascript:void(0)" onclick="spClose()" style="font-size:11.5px;color:#94a3b8;text-decoration:underline;">Close without saving</a>' +
               '</div>';
           } else {
             toast("Failed: " + errMsg, "error");
@@ -8327,13 +8804,16 @@
               '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Save Failed</div>' +
               '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;">' + escapeHtml(errMsg) + '</div>' +
             '</div>' +
-            '<div class="sp-actions" style="margin-top:auto;">' +
-              '<button class="sp-save-btn" style="background:#b45309;color:#fff;" onclick="_retryWalkInFailed()">' +
-                '<i class="fa-solid fa-rotate-right"></i> Retry' +
+            '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+              '<button class="sp-save-btn" style="background:#b45309;color:#fff;" onclick="_editRetryWalkIn()">' +
+                '<i class="fa-solid fa-pen"></i> Edit &amp; Retry' +
               '</button>' +
-              '<button class="sp-cancel-btn" onclick="spClose()">' +
-                '<i class="fa-solid fa-xmark"></i> Close' +
+              '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryWalkInFailed()" title="Resend the exact same details">' +
+                '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
               '</button>' +
+            '</div>' +
+            '<div style="text-align:center;margin-top:8px;">' +
+              '<a href="javascript:void(0)" onclick="spClose()" style="font-size:11.5px;color:#94a3b8;text-decoration:underline;">Close without saving</a>' +
             '</div>';
         } else {
           toast(errMsg, "error");
@@ -8417,13 +8897,16 @@
                 '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Save Failed</div>' +
                 '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;">' + escapeHtml(errMsg) + '</div>' +
               '</div>' +
-              '<div class="sp-actions" style="margin-top:auto;">' +
-                '<button class="sp-save-btn" style="background:#b45309;color:#fff;" onclick="_retryWalkInFailed()">' +
-                  '<i class="fa-solid fa-rotate-right"></i> Retry' +
+              '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+                '<button class="sp-save-btn" style="background:#b45309;color:#fff;" onclick="_editRetryWalkIn()">' +
+                  '<i class="fa-solid fa-pen"></i> Edit &amp; Retry' +
                 '</button>' +
-                '<button class="sp-cancel-btn" onclick="spClose()">' +
-                  '<i class="fa-solid fa-xmark"></i> Close' +
+                '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryWalkInFailed()" title="Resend the exact same details">' +
+                  '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
                 '</button>' +
+              '</div>' +
+              '<div style="text-align:center;margin-top:8px;">' +
+                '<a href="javascript:void(0)" onclick="spClose()" style="font-size:11.5px;color:#94a3b8;text-decoration:underline;">Close without saving</a>' +
               '</div>';
           }
         }
@@ -8439,18 +8922,44 @@
               '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Save Failed</div>' +
               '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;">' + escapeHtml(errMsg) + '</div>' +
             '</div>' +
-            '<div class="sp-actions" style="margin-top:auto;">' +
-              '<button class="sp-save-btn" style="background:#b45309;color:#fff;" onclick="_retryWalkInFailed()">' +
-                '<i class="fa-solid fa-rotate-right"></i> Retry' +
+            '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+              '<button class="sp-save-btn" style="background:#b45309;color:#fff;" onclick="_editRetryWalkIn()">' +
+                '<i class="fa-solid fa-pen"></i> Edit &amp; Retry' +
               '</button>' +
-              '<button class="sp-cancel-btn" onclick="spClose()">' +
-                '<i class="fa-solid fa-xmark"></i> Close' +
+              '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryWalkInFailed()" title="Resend the exact same details">' +
+                '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
               '</button>' +
+            '</div>' +
+            '<div style="text-align:center;margin-top:8px;">' +
+              '<a href="javascript:void(0)" onclick="spClose()" style="font-size:11.5px;color:#94a3b8;text-decoration:underline;">Close without saving</a>' +
             '</div>';
         }
       }
     }
     window._retryWalkInFailed = _retryWalkInFailed;
+
+    /* ── Edit & Retry: reopen the walk-in form pre-filled with the failed
+       entry's values, then rebuild the Review step from those (possibly
+       edited) values. Confirming from there calls _submitWalkInFromPreview()
+       normally, which always mints a fresh IdempotencyKey. ── */
+    function _editRetryWalkIn() {
+      const stored = window._walkInFailedPayload;
+      if (!stored) { spClose(); return; }
+      openWalkInContribution(); // rebuilds a fresh wi_* form
+      const _s = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined && val !== null) el.value = val; };
+      _s("wi_name", stored.name);
+      _s("wi_mobile", stored.mobile);
+      _s("wi_email", stored.email);
+      _s("wi_amount", stored.amount);
+      _s("wi_year", stored.year);
+      _s("wi_month", stored.month);
+      _s("wi_type", stored.typeId);
+      if (stored.occasionId) _s("wi_occasion", stored.occasionId);
+      // Original note had "Walk-in: name | mobile" appended server-side —
+      // don't try to reverse-parse that back out, leave note blank to re-enter.
+      saveWalkIn(); // rebuilds the Review (step 2) screen from these values
+    }
+    window._editRetryWalkIn = _editRetryWalkIn;
 
     /* ═══════════════════════════════════════════════════════
        IMPROVEMENT #6 — CONTRIBUTION TRACKER

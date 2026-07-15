@@ -2984,7 +2984,18 @@
   <script src="admin.js"></script>
 
   <!-- ═══ SLIDE PANELS OVERLAY ═══ -->
-  <div class="sp-overlay" id="spOverlay" onclick="spClose()"></div>
+  <div class="sp-overlay" id="spOverlay" onclick="spBackdropClick()"></div>
+
+  <!-- ── Discard-confirm dialog: shown instead of closing instantly when a form has unsaved input ── -->
+  <div class="sp-discard-box" id="spDiscardBox">
+    <div class="sp-d-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+    <div class="sp-d-title">Discard this entry?</div>
+    <div class="sp-d-sub">You've entered some details that haven't been saved yet.</div>
+    <div class="sp-d-actions">
+      <button class="sp-d-keep" onclick="_spKeepEditing()">Keep editing</button>
+      <button class="sp-d-discard" onclick="_spConfirmDiscard()">Discard</button>
+    </div>
+  </div>
 
   <!-- ── Contribution Panel ── -->
   <div class="sp-panel" id="sp-contrib">
@@ -2999,6 +3010,7 @@
     <div class="sp-panel-body" id="sp-contrib-body">
       <!-- FORM STATE -->
       <div id="sp-contrib-form">
+        <div class="sp-steps" id="sp-contrib-steps"></div>
         <div class="sp-field-group">
           <label class="sp-label">Member <span class="sp-required">*</span></label>
           <select id="user" onchange="_suggestLastAmount(this.value)" class="sp-input"></select>
@@ -3053,6 +3065,7 @@
       </div>
       <!-- PREVIEW STATE -->
       <div id="sp-contrib-preview" style="display:none;">
+        <div class="sp-steps" id="sp-contrib-steps-done"></div>
         <div class="sp-preview-card sp-preview-green">
           <div class="sp-preview-icon"><i class="fa-solid fa-circle-check"></i></div>
           <div class="sp-preview-title">Contribution Saved!</div>
@@ -3082,6 +3095,7 @@
     </div>
     <div class="sp-panel-body" id="sp-expense-body">
       <div id="sp-expense-form">
+        <div class="sp-steps" id="sp-expense-steps"></div>
         <div class="sp-field-group">
           <label class="sp-label">Title <span class="sp-required">*</span></label>
           <input id="title" placeholder="e.g. Electricity Bill" class="sp-input" />
@@ -3117,6 +3131,7 @@
         </div>
       </div>
       <div id="sp-expense-preview" style="display:none;">
+        <div class="sp-steps" id="sp-expense-steps-done"></div>
         <div class="sp-preview-card sp-preview-red">
           <div class="sp-preview-icon"><i class="fa-solid fa-circle-check"></i></div>
           <div class="sp-preview-title">Expense Saved!</div>
@@ -3390,6 +3405,25 @@
       }
     };
 
+    /* ── Unified 3-step indicator: Details → Review → Done ──
+       step: 1 = Details, 2 = Review, 3 = Done. Rendered into a
+       target element id (each panel/state has its own .sp-steps slot). */
+    window.spStepsBar = function(step) {
+      var labels = ['Details', 'Review', 'Done'];
+      var html = '';
+      for (var i = 1; i <= 3; i++) {
+        var cls = i < step ? 'sp-step-done' : (i === step ? 'sp-step-now' : '');
+        var dot = i < step ? '<i class="fa-solid fa-check"></i>' : i;
+        html += '<div class="sp-step ' + cls + '"><div class="sp-step-dot">' + dot + '</div><span>' + labels[i-1] + '</span></div>';
+        if (i < 3) html += '<div class="sp-step-line"></div>';
+      }
+      return html;
+    };
+    window.spRenderSteps = function(elId, step) {
+      var el = document.getElementById(elId);
+      if (el) el.innerHTML = window.spStepsBar(step);
+    };
+
     window.spOpen = function(type) {
       // Close any open panel first
       spClose();
@@ -3413,6 +3447,22 @@
           overlay.classList.add('sp-overlay-active');
           panel.classList.add('sp-panel-open');
           document.body.style.overflow = 'hidden';
+          spRenderSteps('sp-contrib-steps', 1);
+          setTimeout(function() {
+            var first = panel.querySelector('input:not([type=hidden]), select');
+            if (first) first.focus();
+          }, 320);
+          return;
+        }
+      }
+      // For expense: if body was replaced by review/success state, restore the form
+      if (type === 'expense') {
+        if (typeof window._expenseReset === 'function') {
+          window._expenseReset();
+          overlay.classList.add('sp-overlay-active');
+          panel.classList.add('sp-panel-open');
+          document.body.style.overflow = 'hidden';
+          spRenderSteps('sp-expense-steps', 1);
           setTimeout(function() {
             var first = panel.querySelector('input:not([type=hidden]), select');
             if (first) first.focus();
@@ -3427,6 +3477,9 @@
       overlay.classList.add('sp-overlay-active');
       panel.classList.add('sp-panel-open');
       document.body.style.overflow = 'hidden';
+      // Render step-1 indicator if this panel has one (contrib/expense static slot;
+      // bulk/walkin build their own dynamically and call spRenderSteps themselves)
+      spRenderSteps('sp-' + type + '-steps', 1);
       // Focus first input
       setTimeout(function() {
         var first = panel.querySelector('input:not([type=hidden]), select');
@@ -3443,6 +3496,49 @@
       if (overlay) overlay.classList.remove('sp-overlay-active');
       document.body.style.overflow = '';
       _currentPanel = null;
+      var db = document.getElementById('spDiscardBox');
+      if (db) db.classList.remove('sp-discard-active');
+    };
+
+    /* ── Dirty check: has the admin actually typed anything in the open panel? ──
+       Deliberately only looks at typed input/textarea fields, not <select>s —
+       several selects (month, year, payment mode) are pre-filled with sensible
+       defaults the moment the panel opens (see _spPreselectMonthYear), so
+       treating "not on option 0" as "touched" would wrongly flag an untouched
+       form as dirty. A typed amount/name/title is a much more reliable signal
+       that there's something worth protecting from an accidental outside click. */
+    function _spPanelIsDirty() {
+      if (!_currentPanel) return false;
+      var panel = document.getElementById('sp-' + _currentPanel);
+      if (!panel) return false;
+      var fields = panel.querySelectorAll('input, textarea');
+      for (var i = 0; i < fields.length; i++) {
+        var f = fields[i];
+        if (f.type === 'hidden') continue;
+        if (f.value && String(f.value).trim() !== '') return true;
+      }
+      return false;
+    }
+
+    /* ── Backdrop click: close immediately if the form is empty, otherwise
+       ask before discarding whatever the admin has typed so far. ── */
+    window.spBackdropClick = function() {
+      if (!_currentPanel) return;
+      if (_spPanelIsDirty()) {
+        var db = document.getElementById('spDiscardBox');
+        if (db) db.classList.add('sp-discard-active');
+      } else {
+        spClose();
+      }
+    };
+    window._spKeepEditing = function() {
+      var db = document.getElementById('spDiscardBox');
+      if (db) db.classList.remove('sp-discard-active');
+    };
+    window._spConfirmDiscard = function() {
+      var db = document.getElementById('spDiscardBox');
+      if (db) db.classList.remove('sp-discard-active');
+      spClose();
     };
 
     window.spSave = function(type) {
@@ -3460,17 +3556,17 @@
       if (spinEl) spinEl.style.display = '';
       btn.style.opacity = '0.8';
 
-      // contrib manages the panel itself (preview → success/error all in panel)
-      if (type === 'contrib') {
+      // contrib & expense manage the panel themselves (Review → success/error all in panel)
+      if (type === 'contrib' || type === 'expense') {
         try { _saveFnMap[type](); } catch(e) { console.warn(e); }
-        // Reset button after a tick (addContribution will repopulate body)
+        // Reset button after a tick (addContribution/addExpense will repopulate body)
         setTimeout(function() {
           if (btn) { btn.disabled=false; if(textEl) textEl.style.display=''; if(spinEl) spinEl.style.display='none'; btn.style.opacity=''; }
         }, 200);
         return;
       }
 
-      // expense / event / user — only show toast, no modal.
+      // event / user — only show toast, no modal.
       // Call save, then show our preview card inside the panel.
       try { _saveFnMap[type](); } catch(e) { console.warn(e); }
 
@@ -3556,9 +3652,17 @@
     // Expose for use by _contribReset (defined in outer script block)
     window._spPreselectMonthYear = _spPreselectMonthYear;
 
-    // ESC key closes panel
+    // ESC key: same guard as backdrop click — if the discard dialog is already
+    // open, ESC just cancels that dialog; otherwise it triggers the same
+    // dirty-check as clicking outside the panel.
     document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') spClose();
+      if (e.key !== 'Escape') return;
+      var db = document.getElementById('spDiscardBox');
+      if (db && db.classList.contains('sp-discard-active')) {
+        _spKeepEditing();
+        return;
+      }
+      spBackdropClick();
     });
   })();
   </script>
@@ -3636,6 +3740,33 @@
       // Re-populate dropdowns (may have been wiped)
       if (typeof _rebuildContribFormDropdowns === 'function') _rebuildContribFormDropdowns();
       _spPreselectMonthYear('contrib');
+    };
+
+    /* ── expense panel reset: mirrors _contribReset above ──
+       Needed now that Add Expense also shows an editable Review step
+       (see addExpense()/_submitExpenseFromPreview() in admin.js) instead
+       of saving immediately, so the panel body gets replaced the same way
+       the contribution panel's does. */
+    window._spExpenseFormEl = document.getElementById('sp-expense-form');
+    window._spExpensePrevEl = document.getElementById('sp-expense-preview');
+
+    window._expenseReset = function() {
+      var body = document.getElementById('sp-expense-body');
+      if (!body) return;
+      if (!document.getElementById('sp-expense-form') && window._spExpenseFormEl) {
+        body.innerHTML = '';
+        body.appendChild(window._spExpenseFormEl);
+        if (window._spExpensePrevEl) body.appendChild(window._spExpensePrevEl);
+      }
+      var form = document.getElementById('sp-expense-form');
+      var prev = document.getElementById('sp-expense-preview');
+      if (form) form.style.display = '';
+      if (prev)  prev.style.display = 'none';
+      var _g = function(id) { return document.getElementById(id); };
+      if (_g('title'))     _g('title').value = '';
+      if (_g('expAmount')) _g('expAmount').value = '';
+      if (typeof _rebuildExpenseFormDropdowns === 'function') _rebuildExpenseFormDropdowns();
+      _spPreselectMonthYear('expense');
     };
 
     /* ═══════════════════════════════════════════════════════════
