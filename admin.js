@@ -4795,7 +4795,7 @@
             <i class="fa-solid fa-plus"></i> Add Row
           </button>
         </div>
-        <div id="bk_rows" style="flex:1;overflow-y:auto;padding-right:2px;"></div>
+        <div id="bk_rows" style="flex:1;min-height:220px;overflow-y:auto;padding-right:2px;"></div>
         <div id="bk_status" style="font-size:12px;color:#27ae60;font-weight:600;min-height:18px;margin-top:8px;"></div>
         <div class="sp-actions" style="margin-top:16px;">
           <button class="sp-save-btn" style="background:#334155;color:#fff;" onclick="runBulkInsert()">
