@@ -2014,11 +2014,6 @@ existing updateUser action. No new Apps Script action needed.
              <div class="hero-stat-l">📅 This Month</div>
              <div class="hero-stat-v">₹${fmt(thisMonth)}</div>
            </div>`;
-      const recordsCard = `<div class="hero-stat">
-             <div class="hero-stat-l">🧾 Records</div>
-             <div class="hero-stat-v">${data.length}</div>
-           </div>`;
-
       // ── Pending months — same rules as the admin Tracker, scoped to just this member:
       // effective start = ContribStartDate → first contribution → RegisteredAt (whichever
       // is known), and frozen at InactiveSince if this member ever went inactive.
@@ -2075,7 +2070,7 @@ existing updateUser action. No new Apps Script action needed.
              <div class="hero-stat-v">All Caught Up</div>
            </div>`;
 
-      qs.innerHTML = monthCard + recordsCard + pendingCard;
+      qs.innerHTML = monthCard + pendingCard;
     }
   }
 
