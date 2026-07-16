@@ -30,7 +30,7 @@ const CFG = {
   designation:   "Household Head",
   tagline:       "Jai Shree Ram",
   thankYouMsg:   "Thank you for your generous contribution",
-  websiteUrl:    "https://your-app-url-here.web.app",   // TODO: replace with your live app URL — used as the "Open Website" button in emails
+  websiteUrl:    "https://amar2796.github.io/Home_Maintenance/",   // TODO: replace with your live app URL — used as the "Open Website" button in emails
   // ── PUBLIC DISPLAY FIELDS (shown on homepage — change for any temple/institution)
   splashText:    "॥ जय श्री राम ॥",          // Splash screen greeting
   heroText:      "|| श्री हनुमत आश्रम ||",    // Hero section heading
