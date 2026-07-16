@@ -4835,15 +4835,15 @@
 
       const previewRows = rows.map((r, i) =>
         `<tr style="border-bottom:1px solid #f0f0f0;" data-bk-idx="${i}">
-            <td style="padding:6px 10px;font-size:12px;color:#64748b;">${i + 1}</td>
-            <td style="padding:6px 10px;font-size:12px;font-weight:600;">${escapeHtml(r.month)}</td>
-            <td style="padding:4px 8px;font-size:12px;">
-              <div style="display:flex;align-items:center;gap:6px;">
+            <td style="padding:6px 6px;font-size:12px;color:#64748b;">${i + 1}</td>
+            <td style="padding:6px 6px;font-size:12px;font-weight:600;white-space:nowrap;">${escapeHtml(r.month)}</td>
+            <td style="padding:4px 6px;font-size:12px;">
+              <div style="display:flex;align-items:center;gap:4px;">
                 <span style="color:#64748b;font-weight:600;">₹</span>
                 <input type="number" min="1" class="bkprev-amt" data-idx="${i}" value="${Number(r.amount)}"
-                  style="width:90px;border:1.5px solid #e2e8f0;border-radius:6px;padding:4px 7px;font-size:12px;font-weight:700;color:#15803d;font-family:inherit;"
+                  style="width:64px;min-width:0;border:1.5px solid #e2e8f0;border-radius:6px;padding:4px 5px;font-size:12px;font-weight:700;color:#15803d;font-family:inherit;"
                   oninput="_bkPrevUpdateTotal()" />
-                <button onclick="this.closest('tr').remove();_bkPrevUpdateTotal();" style="background:#fef2f2;border:1px solid #fca5a5;color:#e74c3c;padding:3px 8px;font-size:11px;border-radius:5px;box-shadow:none;transform:none;" title="Remove row">✕</button>
+                <button onclick="this.closest('tr').remove();_bkPrevUpdateTotal();" style="background:#fef2f2;border:1px solid #fca5a5;color:#e74c3c;padding:3px 7px;font-size:11px;border-radius:5px;box-shadow:none;transform:none;flex-shrink:0;" title="Remove row">✕</button>
               </div>
             </td>
           </tr>`
@@ -4863,18 +4863,25 @@
                 ${note ? `<span style="color:#64748b;">Note</span><strong>${escapeHtml(note)}</strong>` : ""}
               </div>
             </div>
-            <table style="width:100%;border-collapse:collapse;" id="bkprev_table">
+            <!-- [MOBILE-FIX] Wrapped in its own scroll container: .sp-panel/modal ancestors use
+                 overflow:hidden, so on narrow phones a table wider than the screen was silently
+                 clipping the amount input / remove button off-screen instead of scrolling to them.
+                 min-width keeps columns from over-compressing; overflow-x:auto makes the rest
+                 reachable by a swipe if a phone is still too narrow after the size reductions above. -->
+            <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid #e2e8f0;border-radius:10px;">
+            <table style="width:100%;min-width:300px;border-collapse:collapse;" id="bkprev_table">
               <thead><tr style="background:#f1f5f9;">
-                <th style="padding:7px 10px;font-size:11px;text-align:left;color:#64748b;">#</th>
-                <th style="padding:7px 10px;font-size:11px;text-align:left;color:#64748b;">Month</th>
-                <th style="padding:7px 10px;font-size:11px;text-align:left;color:#64748b;">Amount (editable)</th>
+                <th style="padding:7px 6px;font-size:11px;text-align:left;color:#64748b;">#</th>
+                <th style="padding:7px 6px;font-size:11px;text-align:left;color:#64748b;">Month</th>
+                <th style="padding:7px 6px;font-size:11px;text-align:left;color:#64748b;">Amount (editable)</th>
               </tr></thead>
               <tbody>${previewRows}</tbody>
               <tfoot><tr style="background:#fef9ee;">
-                <td colspan="2" style="padding:8px 10px;font-size:13px;font-weight:700;color:#78350f;" id="bkprev_countLabel">Total (${rows.length} entr${rows.length === 1 ? "y" : "ies"})</td>
-                <td style="padding:8px 10px;font-size:13px;font-weight:700;color:#15803d;" id="bkprev_total">${APP.currency||'₹'}${totalAmt.toLocaleString(APP.locale||"en-IN")}</td>
+                <td colspan="2" style="padding:8px 6px;font-size:13px;font-weight:700;color:#78350f;" id="bkprev_countLabel">Total (${rows.length} entr${rows.length === 1 ? "y" : "ies"})</td>
+                <td style="padding:8px 6px;font-size:13px;font-weight:700;color:#15803d;" id="bkprev_total">${APP.currency||'₹'}${totalAmt.toLocaleString(APP.locale||"en-IN")}</td>
               </tr></tfoot>
             </table>
+            </div>
             <p style="font-size:11.5px;color:#94a3b8;margin:10px 0 0;">Each entry generates a separate receipt. This cannot be undone.</p>
           </div>
           <div class="_mft">
@@ -4903,18 +4910,20 @@
           <span style="font-size:12px;font-weight:700;color:#334155;"><i class="fa-solid fa-list-ul" style="color:#0F766E;margin-right:5px;"></i> Month Entries</span>
           <span id="bkprev_countLabel" style="font-size:12px;color:#78350f;font-weight:600;">Total (${rows.length} entr${rows.length === 1 ? "y" : "ies"})</span>
         </div>
-        <table style="width:100%;border-collapse:collapse;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;" id="bkprev_table">
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px;border:1px solid #e2e8f0;">
+        <table style="width:100%;min-width:300px;border-collapse:collapse;" id="bkprev_table">
           <thead><tr style="background:#f1f5f9;">
-            <th style="padding:8px 10px;font-size:11px;text-align:left;color:#64748b;font-weight:600;">#</th>
-            <th style="padding:8px 10px;font-size:11px;text-align:left;color:#64748b;font-weight:600;">Month</th>
-            <th style="padding:8px 10px;font-size:11px;text-align:left;color:#64748b;font-weight:600;">Amount (editable)</th>
+            <th style="padding:8px 6px;font-size:11px;text-align:left;color:#64748b;font-weight:600;">#</th>
+            <th style="padding:8px 6px;font-size:11px;text-align:left;color:#64748b;font-weight:600;">Month</th>
+            <th style="padding:8px 6px;font-size:11px;text-align:left;color:#64748b;font-weight:600;">Amount (editable)</th>
           </tr></thead>
           <tbody>${previewRows}</tbody>
           <tfoot><tr style="background:#fef9ee;border-top:2px solid #5EEAD4;">
-            <td colspan="2" style="padding:9px 10px;font-size:13px;font-weight:700;color:#78350f;" id="bkprev_countLabel2">Total (${rows.length} entr${rows.length === 1 ? "y" : "ies"})</td>
-            <td style="padding:9px 10px;font-size:14px;font-weight:700;color:#15803d;" id="bkprev_total">${APP.currency||'₹'}${totalAmt.toLocaleString(APP.locale||"en-IN")}</td>
+            <td colspan="2" style="padding:9px 6px;font-size:13px;font-weight:700;color:#78350f;" id="bkprev_countLabel2">Total (${rows.length} entr${rows.length === 1 ? "y" : "ies"})</td>
+            <td style="padding:9px 6px;font-size:14px;font-weight:700;color:#15803d;" id="bkprev_total">${APP.currency||'₹'}${totalAmt.toLocaleString(APP.locale||"en-IN")}</td>
           </tr></tfoot>
         </table>
+        </div>
         <p style="font-size:11.5px;color:#94a3b8;margin:10px 0 0;"><i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;margin-right:4px;"></i> Each entry generates a separate receipt. This cannot be undone.</p>
         <div class="sp-actions" style="margin-top:16px;">
           <button class="sp-save-btn" style="background:#22c55e;color:#fff;" id="bkprev_confirmBtn" onclick="_executeBulkInsert()">
