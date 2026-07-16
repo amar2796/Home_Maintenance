@@ -1862,34 +1862,108 @@
             <span style="font-size:11px;font-weight:400;color:#999;margin-left:8px;">Who paid · Who hasn't</span>
           </h3>
 
-          <!-- Filter Row -->
-          <div class="filter-row" style="flex-wrap:wrap;gap:10px;margin-bottom:16px;">
-            <div>
-              <label style="font-size:11px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Type</label>
-              <select id="tr_type"
-                style="padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-family:Poppins,sans-serif;font-size:13px;min-width:160px;">
+          <style>
+            .tr-toolbar { display:flex; flex-wrap:wrap; align-items:flex-end; gap:20px; background:transparent; border:none; border-bottom:1px solid #eef1f4; border-radius:0; padding:2px 2px 16px; margin-bottom:20px; }
+            .tr-toolbar .tr-field { display:flex; flex-direction:column; gap:5px; }
+            .tr-toolbar label { font-size:10.5px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:.03em; }
+            .tr-toolbar select { padding:7px 12px; border:1px solid #e2e8f0; border-radius:7px; font-family:Poppins,sans-serif; font-size:13px; background:#fff; height:34px; color:#334155; }
+            .tr-toolbar .tr-hide-chk { display:flex; align-items:center; gap:6px; font-size:12px; color:#64748b; cursor:pointer; white-space:nowrap; padding-bottom:7px; margin-left:auto; }
+            .tr-focus-bar { display:flex; align-items:center; flex-wrap:wrap; gap:10px; background:#fff; border:1px dashed #d7dce3; border-radius:10px; padding:10px 14px; margin-bottom:16px; }
+            .tr-focus-bar label { font-size:12px; font-weight:600; color:#555; white-space:nowrap; }
+            .tr-focus-bar select { padding:7px 12px; border:1px solid #ddd; border-radius:8px; font-family:Poppins,sans-serif; font-size:13px; background:#fff; height:34px; }
+            .tr-legend-chip { display:inline-flex; align-items:center; gap:5px; background:#f8fafc; border:1px solid #eef2f6; border-radius:20px; padding:4px 12px; font-size:11px; color:#64748b; font-weight:500; }
+            /* Year-overview + shortfall badges — single line on wider screens, shrink to fit */
+            #tr_year_summary { flex-wrap:wrap; gap:10px; }
+            #tr_year_summary > div { padding:12px 14px; }
+            #tr_target_badges { display:flex; }
+            @media (min-width:641px) {
+              #tr_year_summary { flex-wrap:nowrap; overflow-x:auto; }
+              #tr_year_summary > div, #tr_target_badges { flex:1 1 0; min-width:0; white-space:nowrap; }
+              #tr_year_summary > div { padding:12px 14px; }
+            }
+            @media (max-width:640px) {
+              .tr-toolbar { padding:12px; gap:10px; }
+              .tr-toolbar .tr-field { flex:1 1 100%; }
+              .tr-toolbar select { width:100%; }
+              .tr-toolbar .tr-hide-chk { padding-bottom:0; margin-left:0; flex:1 1 100%; justify-content:flex-start; }
+              .tr-focus-bar { flex-direction:column; align-items:stretch; }
+              .tr-focus-bar select { width:100%; }
+              .tr-legend-chip { font-size:10.5px; padding:3px 10px; }
+              #tr_grid_table { font-size:10.5px; }
+              #tr_summary { gap:8px; }
+              #tr_summary > div { flex:1 1 auto; min-width:100px; padding:10px 12px; }
+              /* 2-per-row CSS Grid on mobile — grid auto-stretches every box in a row to
+                 equal height (fixes the Inactive box being shorter than the Shortfall box) */
+              #tr_year_summary { display:grid !important; grid-template-columns:1fr 1fr; gap:8px; }
+              #tr_year_summary > div, #tr_target_badges { flex:none; width:auto; min-width:0; padding:10px 10px; white-space:normal; }
+              #tr_target_badges { display:flex; }
+              #tr_target_badges > div { width:100%; display:flex; flex-direction:column; justify-content:center; }
+              #tr_year_summary > div div:first-child { font-size:1.1rem !important; }
+              #tr_year_summary > div div:not(:first-child), #tr_target_badges div div:not(:first-child) { font-size:10px !important; line-height:1.3; }
+            }
+          </style>
+
+          <!-- Grid filters — auto-applies on any change, no Apply button needed -->
+          <div class="tr-toolbar">
+            <div class="tr-field">
+              <label>Type</label>
+              <select id="tr_type" onchange="runTracker()">
                 <option value="">— All Types —</option>
               </select>
             </div>
-            <div>
-              <label style="font-size:11px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Month</label>
-              <select id="tr_month"
-                style="padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-family:Poppins,sans-serif;font-size:13px;min-width:130px;"></select>
+            <div class="tr-field">
+              <label>Year</label>
+              <select id="tr_year" onchange="runTracker()" style="min-width:90px;text-align:center;"></select>
             </div>
-            <div>
-              <label style="font-size:11px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Year</label>
-              <select id="tr_year"
-                style="padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-family:Poppins,sans-serif;font-size:13px;min-width:100px;"></select>
-            </div>
-            <div style="align-self:flex-end;">
-              <button onclick="runTracker()" style="padding:9px 20px;">
-                <i class="fa-solid fa-magnifying-glass"></i> Apply Filter
-              </button>
-            </div>
+            <label class="tr-hide-chk">
+              <input type="checkbox" id="tr_hide_inactive" onchange="runTracker()"/> Hide inactive members
+            </label>
           </div>
 
-          <!-- Summary Badges -->
-          <div id="tr_summary" style="display:none;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+          <!-- Year overview — always reflects the selected Year + Type, independent of Focus month -->
+          <div style="font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:.04em;text-transform:uppercase;margin:0 0 8px 2px;">
+            Year overview
+          </div>
+          <div id="tr_year_summary" style="display:none;gap:10px;margin-bottom:18px;">
+            <div
+              style="background:#F0FDFA;border:1px solid #bfdbfe;border-radius:10px;text-align:center;">
+              <div style="font-size:1.3rem;font-weight:700;color:#0F766E;" id="tr_total_members">0</div>
+              <div style="font-size:10.5px;color:#115E59;font-weight:600;">👥 Total Members</div>
+            </div>
+            <div
+              style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;text-align:center;">
+              <div style="font-size:1.3rem;font-weight:700;color:#dc2626;" id="tr_year_pending_months">0</div>
+              <div style="font-size:10.5px;color:#991b1b;font-weight:600;">📅 Pending Months</div>
+            </div>
+            <div
+              style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;text-align:center;">
+              <div style="font-size:1.3rem;font-weight:700;color:#475569;" id="tr_year_inactive_count">0</div>
+              <div style="font-size:10.5px;color:#334155;font-weight:600;">🔒 Inactive (Closed)</div>
+            </div>
+          </div>
+          <!-- Shortfall badge (target_badges) gets appended as a 4th flex item here by runTracker() -->
+          
+
+          <!-- Year-wise member × month grid -->
+          <div id="tr_grid_wrap" style="display:none;overflow-x:auto;border:1px solid #eef1f4;border-radius:10px;margin-bottom:10px;">
+            <table id="tr_grid_table" style="border-collapse:collapse;font-size:11.5px;width:100%;min-width:760px;table-layout:fixed;"></table>
+          </div>
+          <div id="tr_grid_legend" style="display:none;gap:8px;margin:0 0 22px;flex-wrap:wrap;">
+            <span class="tr-legend-chip"><b style="color:#16a34a;">✓</b> Paid</span>
+            <span class="tr-legend-chip"><b style="color:#dc2626;">✕</b> Pending</span>
+            <span class="tr-legend-chip"><b style="color:#94a3b8;">—</b> Before start date</span>
+            <span class="tr-legend-chip"><b style="color:#94a3b8;">·</b> Future month</span>
+            <span class="tr-legend-chip"><b style="color:#64748b;">◆</b> Closed (inactive)</span>
+          </div>
+
+          <!-- Focus month — drives the paid/pending lists + WhatsApp buttons below -->
+          <div class="tr-focus-bar">
+            <label><i class="fa-solid fa-list-check" style="color:#0F766E;margin-right:4px;"></i>List + WhatsApp send for</label>
+            <select id="tr_month" onchange="runTracker()"></select>
+          </div>
+
+          <!-- Selected-month summary -->
+          <div id="tr_summary" style="display:none;gap:12px;flex-wrap:wrap;margin-bottom:8px;">
             <div
               style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 20px;text-align:center;min-width:120px;">
               <div style="font-size:1.5rem;font-weight:700;color:#16a34a;" id="tr_paid_count">0</div>
@@ -1901,11 +1975,6 @@
               <div style="font-size:1.5rem;font-weight:700;color:#dc2626;" id="tr_pending_count">0</div>
               <div style="font-size:11px;color:#991b1b;font-weight:600;">❌ Pending</div>
               <div style="font-size:12px;color:#b91c1c;font-weight:600;" id="tr_pending_pct">0%</div>
-            </div>
-            <div
-              style="background:#F0FDFA;border:1px solid #bfdbfe;border-radius:10px;padding:12px 20px;text-align:center;min-width:120px;">
-              <div style="font-size:1.5rem;font-weight:700;color:#0F766E;" id="tr_total_members">0</div>
-              <div style="font-size:11px;color:#115E59;font-weight:600;">👥 Total Members</div>
             </div>
           </div>
           <!-- Progress bar -->
@@ -2416,6 +2485,33 @@
                 <i class="fa-solid fa-circle" style="font-size:7px;margin-right:4px;color:#94a3b8;"></i> Loading status...
               </div>
             </div>
+
+            <!-- Toggle 4: Admin Monthly Summary -->
+            <div
+              style="border:1.5px solid #e2e8f0;border-radius:12px;padding:18px;background:#fff;transition:border-color 0.2s;"
+              id="ea_card_admin_summary">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+                <div style="flex:1;">
+                  <div style="font-weight:700;color:#1e293b;font-size:14px;margin-bottom:4px;">
+                    <i class="fa-solid fa-clipboard-list" style="color:#7c3aed;margin-right:6px;"></i>Admin Monthly
+                    Summary
+                  </div>
+                  <div style="font-size:11.5px;color:#64748b;line-height:1.6;">Sends every active admin a
+                    who-paid / who-hasn't table (with a PDF attachment) for the current month — one row per member,
+                    multiple entries combined into a single total.</div>
+                </div>
+                <label class="ea-toggle" style="flex-shrink:0;">
+                  <input type="checkbox" id="toggle_admin_monthly_summary"
+                    onchange="saveEmailToggle('admin_monthly_summary', this.checked)">
+                  <span class="ea-slider"></span>
+                </label>
+              </div>
+              <div style="margin-top:12px;padding-top:10px;border-top:1px solid #f1f5f9;font-size:11px;color:#94a3b8;"
+                id="ea_admin_summary_status">
+                <i class="fa-solid fa-circle" style="font-size:7px;margin-right:4px;color:#94a3b8;"></i> Loading
+                status...
+              </div>
+            </div>
           </div>
 
           <!-- Email Logo — auto-loaded from Drive folder set in CFG.folderLogo -->
@@ -2455,7 +2551,11 @@
           <div style="background:#f8fafc;border-radius:10px;padding:16px 20px;border:1px solid #e2e8f0;">
             <div style="font-weight:700;color:#334155;font-size:13px;margin-bottom:12px;"><i
                 class="fa-solid fa-circle-question" style="color:#14B8A6;margin-right:6px;"></i>How It Works</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;font-size:12px;color:#475569;">
+            <style>
+              @media (max-width:900px) { .hiw-grid { grid-template-columns:1fr 1fr !important; } }
+              @media (max-width:560px) { .hiw-grid { grid-template-columns:1fr !important; } }
+            </style>
+            <div class="hiw-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;font-size:12px;color:#475569;">
               <div>
                 <div style="font-weight:600;color:#1e293b;margin-bottom:4px;">📧 Auto Receipt Email</div>
                 <ul style="margin:0;padding-left:16px;line-height:1.8;color:#64748b;">
@@ -2483,6 +2583,15 @@
                   <li>Skipped if daily email quota is full</li>
                 </ul>
               </div>
+              <div>
+                <div style="font-weight:600;color:#1e293b;margin-bottom:4px;">📋 Admin Monthly Summary</div>
+                <ul style="margin:0;padding-left:16px;line-height:1.8;color:#64748b;">
+                  <li>Runs on last day of month (separate trigger)</li>
+                  <li>Sent to every active admin, not members</li>
+                  <li>Who paid + who hasn't, PDF attached</li>
+                  <li>Multiple entries per member → one total</li>
+                </ul>
+              </div>
             </div>
             <div style="margin-top:12px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:11.5px;color:#94a3b8;">
               <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i>
@@ -2492,6 +2601,10 @@
               <i class="fa-solid fa-cake-candles" style="color:#ec4899;"></i>
               Birthday email requires a separate daily trigger: Apps Script → Triggers → Add trigger →
               <code>sendBirthdayEmails</code> → <strong>Time-based → Day timer → 8 AM &ndash; 9 AM</strong>.
+              <br/><br/>
+              <i class="fa-solid fa-clipboard-list" style="color:#7c3aed;"></i>
+              Admin Monthly Summary requires its own trigger: Apps Script → Triggers → Add trigger →
+              <code>sendAdminMonthlySummary</code> → Month timer → day of your choice.
             </div>
           </div>
 
@@ -2520,6 +2633,29 @@
               </button>
             </div>
             <div id="ea_manual_result" style="margin-top:10px;font-size:12px;display:none;"></div>
+          </div>
+
+          <!-- Manual Admin Summary Test -->
+          <div
+            style="margin-top:16px;background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:1px solid #c4b5fd;border-radius:10px;padding:16px 20px;">
+            <div style="font-weight:700;color:#5b21b6;font-size:13px;margin-bottom:8px;"><i class="fa-solid fa-clipboard-list"
+                style="color:#7c3aed;margin-right:6px;"></i>Manual Admin Summary (Test)</div>
+            <div style="font-size:12px;color:#4c1d95;margin-bottom:12px;">Send the who-paid / who-hasn't summary +
+              PDF to all active admins for the month selected above.</div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+              <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#4c1d95;cursor:pointer;">
+                <input type="checkbox" id="ea_admin_summary_pdf" checked style="width:14px;height:14px;">
+                Attach PDF
+              </label>
+              <button onclick="triggerManualAdminSummary()"
+                style="background:linear-gradient(135deg,#7c3aed,#5b21b6);padding:9px 18px;font-size:12px;box-shadow:0 2px 8px rgba(124,58,237,0.3);">
+                <i class="fa-solid fa-paper-plane"></i> Send Now
+              </button>
+            </div>
+            <div id="ea_admin_summary_result" style="margin-top:10px;font-size:12px;display:none;"></div>
+            <div style="margin-top:8px;font-size:11px;color:#7c3aed;">
+              Uncheck "Attach PDF" to send email-only — useful if you want to isolate whether a problem is the PDF step or the email step.
+            </div>
           </div>
 
 
@@ -2984,7 +3120,18 @@
   <script src="admin.js"></script>
 
   <!-- ═══ SLIDE PANELS OVERLAY ═══ -->
-  <div class="sp-overlay" id="spOverlay" onclick="spClose()"></div>
+  <div class="sp-overlay" id="spOverlay" onclick="spBackdropClick()"></div>
+
+  <!-- ── Discard-confirm dialog: shown instead of closing instantly when a form has unsaved input ── -->
+  <div class="sp-discard-box" id="spDiscardBox">
+    <div class="sp-d-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+    <div class="sp-d-title">Discard this entry?</div>
+    <div class="sp-d-sub">You've entered some details that haven't been saved yet.</div>
+    <div class="sp-d-actions">
+      <button class="sp-d-keep" onclick="_spKeepEditing()">Keep editing</button>
+      <button class="sp-d-discard" onclick="_spConfirmDiscard()">Discard</button>
+    </div>
+  </div>
 
   <!-- ── Contribution Panel ── -->
   <div class="sp-panel" id="sp-contrib">
@@ -2999,6 +3146,7 @@
     <div class="sp-panel-body" id="sp-contrib-body">
       <!-- FORM STATE -->
       <div id="sp-contrib-form">
+        <div class="sp-steps" id="sp-contrib-steps"></div>
         <div class="sp-field-group">
           <label class="sp-label">Member <span class="sp-required">*</span></label>
           <select id="user" onchange="_suggestLastAmount(this.value)" class="sp-input"></select>
@@ -3053,6 +3201,7 @@
       </div>
       <!-- PREVIEW STATE -->
       <div id="sp-contrib-preview" style="display:none;">
+        <div class="sp-steps" id="sp-contrib-steps-done"></div>
         <div class="sp-preview-card sp-preview-green">
           <div class="sp-preview-icon"><i class="fa-solid fa-circle-check"></i></div>
           <div class="sp-preview-title">Contribution Saved!</div>
@@ -3082,6 +3231,7 @@
     </div>
     <div class="sp-panel-body" id="sp-expense-body">
       <div id="sp-expense-form">
+        <div class="sp-steps" id="sp-expense-steps"></div>
         <div class="sp-field-group">
           <label class="sp-label">Title <span class="sp-required">*</span></label>
           <input id="title" placeholder="e.g. Electricity Bill" class="sp-input" />
@@ -3117,6 +3267,7 @@
         </div>
       </div>
       <div id="sp-expense-preview" style="display:none;">
+        <div class="sp-steps" id="sp-expense-steps-done"></div>
         <div class="sp-preview-card sp-preview-red">
           <div class="sp-preview-icon"><i class="fa-solid fa-circle-check"></i></div>
           <div class="sp-preview-title">Expense Saved!</div>
@@ -3264,6 +3415,13 @@
             <input id="u_dob" type="date" class="sp-input" />
           </div>
         </div>
+        <div class="sp-row2">
+          <div class="sp-field-group">
+            <label class="sp-label">Contribution Start Date <span class="sp-optional">(Tracker)</span></label>
+            <input id="u_contrib_start" type="date" class="sp-input" />
+            <div style="font-size:11px;color:#64748b;margin-top:4px;"><i class="fa-solid fa-circle-info" style="color:#0F766E;"></i> Leave blank — Tracker will start counting from this member's first recorded contribution.</div>
+          </div>
+        </div>
         <div class="sp-actions">
           <button class="sp-save-btn sp-save-indigo" id="spUserSaveBtn" onclick="spSave('user')">
             <span class="sp-btn-text"><i class="fa-solid fa-user-check"></i> Add User</span>
@@ -3390,6 +3548,25 @@
       }
     };
 
+    /* ── Unified 3-step indicator: Details → Review → Done ──
+       step: 1 = Details, 2 = Review, 3 = Done. Rendered into a
+       target element id (each panel/state has its own .sp-steps slot). */
+    window.spStepsBar = function(step) {
+      var labels = ['Details', 'Review', 'Done'];
+      var html = '';
+      for (var i = 1; i <= 3; i++) {
+        var cls = i < step ? 'sp-step-done' : (i === step ? 'sp-step-now' : '');
+        var dot = i < step ? '<i class="fa-solid fa-check"></i>' : i;
+        html += '<div class="sp-step ' + cls + '"><div class="sp-step-dot">' + dot + '</div><span>' + labels[i-1] + '</span></div>';
+        if (i < 3) html += '<div class="sp-step-line"></div>';
+      }
+      return html;
+    };
+    window.spRenderSteps = function(elId, step) {
+      var el = document.getElementById(elId);
+      if (el) el.innerHTML = window.spStepsBar(step);
+    };
+
     window.spOpen = function(type) {
       // Close any open panel first
       spClose();
@@ -3413,6 +3590,22 @@
           overlay.classList.add('sp-overlay-active');
           panel.classList.add('sp-panel-open');
           document.body.style.overflow = 'hidden';
+          spRenderSteps('sp-contrib-steps', 1);
+          setTimeout(function() {
+            var first = panel.querySelector('input:not([type=hidden]), select');
+            if (first) first.focus();
+          }, 320);
+          return;
+        }
+      }
+      // For expense: if body was replaced by review/success state, restore the form
+      if (type === 'expense') {
+        if (typeof window._expenseReset === 'function') {
+          window._expenseReset();
+          overlay.classList.add('sp-overlay-active');
+          panel.classList.add('sp-panel-open');
+          document.body.style.overflow = 'hidden';
+          spRenderSteps('sp-expense-steps', 1);
           setTimeout(function() {
             var first = panel.querySelector('input:not([type=hidden]), select');
             if (first) first.focus();
@@ -3427,6 +3620,9 @@
       overlay.classList.add('sp-overlay-active');
       panel.classList.add('sp-panel-open');
       document.body.style.overflow = 'hidden';
+      // Render step-1 indicator if this panel has one (contrib/expense static slot;
+      // bulk/walkin build their own dynamically and call spRenderSteps themselves)
+      spRenderSteps('sp-' + type + '-steps', 1);
       // Focus first input
       setTimeout(function() {
         var first = panel.querySelector('input:not([type=hidden]), select');
@@ -3443,6 +3639,49 @@
       if (overlay) overlay.classList.remove('sp-overlay-active');
       document.body.style.overflow = '';
       _currentPanel = null;
+      var db = document.getElementById('spDiscardBox');
+      if (db) db.classList.remove('sp-discard-active');
+    };
+
+    /* ── Dirty check: has the admin actually typed anything in the open panel? ──
+       Deliberately only looks at typed input/textarea fields, not <select>s —
+       several selects (month, year, payment mode) are pre-filled with sensible
+       defaults the moment the panel opens (see _spPreselectMonthYear), so
+       treating "not on option 0" as "touched" would wrongly flag an untouched
+       form as dirty. A typed amount/name/title is a much more reliable signal
+       that there's something worth protecting from an accidental outside click. */
+    function _spPanelIsDirty() {
+      if (!_currentPanel) return false;
+      var panel = document.getElementById('sp-' + _currentPanel);
+      if (!panel) return false;
+      var fields = panel.querySelectorAll('input, textarea');
+      for (var i = 0; i < fields.length; i++) {
+        var f = fields[i];
+        if (f.type === 'hidden') continue;
+        if (f.value && String(f.value).trim() !== '') return true;
+      }
+      return false;
+    }
+
+    /* ── Backdrop click: close immediately if the form is empty, otherwise
+       ask before discarding whatever the admin has typed so far. ── */
+    window.spBackdropClick = function() {
+      if (!_currentPanel) return;
+      if (_spPanelIsDirty()) {
+        var db = document.getElementById('spDiscardBox');
+        if (db) db.classList.add('sp-discard-active');
+      } else {
+        spClose();
+      }
+    };
+    window._spKeepEditing = function() {
+      var db = document.getElementById('spDiscardBox');
+      if (db) db.classList.remove('sp-discard-active');
+    };
+    window._spConfirmDiscard = function() {
+      var db = document.getElementById('spDiscardBox');
+      if (db) db.classList.remove('sp-discard-active');
+      spClose();
     };
 
     window.spSave = function(type) {
@@ -3460,17 +3699,17 @@
       if (spinEl) spinEl.style.display = '';
       btn.style.opacity = '0.8';
 
-      // contrib manages the panel itself (preview → success/error all in panel)
-      if (type === 'contrib') {
+      // contrib & expense manage the panel themselves (Review → success/error all in panel)
+      if (type === 'contrib' || type === 'expense') {
         try { _saveFnMap[type](); } catch(e) { console.warn(e); }
-        // Reset button after a tick (addContribution will repopulate body)
+        // Reset button after a tick (addContribution/addExpense will repopulate body)
         setTimeout(function() {
           if (btn) { btn.disabled=false; if(textEl) textEl.style.display=''; if(spinEl) spinEl.style.display='none'; btn.style.opacity=''; }
         }, 200);
         return;
       }
 
-      // expense / event / user — only show toast, no modal.
+      // event / user — only show toast, no modal.
       // Call save, then show our preview card inside the panel.
       try { _saveFnMap[type](); } catch(e) { console.warn(e); }
 
@@ -3556,9 +3795,17 @@
     // Expose for use by _contribReset (defined in outer script block)
     window._spPreselectMonthYear = _spPreselectMonthYear;
 
-    // ESC key closes panel
+    // ESC key: same guard as backdrop click — if the discard dialog is already
+    // open, ESC just cancels that dialog; otherwise it triggers the same
+    // dirty-check as clicking outside the panel.
     document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') spClose();
+      if (e.key !== 'Escape') return;
+      var db = document.getElementById('spDiscardBox');
+      if (db && db.classList.contains('sp-discard-active')) {
+        _spKeepEditing();
+        return;
+      }
+      spBackdropClick();
     });
   })();
   </script>
@@ -3636,6 +3883,33 @@
       // Re-populate dropdowns (may have been wiped)
       if (typeof _rebuildContribFormDropdowns === 'function') _rebuildContribFormDropdowns();
       _spPreselectMonthYear('contrib');
+    };
+
+    /* ── expense panel reset: mirrors _contribReset above ──
+       Needed now that Add Expense also shows an editable Review step
+       (see addExpense()/_submitExpenseFromPreview() in admin.js) instead
+       of saving immediately, so the panel body gets replaced the same way
+       the contribution panel's does. */
+    window._spExpenseFormEl = document.getElementById('sp-expense-form');
+    window._spExpensePrevEl = document.getElementById('sp-expense-preview');
+
+    window._expenseReset = function() {
+      var body = document.getElementById('sp-expense-body');
+      if (!body) return;
+      if (!document.getElementById('sp-expense-form') && window._spExpenseFormEl) {
+        body.innerHTML = '';
+        body.appendChild(window._spExpenseFormEl);
+        if (window._spExpensePrevEl) body.appendChild(window._spExpensePrevEl);
+      }
+      var form = document.getElementById('sp-expense-form');
+      var prev = document.getElementById('sp-expense-preview');
+      if (form) form.style.display = '';
+      if (prev)  prev.style.display = 'none';
+      var _g = function(id) { return document.getElementById(id); };
+      if (_g('title'))     _g('title').value = '';
+      if (_g('expAmount')) _g('expAmount').value = '';
+      if (typeof _rebuildExpenseFormDropdowns === 'function') _rebuildExpenseFormDropdowns();
+      _spPreselectMonthYear('expense');
     };
 
     /* ═══════════════════════════════════════════════════════════

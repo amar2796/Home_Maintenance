@@ -82,6 +82,18 @@
        Each function is called AFTER app.js's own render calls finish.
     ───────────────────────────────────────────────────────────────── */
     /* ── Helper: rebuild the contribution-form type & occasion <select> dropdowns ── */
+    /* ── Shared idempotency-key generator ──
+       Used across contrib/expense/walkin/bulk so a resend can never create a
+       duplicate if the original attempt actually reached the backend but the
+       response was lost (network blip). Rule of thumb used everywhere below:
+         • "Retry as-is" (no edits) → REUSE the same key → backend safely no-ops
+           if it already has that key, so the exact failed data is sent again.
+         • "Edit & Retry" (data changed) → a FRESH key is generated because the
+           payload is now genuinely different data, not a resend of the same one. */
+    function _genIdemKey(prefix) {
+      return prefix + "_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+    }
+
     function _rebuildContribFormDropdowns() {
       var typeEl = document.getElementById("type");
       if (typeEl && typeof types !== "undefined") {
@@ -100,6 +112,22 @@
           }).join("");
       }
     }
+
+    /* ── Helper: rebuild the expense-form type <select> dropdown ──
+       Needed now that Add Expense also has an editable Review step (see
+       addExpense()/_submitExpenseFromPreview()), which replaces the panel
+       body the same way contribution's does, so the dropdown has to be
+       rebuilt when the form is restored. */
+    function _rebuildExpenseFormDropdowns() {
+      var typeEl = document.getElementById("expenseType");
+      if (typeEl && typeof expenseTypes !== "undefined") {
+        var curType = typeEl.value;
+        typeEl.innerHTML = expenseTypes.map(function(t) {
+          return '<option value="' + t.ExpenseTypeId + '"' + (String(t.ExpenseTypeId) === curType ? ' selected' : '') + '>' + escapeHtml(t.Name || "") + '</option>';
+        }).join("");
+      }
+    }
+    window._rebuildExpenseFormDropdowns = _rebuildExpenseFormDropdowns;
 
     /* ── Helper: rebuild bulk-insert user dropdown ── */
     function _rebuildBkUserDropdown() {
@@ -459,9 +487,16 @@
         try {
           var rt = getRememberToken();
           if (rt && rt.role === "Admin" && Date.now() < rt.expiry) {
+            // [FIX-24H] Previously hardcoded expiry:Date.now()+30*60*1000 here,
+            // which silently capped a 24h "remember me" session back down to
+            // 30 min on every restore — even though rt.expiry (the remember
+            // token's own real expiry) still had up to 24h left. Reuse it
+            // directly so this matches what "remember me" actually promised
+            // and what the server now grants (see setSessionToken/rememberMe
+            // in login.js and appscript.txt).
             s = {
               userId: rt.userId, name: rt.name, role: rt.role, email: rt.email || "",
-              sessionToken: rt.sessionToken || "", expiry: Date.now() + 30 * 60 * 1000
+              sessionToken: rt.sessionToken || "", expiry: rt.expiry
             };
             localStorage.setItem("session", JSON.stringify(s));
             return true;
@@ -4347,7 +4382,14 @@
         <label class="_fl">Date of Birth
           <span style="color:#bbb;font-weight:400;font-size:10px;">— for birthday alerts on dashboard</span>
         </label>
-        <input class="_fi" type="date" id="eu_dob" value="${escapeHtml(_dobToInputVal(u.DOB || ''))}" style="margin-bottom:0;"/>
+        <input class="_fi" type="date" id="eu_dob" value="${escapeHtml(_dobToInputVal(u.DOB || ''))}"/>
+        <label class="_fl">Contribution Start Date
+          <span style="color:#bbb;font-weight:400;font-size:10px;">
+            — used by Tracker for late-joining members; leave blank to use their first contribution
+          </span>
+        </label>
+        <input class="_fi" type="date" id="eu_contrib_start" value="${escapeHtml(_dobToInputVal(u.ContribStartDate || ''))}" style="margin-bottom:0;"/>
+        ${String(u.InactiveSince||'').trim() ? `<div style="font-size:11px;color:#94a3b8;margin-top:6px;"><i class="fa-solid fa-circle-info"></i> Inactive since ${escapeHtml(u.InactiveSince)} — Tracker stopped counting pending for this member from that date.</div>` : ''}
       </div>
       <div class="_mft">
         <button class="_mbtn" style="background:#999;" onclick="closeModal();_adminPendingCroppedB64='';">Cancel</button>
@@ -4392,6 +4434,7 @@
               Status: document.getElementById("eu_status").value,
               MonthlyTarget: Number(document.getElementById("eu_monthly_target")?.value || 0),
               DOB: _inputValToDob(document.getElementById("eu_dob")?.value || ""),
+              ContribStartDate: _inputValToDob(document.getElementById("eu_contrib_start")?.value || ""),
               AdminName: s.name,
               base64: _adminPendingCroppedB64,
               fileName: "User_" + id + "_" + Date.now() + ".jpg",
@@ -4426,6 +4469,7 @@
           PhotoURL: photoURL,
           MonthlyTarget: Number(document.getElementById("eu_monthly_target")?.value || 0),
           DOB: _inputValToDob(document.getElementById("eu_dob")?.value || ""),
+          ContribStartDate: _inputValToDob(document.getElementById("eu_contrib_start")?.value || ""),
           AdminName: s.name,
         });
         toast(
@@ -4642,13 +4686,15 @@
 
     function _bkRenderRows() {
       let rows = document.querySelectorAll(".bk-row");
-      let total = 0;
+      let total = 0, count = 0;
       rows.forEach((r) => {
         let a = parseFloat(r.querySelector(".bk-amt").value) || 0;
-        total += a;
+        if (a > 0) { total += a; count++; }
       });
       let t = document.getElementById("bk_total");
-      if (t) t.textContent = "Total: ₹" + total.toLocaleString(APP.locale||"en-IN");
+      if (t) t.textContent = (APP.currency||"₹") + total.toLocaleString(APP.locale||"en-IN");
+      let c = document.getElementById("bk_total_count");
+      if (c) c.textContent = count + (count === 1 ? " entry added" : " entries added");
     }
 
     function bkAddRow(month, amount) {
@@ -4685,6 +4731,14 @@
       // Clear existing rows
       container.innerHTML = "";
       _BK_MONTHS.forEach((m) => bkAddRow(m, defAmt || ""));
+      // [MOBILE-FIX] Some mobile WebKit builds fail to repaint a flex/scroll
+      // container after many children are appended in a tight loop — the rows
+      // exist in the DOM (totals calculate correctly) but don't visually paint
+      // until something forces a reflow. This forces one with no visible flicker.
+      void container.offsetHeight;
+      container.style.display = "none";
+      void container.offsetHeight;
+      container.style.display = "";
     }
 
     function openBulkInsert() {
@@ -4725,6 +4779,7 @@
       const panelBody = document.getElementById("sp-bulk-body");
       if (!panelBody) return;
       panelBody.innerHTML = `
+        <div class="sp-steps" id="sp-bulk-steps"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
           <div><label class="_fl">Member <span style="color:#e74c3c">*</span></label><select class="_fi" id="bk_user">${userOpts}</select></div>
           <div><label class="_fl">Year <span style="color:#e74c3c">*</span></label><select class="_fi" id="bk_year">${yearOpts}</select></div>
@@ -4733,34 +4788,39 @@
           <div><label class="_fl">Contribution Type <span style="color:#e74c3c">*</span></label><select class="_fi" id="bk_type">${typeOpts}</select></div>
           <div><label class="_fl">Note <span style="font-size:10px;color:#94a3b8;font-weight:400;">(optional)</span></label><input class="_fi" id="bk_note" placeholder="e.g. Annual"/></div>
         </div>
-        <div style="display:flex;align-items:flex-end;gap:10px;margin-bottom:16px;background:#fdf8ee;border-radius:10px;padding:12px 14px;border:1px solid #5EEAD4;">
+
+        <!-- Running total, pinned above the row list so it's always visible -->
+        <div class="bk-total-bar">
+          <span id="bk_total_count">0 entries added</span>
+          <b id="bk_total">₹0</b>
+        </div>
+
+        <div style="display:flex;align-items:flex-end;gap:10px;margin-bottom:14px;background:#fdf8ee;border-radius:10px;padding:12px 14px;border:1px solid #5EEAD4;">
           <div style="flex:1;">
             <label class="_fl" style="margin-top:0;">Default Amount (₹) <span style="font-size:10px;color:#94a3b8;font-weight:400;">— fill all 12 months at once</span></label>
             <input class="_fi" id="bk_default_amt" type="number" min="1" placeholder="e.g. 500" oninput="_bkRenderRows()"/>
           </div>
-          <button type="button" onclick="bkFillAllMonths()" style="background:#334155;box-shadow:none;padding:10px 14px;white-space:nowrap;flex-shrink:0;border-radius:9px;font-size:12px;color:#fff;border:none;cursor:pointer;font-family:Poppins,sans-serif;font-weight:600;">
+          <button type="button" onclick="bkFillAllMonths()" style="background:#0F766E;box-shadow:none;padding:11px 16px;white-space:nowrap;flex-shrink:0;border-radius:9px;font-size:12.5px;color:#fff;border:none;cursor:pointer;font-family:Poppins,sans-serif;font-weight:700;">
             <i class="fa-solid fa-calendar-check"></i> Fill All 12
           </button>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
           <span style="font-size:12px;font-weight:700;color:#334155;"><i class="fa-solid fa-list-ul" style="color:#0F766E;margin-right:5px;"></i> Month Entries</span>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <span id="bk_total" style="font-size:12px;font-weight:700;color:#27ae60;"></span>
-            <button type="button" onclick="bkAddRow('','')" style="background:#0F766E;box-shadow:none;padding:6px 13px;font-size:12px;border-radius:8px;color:#fff;border:none;cursor:pointer;font-family:Poppins,sans-serif;font-weight:600;">
-              <i class="fa-solid fa-plus"></i> Add Row
-            </button>
-          </div>
+          <button type="button" onclick="bkAddRow('','')" style="background:#334155;box-shadow:none;padding:7px 14px;font-size:12px;border-radius:8px;color:#fff;border:none;cursor:pointer;font-family:Poppins,sans-serif;font-weight:600;">
+            <i class="fa-solid fa-plus"></i> Add Row
+          </button>
         </div>
-        <div id="bk_rows" style="flex:1;overflow-y:auto;padding-right:2px;"></div>
+        <div id="bk_rows" style="flex:1;min-height:220px;overflow-y:auto;padding-right:2px;"></div>
         <div id="bk_status" style="font-size:12px;color:#27ae60;font-weight:600;min-height:18px;margin-top:8px;"></div>
         <div class="sp-actions" style="margin-top:16px;">
           <button class="sp-save-btn" style="background:#334155;color:#fff;" onclick="runBulkInsert()">
-            <i class="fa-solid fa-check"></i> Insert All
+            <i class="fa-solid fa-arrow-right"></i> Review Entries
           </button>
           <button class="sp-cancel-btn" onclick="spClose()">Cancel</button>
         </div>`;
 
       spOpen("bulk");
+      spRenderSteps("sp-bulk-steps", 1);
       // Add one empty row to start
       bkAddRow("", "");
     }
@@ -4770,7 +4830,10 @@
       let userId = document.getElementById("bk_user").value;
       let year = document.getElementById("bk_year").value;
       let typeId = document.getElementById("bk_type").value;
+      // Default Note to "Jai Shree Ram" when admin leaves it blank; if admin
+      // typed something, that's used as-is. (Same behavior as Add Contribution.)
       let note = document.getElementById("bk_note").value;
+      if (!note || !note.trim()) note = "Jai Shree Ram";
       // Collect all rows
       let rows = [...document.querySelectorAll(".bk-row")]
         .map(r => ({ month: r.querySelector(".bk-mon").value, amount: r.querySelector(".bk-amt").value }))
@@ -4787,15 +4850,15 @@
 
       const previewRows = rows.map((r, i) =>
         `<tr style="border-bottom:1px solid #f0f0f0;" data-bk-idx="${i}">
-            <td style="padding:6px 10px;font-size:12px;color:#64748b;">${i + 1}</td>
-            <td style="padding:6px 10px;font-size:12px;font-weight:600;">${escapeHtml(r.month)}</td>
-            <td style="padding:4px 8px;font-size:12px;">
-              <div style="display:flex;align-items:center;gap:6px;">
+            <td style="padding:6px 6px;font-size:12px;color:#64748b;">${i + 1}</td>
+            <td style="padding:6px 6px;font-size:12px;font-weight:600;white-space:nowrap;">${escapeHtml(r.month)}</td>
+            <td style="padding:4px 6px;font-size:12px;">
+              <div style="display:flex;align-items:center;gap:4px;">
                 <span style="color:#64748b;font-weight:600;">₹</span>
                 <input type="number" min="1" class="bkprev-amt" data-idx="${i}" value="${Number(r.amount)}"
-                  style="width:90px;border:1.5px solid #e2e8f0;border-radius:6px;padding:4px 7px;font-size:12px;font-weight:700;color:#15803d;font-family:inherit;"
+                  style="width:64px;min-width:0;border:1.5px solid #e2e8f0;border-radius:6px;padding:4px 5px;font-size:12px;font-weight:700;color:#15803d;font-family:inherit;"
                   oninput="_bkPrevUpdateTotal()" />
-                <button onclick="this.closest('tr').remove();_bkPrevUpdateTotal();" style="background:#fef2f2;border:1px solid #fca5a5;color:#e74c3c;padding:3px 8px;font-size:11px;border-radius:5px;box-shadow:none;transform:none;" title="Remove row">✕</button>
+                <button onclick="this.closest('tr').remove();_bkPrevUpdateTotal();" style="background:#fef2f2;border:1px solid #fca5a5;color:#e74c3c;padding:3px 7px;font-size:11px;border-radius:5px;box-shadow:none;transform:none;flex-shrink:0;" title="Remove row">✕</button>
               </div>
             </td>
           </tr>`
@@ -4815,18 +4878,25 @@
                 ${note ? `<span style="color:#64748b;">Note</span><strong>${escapeHtml(note)}</strong>` : ""}
               </div>
             </div>
-            <table style="width:100%;border-collapse:collapse;" id="bkprev_table">
+            <!-- [MOBILE-FIX] Wrapped in its own scroll container: .sp-panel/modal ancestors use
+                 overflow:hidden, so on narrow phones a table wider than the screen was silently
+                 clipping the amount input / remove button off-screen instead of scrolling to them.
+                 min-width keeps columns from over-compressing; overflow-x:auto makes the rest
+                 reachable by a swipe if a phone is still too narrow after the size reductions above. -->
+            <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid #e2e8f0;border-radius:10px;">
+            <table style="width:100%;min-width:300px;border-collapse:collapse;" id="bkprev_table">
               <thead><tr style="background:#f1f5f9;">
-                <th style="padding:7px 10px;font-size:11px;text-align:left;color:#64748b;">#</th>
-                <th style="padding:7px 10px;font-size:11px;text-align:left;color:#64748b;">Month</th>
-                <th style="padding:7px 10px;font-size:11px;text-align:left;color:#64748b;">Amount (editable)</th>
+                <th style="padding:7px 6px;font-size:11px;text-align:left;color:#64748b;">#</th>
+                <th style="padding:7px 6px;font-size:11px;text-align:left;color:#64748b;">Month</th>
+                <th style="padding:7px 6px;font-size:11px;text-align:left;color:#64748b;">Amount (editable)</th>
               </tr></thead>
               <tbody>${previewRows}</tbody>
               <tfoot><tr style="background:#fef9ee;">
-                <td colspan="2" style="padding:8px 10px;font-size:13px;font-weight:700;color:#78350f;" id="bkprev_countLabel">Total (${rows.length} entr${rows.length === 1 ? "y" : "ies"})</td>
-                <td style="padding:8px 10px;font-size:13px;font-weight:700;color:#15803d;" id="bkprev_total">${APP.currency||'₹'}${totalAmt.toLocaleString(APP.locale||"en-IN")}</td>
+                <td colspan="2" style="padding:8px 6px;font-size:13px;font-weight:700;color:#78350f;" id="bkprev_countLabel">Total (${rows.length} entr${rows.length === 1 ? "y" : "ies"})</td>
+                <td style="padding:8px 6px;font-size:13px;font-weight:700;color:#15803d;" id="bkprev_total">${APP.currency||'₹'}${totalAmt.toLocaleString(APP.locale||"en-IN")}</td>
               </tr></tfoot>
             </table>
+            </div>
             <p style="font-size:11.5px;color:#94a3b8;margin:10px 0 0;">Each entry generates a separate receipt. This cannot be undone.</p>
           </div>
           <div class="_mft">
@@ -4839,6 +4909,7 @@
       const bkPanelBody = document.getElementById("sp-bulk-body");
       if (!bkPanelBody) { openModal(previewHtml, "520px"); return; }
       bkPanelBody.innerHTML = `
+        <div class="sp-steps">${spStepsBar(2)}</div>
         <div style="background:linear-gradient(135deg,#fef9ee,#fff8e1);border:1.5px solid #0F766E55;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:12.5px;color:#946c44;">
           <i class="fa-solid fa-circle-info"></i> Review details below. <b>Edit amounts inline</b> or remove a row before confirming.
         </div>
@@ -4854,18 +4925,20 @@
           <span style="font-size:12px;font-weight:700;color:#334155;"><i class="fa-solid fa-list-ul" style="color:#0F766E;margin-right:5px;"></i> Month Entries</span>
           <span id="bkprev_countLabel" style="font-size:12px;color:#78350f;font-weight:600;">Total (${rows.length} entr${rows.length === 1 ? "y" : "ies"})</span>
         </div>
-        <table style="width:100%;border-collapse:collapse;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;" id="bkprev_table">
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px;border:1px solid #e2e8f0;">
+        <table style="width:100%;min-width:300px;border-collapse:collapse;" id="bkprev_table">
           <thead><tr style="background:#f1f5f9;">
-            <th style="padding:8px 10px;font-size:11px;text-align:left;color:#64748b;font-weight:600;">#</th>
-            <th style="padding:8px 10px;font-size:11px;text-align:left;color:#64748b;font-weight:600;">Month</th>
-            <th style="padding:8px 10px;font-size:11px;text-align:left;color:#64748b;font-weight:600;">Amount (editable)</th>
+            <th style="padding:8px 6px;font-size:11px;text-align:left;color:#64748b;font-weight:600;">#</th>
+            <th style="padding:8px 6px;font-size:11px;text-align:left;color:#64748b;font-weight:600;">Month</th>
+            <th style="padding:8px 6px;font-size:11px;text-align:left;color:#64748b;font-weight:600;">Amount (editable)</th>
           </tr></thead>
           <tbody>${previewRows}</tbody>
           <tfoot><tr style="background:#fef9ee;border-top:2px solid #5EEAD4;">
-            <td colspan="2" style="padding:9px 10px;font-size:13px;font-weight:700;color:#78350f;" id="bkprev_countLabel2">Total (${rows.length} entr${rows.length === 1 ? "y" : "ies"})</td>
-            <td style="padding:9px 10px;font-size:14px;font-weight:700;color:#15803d;" id="bkprev_total">${APP.currency||'₹'}${totalAmt.toLocaleString(APP.locale||"en-IN")}</td>
+            <td colspan="2" style="padding:9px 6px;font-size:13px;font-weight:700;color:#78350f;" id="bkprev_countLabel2">Total (${rows.length} entr${rows.length === 1 ? "y" : "ies"})</td>
+            <td style="padding:9px 6px;font-size:14px;font-weight:700;color:#15803d;" id="bkprev_total">${APP.currency||'₹'}${totalAmt.toLocaleString(APP.locale||"en-IN")}</td>
           </tr></tfoot>
         </table>
+        </div>
         <p style="font-size:11.5px;color:#94a3b8;margin:10px 0 0;"><i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;margin-right:4px;"></i> Each entry generates a separate receipt. This cannot be undone.</p>
         <div class="sp-actions" style="margin-top:16px;">
           <button class="sp-save-btn" style="background:#22c55e;color:#fff;" id="bkprev_confirmBtn" onclick="_executeBulkInsert()">
@@ -5052,6 +5125,7 @@
             '</div>'
           : '';
         bkBodyResult.innerHTML =
+          '<div class="sp-steps">' + spStepsBar(3) + '</div>' +
           '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:340px;text-align:center;padding:20px;">' +
             '<div style="width:72px;height:72px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:18px;border:2px solid #6ee7b7;animation:_csBounce 0.5s cubic-bezier(0.34,1.56,0.64,1) both;">' +
               '<i class="fa-solid fa-circle-check" style="color:#16a34a;font-size:2rem;"></i>' +
@@ -5060,10 +5134,13 @@
             '<div style="font-size:13px;font-weight:600;color:#15803d;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:7px 16px;margin-bottom:6px;">' + actuallySaved + ' of ' + finalRows.length + ' entries added</div>' +
             (failedRows.length > 0 ? '<div style="font-size:12px;color:#dc2626;margin-bottom:4px;">' + failedRows.length + ' entr' + (failedRows.length > 1 ? 'ies' : 'y') + ' failed</div>' + failedMonthsHtml : '') +
           '</div>' +
-          '<div class="sp-actions" style="margin-top:auto;">' +
+          '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
             (failedRows.length > 0
-              ? '<button class="sp-save-btn" style="background:#e74c3c;color:#fff;" onclick="_retryBulkFailed()">' +
-                  '<i class="fa-solid fa-rotate-right"></i> Retry Failed (' + failedRows.length + ')' +
+              ? '<button class="sp-save-btn" style="background:#e74c3c;color:#fff;" onclick="_editRetryBulk()">' +
+                  '<i class="fa-solid fa-pen"></i> Edit &amp; Retry (' + failedRows.length + ')' +
+                '</button>' +
+                '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryBulkFailed()" title="Resend the exact same amounts">' +
+                  '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
                 '</button>'
               : '<button class="sp-save-btn" style="background:#334155;color:#fff;" onclick="openBulkInsert()">' +
                   '<i class="fa-solid fa-plus"></i> Insert More' +
@@ -5091,9 +5168,12 @@
             '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;margin-bottom:4px;">Check your connection and try again.</div>' +
             allFailedHtml +
           '</div>' +
-          '<div class="sp-actions" style="margin-top:auto;">' +
-            '<button class="sp-save-btn" style="background:#e74c3c;color:#fff;" onclick="_retryBulkFailed()">' +
-              '<i class="fa-solid fa-rotate-right"></i> Retry All (' + finalRows.length + ')' +
+          '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+            '<button class="sp-save-btn" style="background:#e74c3c;color:#fff;" onclick="_editRetryBulk()">' +
+              '<i class="fa-solid fa-pen"></i> Edit &amp; Retry (' + finalRows.length + ')' +
+            '</button>' +
+            '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryBulkFailed()" title="Resend the exact same amounts">' +
+              '<i class="fa-solid fa-rotate-right"></i> Retry All as-is' +
             '</button>' +
             '<button class="sp-cancel-btn" onclick="spClose()">' +
               '<i class="fa-solid fa-xmark"></i> Close' +
@@ -5223,10 +5303,13 @@
           (retryDone > 0 ? '<div style="font-size:13px;font-weight:600;color:#15803d;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:7px 16px;margin-bottom:6px;">' + retryDone + ' of ' + rowsToRetry.length + ' entries added</div>' : '') +
           (stillFailed.length > 0 ? '<div style="font-size:12px;color:#dc2626;margin-bottom:4px;">' + stillFailed.length + ' still failed</div>' + stillFailedHtml : '') +
         '</div>' +
-        '<div class="sp-actions" style="margin-top:auto;">' +
+        '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
           (stillFailed.length > 0
-            ? '<button class="sp-save-btn" style="background:#e74c3c;color:#fff;" onclick="_retryBulkFailed()">' +
-                '<i class="fa-solid fa-rotate-right"></i> Retry Again (' + stillFailed.length + ')' +
+            ? '<button class="sp-save-btn" style="background:#e74c3c;color:#fff;" onclick="_editRetryBulk()">' +
+                '<i class="fa-solid fa-pen"></i> Edit &amp; Retry (' + stillFailed.length + ')' +
+              '</button>' +
+              '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryBulkFailed()" title="Resend the exact same amounts">' +
+                '<i class="fa-solid fa-rotate-right"></i> Retry Again as-is' +
               '</button>'
             : '<button class="sp-save-btn" style="background:#334155;color:#fff;" onclick="openBulkInsert()">' +
                 '<i class="fa-solid fa-plus"></i> Insert More' +
@@ -5237,6 +5320,72 @@
         '</div>';
     }
     window._retryBulkFailed = _retryBulkFailed;
+
+    /* ── Edit & Retry for bulk: shows ONLY the rows that are currently in
+       window._bulkFailedRows (already maintained by _retryBulkFailed's dedup
+       logic to be exactly the still-failed subset — nothing that already
+       saved is ever in this list), lets the admin fix an amount or uncheck a
+       row to skip it, then hands the edited list back to _retryBulkFailed()
+       so the existing dedup + sequential-send + result rendering is reused
+       as-is rather than duplicated. ── */
+    function _editRetryBulk() {
+      const stored = window._bulkFailedRows;
+      if (!stored || !stored.rows || stored.rows.length === 0) return toast("No failed entries to edit.", "error");
+      const bkBody = document.getElementById("sp-bulk-body");
+      if (!bkBody) return;
+      const rowsHtml = stored.rows.map(function(r, i) {
+        return '<tr>' +
+          '<td style="padding:7px 8px;font-size:12.5px;">' + escapeHtml(r.month) + '</td>' +
+          '<td style="padding:7px 8px;"><input type="number" min="1" class="_fi" style="margin:0;padding:6px 8px;" id="editretry_amt_' + i + '" value="' + escapeHtml(String(r.amount)) + '"/></td>' +
+          '<td style="padding:7px 8px;text-align:center;"><input type="checkbox" id="editretry_inc_' + i + '" checked/></td>' +
+        '</tr>';
+      }).join("");
+      bkBody.innerHTML = `
+        <div class="sp-steps">${spStepsBar(2)}</div>
+        <div style="background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1.5px solid #e74c3c44;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:#991b1b;">
+          <i class="fa-solid fa-circle-info"></i> Fix any amount below, or uncheck a row to skip it. <b>Only these ${stored.rows.length} failed entr${stored.rows.length===1?"y":"ies"} are affected</b> — entries that already saved are untouched.
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:14px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
+          <thead><tr style="background:#f1f5f9;">
+            <th style="padding:7px 8px;text-align:left;font-size:11px;color:#64748b;">Month</th>
+            <th style="padding:7px 8px;text-align:left;font-size:11px;color:#64748b;">Amount</th>
+            <th style="padding:7px 8px;text-align:center;font-size:11px;color:#64748b;">Retry?</th>
+          </tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+        <div class="sp-actions">
+          <button class="sp-save-btn" style="background:#e74c3c;color:#fff;" onclick="_confirmEditRetryBulk()">
+            <i class="fa-solid fa-check"></i> Confirm &amp; Retry
+          </button>
+          <button class="sp-cancel-btn" onclick="spClose()">Cancel</button>
+        </div>`;
+    }
+    window._editRetryBulk = _editRetryBulk;
+
+    function _confirmEditRetryBulk() {
+      const stored = window._bulkFailedRows;
+      if (!stored) return;
+      const editedRows = [];
+      stored.rows.forEach(function(r, i) {
+        const inc = document.getElementById("editretry_inc_" + i);
+        if (inc && !inc.checked) return; // admin chose to skip this one
+        const amtEl = document.getElementById("editretry_amt_" + i);
+        const newAmt = amtEl ? Number(amtEl.value) : r.amount;
+        if (!newAmt || newAmt <= 0) return; // invalid — skip rather than send bad data
+        editedRows.push({
+          month: r.month,
+          amount: newAmt,
+          // Always a fresh key here: the admin explicitly went through
+          // Edit & Retry, so treat it as a new submission even if the
+          // amount ends up unchanged after review.
+          idemKey: _genIdemKey("bulk_edit"),
+        });
+      });
+      if (editedRows.length === 0) return toast("No rows selected to retry.", "error");
+      window._bulkFailedRows = { rows: editedRows, userId: stored.userId, year: stored.year, typeId: stored.typeId, note: stored.note };
+      _retryBulkFailed();
+    }
+    window._confirmEditRetryBulk = _confirmEditRetryBulk;
 
     // #17 — Auto-suggest last contribution amount when member is selected
     function _suggestLastAmount(userId) {
@@ -5274,7 +5423,10 @@
       const forMonth = document.getElementById("month").value;
       const typeId = document.getElementById("type").value;
       const occasionId = document.getElementById("occasion").value;
-      const note = document.getElementById("note").value;
+      // Default Note to "Jai Shree Ram" when admin leaves it blank; if admin
+      // typed something, that's used as-is.
+      let note = document.getElementById("note").value;
+      if (!note || !note.trim()) note = "Jai Shree Ram";
       const paymentMode = document.getElementById("paymentMode") ? document.getElementById("paymentMode").value : "UPI";
 
       const memberName = selectedUser ? escapeHtml(selectedUser.Name) : userId;
@@ -5352,6 +5504,7 @@
       const contribPanelBody = document.getElementById("sp-contrib-body");
       if (contribPanelBody) {
         contribPanelBody.innerHTML = `
+          <div class="sp-steps">${spStepsBar(2)}</div>
           <div style="background:linear-gradient(135deg,#fef9ee,#fff8e1);border:1.5px solid #0F766E55;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:#946c44;">
             <i class="fa-solid fa-circle-info"></i> Review the details below. <b>Edit any field inline</b> before submitting.
           </div>
@@ -5502,6 +5655,12 @@
           sessionToken: _ps.sessionToken || "",
           userId:       _ps.userId || "",
           AdminName:    _ps.name || "Admin",
+          // Fresh key each time this function runs — a rerun always means either
+          // a brand-new entry or an edited resend, both genuinely new submissions.
+          // Blind "Retry as-is" (see _retryContribFailed) reuses the stored
+          // payload object directly instead of calling this function again,
+          // which is what keeps that path's key identical to the failed attempt.
+          IdempotencyKey: _genIdemKey("contrib"),
         };
         window._contribFailedPayload = payload; // store for retry
         let res = await postData(payload);
@@ -5530,6 +5689,7 @@
           const cpBody = document.getElementById("sp-contrib-body");
           if (cpBody) {
             cpBody.innerHTML =
+              '<div class="sp-steps">' + spStepsBar(3) + '</div>' +
               '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:340px;text-align:center;padding:20px;">' +
                 '<div style="width:72px;height:72px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:18px;border:2px solid #6ee7b7;animation:_csBounce 0.5s cubic-bezier(0.34,1.56,0.64,1) both;">' +
                   '<i class="fa-solid fa-circle-check" style="color:#16a34a;font-size:2rem;"></i>' +
@@ -5562,13 +5722,16 @@
                 '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Save Failed</div>' +
                 '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;">' + escapeHtml(errMsg) + '</div>' +
               '</div>' +
-              '<div class="sp-actions" style="margin-top:auto;">' +
-                '<button class="sp-save-btn" style="background:#e74c3c;color:#fff;" onclick="_retryContribFailed()">' +
-                  '<i class="fa-solid fa-rotate-right"></i> Retry' +
+              '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+                '<button class="sp-save-btn sp-save-green" onclick="_editRetryContrib()">' +
+                  '<i class="fa-solid fa-pen"></i> Edit &amp; Retry' +
                 '</button>' +
-                '<button class="sp-cancel-btn" onclick="spClose()">' +
-                  '<i class="fa-solid fa-xmark"></i> Close' +
+                '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryContribFailed()" title="Resend the exact same details">' +
+                  '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
                 '</button>' +
+              '</div>' +
+              '<div style="text-align:center;margin-top:8px;">' +
+                '<a href="javascript:void(0)" onclick="spClose()" style="font-size:11.5px;color:#94a3b8;text-decoration:underline;">Close without saving</a>' +
               '</div>';
           } else {
             toast("\u274C " + errMsg, "error");
@@ -5588,13 +5751,16 @@
               '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Save Failed</div>' +
               '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;">' + escapeHtml(errMsg) + '</div>' +
             '</div>' +
-            '<div class="sp-actions" style="margin-top:auto;">' +
-              '<button class="sp-save-btn" style="background:#e74c3c;color:#fff;" onclick="_retryContribFailed()">' +
-                '<i class="fa-solid fa-rotate-right"></i> Retry' +
+            '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+              '<button class="sp-save-btn sp-save-green" onclick="_editRetryContrib()">' +
+                '<i class="fa-solid fa-pen"></i> Edit &amp; Retry' +
               '</button>' +
-              '<button class="sp-cancel-btn" onclick="spClose()">' +
-                '<i class="fa-solid fa-xmark"></i> Close' +
+              '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryContribFailed()" title="Resend the exact same details">' +
+                '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
               '</button>' +
+            '</div>' +
+            '<div style="text-align:center;margin-top:8px;">' +
+              '<a href="javascript:void(0)" onclick="spClose()" style="font-size:11.5px;color:#94a3b8;text-decoration:underline;">Close without saving</a>' +
             '</div>';
         } else {
           toast("\u274C " + errMsg, "error");
@@ -5639,6 +5805,7 @@
           } catch(e) {}
           if (cpBody) {
             cpBody.innerHTML =
+              '<div class="sp-steps">' + spStepsBar(3) + '</div>' +
               '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:340px;text-align:center;padding:20px;">' +
                 '<div style="width:72px;height:72px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:18px;border:2px solid #6ee7b7;animation:_csBounce 0.5s cubic-bezier(0.34,1.56,0.64,1) both;">' +
                   '<i class="fa-solid fa-circle-check" style="color:#16a34a;font-size:2rem;"></i>' +
@@ -5669,13 +5836,16 @@
                 '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Save Failed</div>' +
                 '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;">' + escapeHtml(errMsg) + '</div>' +
               '</div>' +
-              '<div class="sp-actions" style="margin-top:auto;">' +
-                '<button class="sp-save-btn" style="background:#e74c3c;color:#fff;" onclick="_retryContribFailed()">' +
-                  '<i class="fa-solid fa-rotate-right"></i> Retry' +
+              '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+                '<button class="sp-save-btn sp-save-green" onclick="_editRetryContrib()">' +
+                  '<i class="fa-solid fa-pen"></i> Edit &amp; Retry' +
                 '</button>' +
-                '<button class="sp-cancel-btn" onclick="spClose()">' +
-                  '<i class="fa-solid fa-xmark"></i> Close' +
+                '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryContribFailed()" title="Resend the exact same details">' +
+                  '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
                 '</button>' +
+              '</div>' +
+              '<div style="text-align:center;margin-top:8px;">' +
+                '<a href="javascript:void(0)" onclick="spClose()" style="font-size:11.5px;color:#94a3b8;text-decoration:underline;">Close without saving</a>' +
               '</div>';
           }
         }
@@ -5691,18 +5861,45 @@
               '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Save Failed</div>' +
               '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;">' + escapeHtml(errMsg) + '</div>' +
             '</div>' +
-            '<div class="sp-actions" style="margin-top:auto;">' +
-              '<button class="sp-save-btn" style="background:#e74c3c;color:#fff;" onclick="_retryContribFailed()">' +
-                '<i class="fa-solid fa-rotate-right"></i> Retry' +
+            '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+              '<button class="sp-save-btn sp-save-green" onclick="_editRetryContrib()">' +
+                '<i class="fa-solid fa-pen"></i> Edit &amp; Retry' +
               '</button>' +
-              '<button class="sp-cancel-btn" onclick="spClose()">' +
-                '<i class="fa-solid fa-xmark"></i> Close' +
+              '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryContribFailed()" title="Resend the exact same details">' +
+                '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
               '</button>' +
+            '</div>' +
+            '<div style="text-align:center;margin-top:8px;">' +
+              '<a href="javascript:void(0)" onclick="spClose()" style="font-size:11.5px;color:#94a3b8;text-decoration:underline;">Close without saving</a>' +
             '</div>';
         }
       }
     }
     window._retryContribFailed = _retryContribFailed;
+
+    /* ── Edit & Retry: restore the form with the failed entry's values so the
+       admin can fix whatever caused the failure, then re-run addContribution()
+       to rebuild the Review step from those (possibly edited) values. Confirming
+       from there calls _submitContributionFromPreview() normally, which always
+       mints a fresh IdempotencyKey — correct, since edited data is a genuinely
+       new submission, not a resend of the failed one. ── */
+    function _editRetryContrib() {
+      const payload = window._contribFailedPayload;
+      if (!payload) { spClose(); return; }
+      if (typeof window._contribReset === "function") window._contribReset();
+      const _s = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined && val !== null) el.value = val; };
+      _s("user", payload.UserId);
+      _s("amount", payload.Amount);
+      _s("month", payload.ForMonth);
+      _s("contribYear", payload.Year);
+      _s("type", payload.TypeId);
+      _s("occasion", payload.OccasionId);
+      _s("note", payload.Note);
+      _s("paymentMode", payload.PaymentMode);
+      addContribution(); // rebuilds the Review (step 2) screen from these values
+    }
+    window._editRetryContrib = _editRetryContrib;
+
     async function deleteContribution(id) {
       if (!checkSession()) return;
       // UNDO: capture contribution before confirm dialog
@@ -5754,47 +5951,354 @@
         }
       });
     }
-    async function addExpense() {
+    function addExpense() {
       if (!checkSession()) return;
-      // [DUP-FIX-2] Prevent double-submit on expense form
-      var _expBtn = document.querySelector("#expensePage button[onclick*='addExpense']");
-      if (_expBtn) {
-        if (_expBtn._inFlight) return;
-        _expBtn._inFlight = true;
-        _expBtn.disabled = true;
-        _expBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Adding...';
+      let title  = document.getElementById("title").value.trim();
+      let amount = document.getElementById("expAmount").value;
+      let year   = document.getElementById("expYear").value;
+      if (!title || !amount || Number(amount) <= 0) {
+        return toast("Please enter a title and a valid amount.", "error");
       }
-      let title = document.getElementById("title").value,
-        amount = document.getElementById("expAmount").value,
-        year = document.getElementById("expYear").value;
-      if (!title || !amount || amount <= 0) {
-        toast("Please enter a title and amount.", "error");
-        if (_expBtn) { _expBtn._inFlight = false; _expBtn.disabled = false; _expBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Add Expense'; }
-        return;
+
+      const forMonth  = document.getElementById("expMonth").value;
+      const typeId    = document.getElementById("expenseType").value;
+      const typeObj   = (typeof expenseTypes !== "undefined" ? expenseTypes : []).find(t => String(t.ExpenseTypeId) === String(typeId));
+      const typeName  = escapeHtml(typeObj?.Name || "—");
+
+      // Build editable options for the Review step (same approach as addContribution)
+      const monthOpts = MONTHS.map(m => `<option value="${m}"${m===forMonth?" selected":""}>${m}</option>`).join("");
+      const curY = new Date().getFullYear();
+      let yearOptsP = "";
+      for (let y = curY+1; y >= 2023; y--) {
+        let yLbl = y === curY ? y + " (Current)" : y < curY ? y + " (Old Entry)" : y + " (Advance)";
+        yearOptsP += `<option value="${y}"${y===Number(year)?" selected":""}>${yLbl}</option>`;
       }
+      const typeOptsP = (typeof expenseTypes !== "undefined" ? expenseTypes : []).map(t =>
+        `<option value="${t.ExpenseTypeId}"${String(t.ExpenseTypeId)===typeId?" selected":""}>${escapeHtml(t.Name || "")}</option>`
+      ).join("");
+
+      const expPanelBody = document.getElementById("sp-expense-body");
+      if (!expPanelBody) return; // panel not present — nothing to show a review in
+
+      expPanelBody.innerHTML = `
+        <div class="sp-steps">${spStepsBar(2)}</div>
+        <div style="background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1.5px solid #e74c3c44;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:#991b1b;">
+          <i class="fa-solid fa-circle-info"></i> Review the details below. <b>Edit any field inline</b> before submitting.
+        </div>
+        <div class="sp-field-group">
+          <label class="sp-label">Title</label>
+          <input class="sp-input" id="prev_exp_title" value="${escapeHtml(title)}" placeholder="e.g. Electricity Bill" />
+        </div>
+        <div class="sp-row2">
+          <div class="sp-field-group">
+            <label class="sp-label">Amount (₹)</label>
+            <input class="sp-input" id="prev_exp_amount" type="number" min="1" value="${escapeHtml(String(amount))}" />
+          </div>
+          <div class="sp-field-group">
+            <label class="sp-label">Expense Type</label>
+            <select class="sp-input" id="prev_exp_type">${typeOptsP}</select>
+          </div>
+        </div>
+        <div class="sp-row2">
+          <div class="sp-field-group">
+            <label class="sp-label">Month</label>
+            <select class="sp-input" id="prev_exp_month"><option value="">None</option>${monthOpts}</select>
+          </div>
+          <div class="sp-field-group">
+            <label class="sp-label">Year</label>
+            <select class="sp-input" id="prev_exp_year">${yearOptsP}</select>
+          </div>
+        </div>
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;font-size:12px;color:#991b1b;">
+          <i class="fa-solid fa-circle-check"></i> <b>Summary:</b>
+          <span id="prev_exp_summary">${escapeHtml(title)} · ₹${Number(amount).toLocaleString(APP.locale||"en-IN")} · ${forMonth||"General"} ${year} · ${typeName}</span>
+        </div>
+        <div class="sp-actions" style="margin-top:16px;">
+          <button class="sp-save-btn sp-save-red" id="prev_exp_submitBtn" onclick="_submitExpenseFromPreview()">
+            <i class="fa-solid fa-check"></i> Confirm &amp; Save
+          </button>
+          <button class="sp-cancel-btn" onclick="_expenseReset()">
+            <i class="fa-solid fa-arrow-left"></i> Back
+          </button>
+        </div>`;
+      // Panel is already open — do NOT call spOpen() here, it would trigger
+      // _expenseReset() and wipe the review state we just built.
+    }
+
+    var _expenseSubmitInFlight = false; // guard: prevents double-submit
+    async function _submitExpenseFromPreview() {
+      if (_expenseSubmitInFlight) return;
+      _expenseSubmitInFlight = true;
+
+      // Snapshot DOM values now — spOpen()/_expenseReset() will destroy prev_exp_* elements.
+      const _title    = (document.getElementById("prev_exp_title")  || {}).value || "";
+      const _amount   = (document.getElementById("prev_exp_amount") || {}).value || "";
+      const _year     = (document.getElementById("prev_exp_year")   || {}).value || "";
+      const _forMonth = (document.getElementById("prev_exp_month")  || {}).value || "";
+      const _typeId   = (document.getElementById("prev_exp_type")   || {}).value || "";
+
+      const btn = document.getElementById("prev_exp_submitBtn");
+      if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...'; }
+
+      if (!_title.trim() || !_amount || Number(_amount) <= 0) {
+        _expenseSubmitInFlight = false;
+        if (btn) { btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-check"></i> Confirm &amp; Save'; }
+        return toast("Please enter a title and a valid amount.", "error");
+      }
+
+      const payload = {
+        action: "addExpense",
+        // [ID] FIX: No Id passed — backend generates EXP-YYYY-NNNNN sequentially
+        Title: _title.trim(),
+        Amount: _amount,
+        Year: _year,
+        ForMonth: _forMonth,
+        ExpenseTypeId: _typeId,
+        // Fresh key each call — first attempts and "Edit & Retry" resubmits are
+        // both genuinely new data. "Retry as-is" (_retryExpenseAsIs) resends this
+        // exact stored payload object instead of calling this function again,
+        // which is what keeps that path's key identical to the failed attempt.
+        IdempotencyKey: _genIdemKey("expense"),
+      };
+      window._expenseFailedPayload = payload; // store for retry
+
       try {
-        let res = await postData({
-          action: "addExpense",
-          // [ID] FIX: No Id passed — backend generates EXP-YYYY-NNNNN sequentially
-          Title: title,
-          Amount: amount,
-          Year: year,
-          ForMonth: document.getElementById("expMonth").value,
-          ExpenseTypeId: document.getElementById("expenseType").value,
-        });
-        toast(
-          res.status === "success" ? "✅ Expense added." : "❌ Failed.",
-          res.status === "success" ? "" : "error"
-        );
-        document.getElementById("title").value = "";
-        document.getElementById("expAmount").value = "";
-        smartRefresh("expenses");
+        let res = await postData(payload);
+        if (res.status === "success") {
+          _expenseSubmitInFlight = false;
+          const expBody = document.getElementById("sp-expense-body");
+          if (expBody) {
+            expBody.innerHTML =
+              '<div class="sp-steps">' + spStepsBar(3) + '</div>' +
+              '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;text-align:center;padding:20px;">' +
+                '<div style="width:72px;height:72px;background:linear-gradient(135deg,#fef2f2,#fecaca);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:18px;border:2px solid #fca5a5;animation:_csBounce 0.5s cubic-bezier(0.34,1.56,0.64,1) both;">' +
+                  '<i class="fa-solid fa-circle-check" style="color:#dc2626;font-size:2rem;"></i>' +
+                '</div>' +
+                '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:10px;">Expense Saved!</div>' +
+              '</div>' +
+              '<div class="sp-actions" style="margin-top:auto;">' +
+                '<button class="sp-save-btn sp-save-red" onclick="spOpen(\'expense\')">' +
+                  '<i class="fa-solid fa-plus"></i> Add Another' +
+                '</button>' +
+                '<button class="sp-cancel-btn" onclick="spClose()">' +
+                  '<i class="fa-solid fa-xmark"></i> Close' +
+                '</button>' +
+              '</div>';
+          }
+          smartRefresh("expenses");
+        } else {
+          _expenseSubmitInFlight = false;
+          const errMsg = res.message || res.error || "Something went wrong. Please try again.";
+          const expBodyErr = document.getElementById("sp-expense-body");
+          if (expBodyErr) {
+            expBodyErr.innerHTML =
+              '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;text-align:center;padding:20px;">' +
+                '<div style="width:72px;height:72px;background:linear-gradient(135deg,#fef2f2,#fecaca);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:18px;border:2px solid #fca5a5;">' +
+                  '<i class="fa-solid fa-circle-xmark" style="color:#dc2626;font-size:2rem;"></i>' +
+                '</div>' +
+                '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Save Failed</div>' +
+                '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;">' + escapeHtml(errMsg) + '</div>' +
+              '</div>' +
+              '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+                '<button class="sp-save-btn sp-save-red" onclick="_retryExpenseFailed()">' +
+                  '<i class="fa-solid fa-pen"></i> Edit &amp; Retry' +
+                '</button>' +
+                '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryExpenseAsIs()" title="Resend the exact same details">' +
+                  '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
+                '</button>' +
+              '</div>' +
+              '<div style="text-align:center;margin-top:8px;">' +
+                '<a href="javascript:void(0)" onclick="spClose()" style="font-size:11.5px;color:#94a3b8;text-decoration:underline;">Close without saving</a>' +
+              '</div>';
+          } else {
+            toast("❌ " + errMsg, "error");
+            if (btn) { btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-check"></i> Confirm &amp; Save'; }
+          }
+        }
       } catch (err) {
-        toast("❌ " + err.message, "error");
-      } finally {
-        if (_expBtn) { _expBtn._inFlight = false; _expBtn.disabled = false; _expBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Add Expense'; }
+        _expenseSubmitInFlight = false;
+        const errMsg = err.message || "Network error. Please try again.";
+        const expBodyCatch = document.getElementById("sp-expense-body");
+        if (expBodyCatch) {
+          expBodyCatch.innerHTML =
+            '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;text-align:center;padding:20px;">' +
+              '<div style="width:72px;height:72px;background:linear-gradient(135deg,#fef2f2,#fecaca);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:18px;border:2px solid #fca5a5;">' +
+                '<i class="fa-solid fa-circle-xmark" style="color:#dc2626;font-size:2rem;"></i>' +
+              '</div>' +
+              '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Save Failed</div>' +
+              '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;">' + escapeHtml(errMsg) + '</div>' +
+            '</div>' +
+            '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+              '<button class="sp-save-btn sp-save-red" onclick="_retryExpenseFailed()">' +
+                '<i class="fa-solid fa-pen"></i> Edit &amp; Retry' +
+              '</button>' +
+              '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryExpenseAsIs()" title="Resend the exact same details">' +
+                '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
+              '</button>' +
+            '</div>' +
+            '<div style="text-align:center;margin-top:8px;">' +
+              '<a href="javascript:void(0)" onclick="spClose()" style="font-size:11.5px;color:#94a3b8;text-decoration:underline;">Close without saving</a>' +
+            '</div>';
+        } else {
+          toast("❌ " + errMsg, "error");
+          if (btn) { btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-check"></i> Confirm &amp; Save'; }
+        }
       }
     }
+
+    function _retryExpenseFailed() {
+      if (!window._expenseFailedPayload) { spClose(); return; }
+      const p = window._expenseFailedPayload;
+      const expPanelBody = document.getElementById("sp-expense-body");
+      if (!expPanelBody) return;
+      const typeObj  = (typeof expenseTypes !== "undefined" ? expenseTypes : []).find(t => String(t.ExpenseTypeId) === String(p.ExpenseTypeId));
+      const typeName = escapeHtml(typeObj?.Name || "—");
+      const monthOpts = MONTHS.map(m => `<option value="${m}"${m===p.ForMonth?" selected":""}>${m}</option>`).join("");
+      const curY = new Date().getFullYear();
+      let yearOptsP = "";
+      for (let y = curY+1; y >= 2023; y--) {
+        let yLbl = y === curY ? y + " (Current)" : y < curY ? y + " (Old Entry)" : y + " (Advance)";
+        yearOptsP += `<option value="${y}"${y===Number(p.Year)?" selected":""}>${yLbl}</option>`;
+      }
+      const typeOptsP = (typeof expenseTypes !== "undefined" ? expenseTypes : []).map(t =>
+        `<option value="${t.ExpenseTypeId}"${String(t.ExpenseTypeId)===String(p.ExpenseTypeId)?" selected":""}>${escapeHtml(t.Name || "")}</option>`
+      ).join("");
+      expPanelBody.innerHTML = `
+        <div class="sp-steps">${spStepsBar(2)}</div>
+        <div style="background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1.5px solid #e74c3c44;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:#991b1b;">
+          <i class="fa-solid fa-circle-info"></i> Review the details below. <b>Edit any field inline</b> before submitting.
+        </div>
+        <div class="sp-field-group">
+          <label class="sp-label">Title</label>
+          <input class="sp-input" id="prev_exp_title" value="${escapeHtml(p.Title)}" />
+        </div>
+        <div class="sp-row2">
+          <div class="sp-field-group">
+            <label class="sp-label">Amount (₹)</label>
+            <input class="sp-input" id="prev_exp_amount" type="number" min="1" value="${escapeHtml(String(p.Amount))}" />
+          </div>
+          <div class="sp-field-group">
+            <label class="sp-label">Expense Type</label>
+            <select class="sp-input" id="prev_exp_type">${typeOptsP}</select>
+          </div>
+        </div>
+        <div class="sp-row2">
+          <div class="sp-field-group">
+            <label class="sp-label">Month</label>
+            <select class="sp-input" id="prev_exp_month"><option value="">None</option>${monthOpts}</select>
+          </div>
+          <div class="sp-field-group">
+            <label class="sp-label">Year</label>
+            <select class="sp-input" id="prev_exp_year">${yearOptsP}</select>
+          </div>
+        </div>
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;font-size:12px;color:#991b1b;">
+          <i class="fa-solid fa-circle-check"></i> <b>Summary:</b>
+          <span id="prev_exp_summary">${escapeHtml(p.Title)} · ₹${Number(p.Amount).toLocaleString(APP.locale||"en-IN")} · ${p.ForMonth||"General"} ${p.Year} · ${typeName}</span>
+        </div>
+        <div class="sp-actions" style="margin-top:16px;">
+          <button class="sp-save-btn sp-save-red" id="prev_exp_submitBtn" onclick="_submitExpenseFromPreview()">
+            <i class="fa-solid fa-check"></i> Confirm &amp; Save
+          </button>
+          <button class="sp-cancel-btn" onclick="_expenseReset()">
+            <i class="fa-solid fa-arrow-left"></i> Back
+          </button>
+        </div>`;
+    }
+
+    /* ── Retry as-is: resend the exact failed payload unchanged (same
+       IdempotencyKey), for when the failure was clearly transient (network
+       blip) rather than bad data. Use "Edit & Retry" (_retryExpenseFailed)
+       instead if the data itself needs fixing. ── */
+    async function _retryExpenseAsIs() {
+      const payload = window._expenseFailedPayload;
+      if (!payload) { spClose(); return; }
+      if (_expenseSubmitInFlight) return;
+      _expenseSubmitInFlight = true;
+      const expBody = document.getElementById("sp-expense-body");
+      if (expBody) {
+        expBody.innerHTML =
+          '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;text-align:center;padding:20px;">' +
+            '<i class="fa-solid fa-spinner fa-spin" style="font-size:2.5rem;color:#334155;margin-bottom:18px;"></i>' +
+            '<div style="font-size:16px;font-weight:600;color:#1e293b;">Retrying…</div>' +
+            '<div style="font-size:12px;color:#64748b;margin-top:6px;">Please wait, do not close.</div>' +
+          '</div>';
+      }
+      try {
+        const res = await postData(payload);
+        _expenseSubmitInFlight = false;
+        if (res.status === "success") {
+          window._expenseFailedPayload = null;
+          if (expBody) {
+            expBody.innerHTML =
+              '<div class="sp-steps">' + spStepsBar(3) + '</div>' +
+              '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;text-align:center;padding:20px;">' +
+                '<div style="width:72px;height:72px;background:linear-gradient(135deg,#fef2f2,#fecaca);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:18px;border:2px solid #fca5a5;animation:_csBounce 0.5s cubic-bezier(0.34,1.56,0.64,1) both;">' +
+                  '<i class="fa-solid fa-circle-check" style="color:#dc2626;font-size:2rem;"></i>' +
+                '</div>' +
+                '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:10px;">Expense Saved!</div>' +
+              '</div>' +
+              '<div class="sp-actions" style="margin-top:auto;">' +
+                '<button class="sp-save-btn sp-save-red" onclick="spOpen(\'expense\')">' +
+                  '<i class="fa-solid fa-plus"></i> Add Another' +
+                '</button>' +
+                '<button class="sp-cancel-btn" onclick="spClose()">' +
+                  '<i class="fa-solid fa-xmark"></i> Close' +
+                '</button>' +
+              '</div>';
+          }
+          smartRefresh("expenses");
+        } else {
+          const errMsg = res.message || res.error || "Something went wrong. Please try again.";
+          if (expBody) {
+            expBody.innerHTML =
+              '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;text-align:center;padding:20px;">' +
+                '<div style="width:72px;height:72px;background:linear-gradient(135deg,#fef2f2,#fecaca);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:18px;border:2px solid #fca5a5;">' +
+                  '<i class="fa-solid fa-circle-xmark" style="color:#dc2626;font-size:2rem;"></i>' +
+                '</div>' +
+                '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Save Failed</div>' +
+                '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;">' + escapeHtml(errMsg) + '</div>' +
+              '</div>' +
+              '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+                '<button class="sp-save-btn sp-save-red" onclick="_retryExpenseFailed()">' +
+                  '<i class="fa-solid fa-pen"></i> Edit &amp; Retry' +
+                '</button>' +
+                '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryExpenseAsIs()" title="Resend the exact same details">' +
+                  '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
+                '</button>' +
+              '</div>' +
+              '<div style="text-align:center;margin-top:8px;">' +
+                '<a href="javascript:void(0)" onclick="spClose()" style="font-size:11.5px;color:#94a3b8;text-decoration:underline;">Close without saving</a>' +
+              '</div>';
+          }
+        }
+      } catch (err) {
+        _expenseSubmitInFlight = false;
+        const errMsg = err.message || "Network error. Please try again.";
+        if (expBody) {
+          expBody.innerHTML =
+            '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;text-align:center;padding:20px;">' +
+              '<div style="width:72px;height:72px;background:linear-gradient(135deg,#fef2f2,#fecaca);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:18px;border:2px solid #fca5a5;">' +
+                '<i class="fa-solid fa-circle-xmark" style="color:#dc2626;font-size:2rem;"></i>' +
+              '</div>' +
+              '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Save Failed</div>' +
+              '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;">' + escapeHtml(errMsg) + '</div>' +
+            '</div>' +
+            '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+              '<button class="sp-save-btn sp-save-red" onclick="_retryExpenseFailed()">' +
+                '<i class="fa-solid fa-pen"></i> Edit &amp; Retry' +
+              '</button>' +
+              '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryExpenseAsIs()" title="Resend the exact same details">' +
+                '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
+              '</button>' +
+            '</div>' +
+            '<div style="text-align:center;margin-top:8px;">' +
+              '<a href="javascript:void(0)" onclick="spClose()" style="font-size:11.5px;color:#94a3b8;text-decoration:underline;">Close without saving</a>' +
+            '</div>';
+        }
+      }
+    }
+    window._retryExpenseAsIs = _retryExpenseAsIs;
 
     /* ═══ EXPENSE RECEIPT ATTACHMENT ════════════════════════════════
  Opens a modal to manage multiple receipt photos for an expense.
@@ -6118,6 +6622,7 @@
         // [FIX-DOB] <input type="date"> always gives yyyy-MM-dd.
         // Convert to dd-MM-yyyy before sending — same as saveEditUser uses _inputValToDob.
         let dob = _inputValToDob((document.getElementById("u_dob")?.value || "").trim());
+        let contribStart = _inputValToDob((document.getElementById("u_contrib_start")?.value || "").trim());
         let res = await postData({
           action: "addUser",
           // [ID] UserId is now generated server-side (USER-NNNNN / ADMIN-NNNNN)
@@ -6128,6 +6633,7 @@
           Email:  email,
           Role:   role,
           DOB:    dob,
+          ContribStartDate: contribStart,
         });
         if (res.status === "error") toast("❌ " + res.message, "error");
         else {
@@ -6137,6 +6643,8 @@
           document.getElementById("u_email").value = "";
           const _dobEl = document.getElementById("u_dob");
           if (_dobEl) _dobEl.value = "";
+          const _csEl = document.getElementById("u_contrib_start");
+          if (_csEl) _csEl.value = "";
           smartRefresh("users");
         }
       } catch (err) {
@@ -7977,6 +8485,7 @@
       const wiPanelBody = document.getElementById("sp-walkin-body");
       if (!wiPanelBody) return;
       wiPanelBody.innerHTML = `
+        <div class="sp-steps" id="sp-walkin-steps"></div>
         <div style="background:#fff8e8;border:1px solid #0F766E44;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#946c44;">
           <i class="fa-solid fa-circle-info"></i> Use this for donors who visit in person and do <b>not</b> have a registered account.
         </div>
@@ -8030,6 +8539,7 @@
         </div>`;
 
       spOpen("walkin");
+      spRenderSteps("sp-walkin-steps", 1);
     }
 
     async function saveWalkIn() {
@@ -8115,6 +8625,7 @@
       const wiPrevBody = document.getElementById("sp-walkin-body");
       if (!wiPrevBody) { openModal(previewHtml, "560px"); return; }
       wiPrevBody.innerHTML = `
+        <div class="sp-steps">${spStepsBar(2)}</div>
         <div style="background:linear-gradient(135deg,#fff8e8,#fef3cd);border:1.5px solid #0F766E44;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:#946c44;">
           <i class="fa-solid fa-circle-info"></i> Review all details. <b>Edit any field inline</b> before confirming.
         </div>
@@ -8221,9 +8732,14 @@
           TypeId: typeId,
           OccasionId: occasionId,
           Note: (note ? note + " | " : "") + "Walk-in: " + name + (mobile ? " | " + mobile : ""),
+          // Fresh key each call — see _genIdemKey comment near its definition.
+          // "Retry as-is" (_retryWalkInFailed) resends this exact stored payload
+          // object instead of calling this function again, keeping that path's
+          // key identical to the failed attempt.
+          IdempotencyKey: _genIdemKey("walkin"),
         };
         if (email) payload.WalkInEmail = email;
-        window._walkInFailedPayload = { payload, name, mobile, email, amount, month, year, typeId };
+        window._walkInFailedPayload = { payload, name, mobile, email, amount, month, year, typeId, occasionId, note };
         let res = await postData(payload);
         if (res.status === "success") {
           _walkInInFlight = false;
@@ -8241,6 +8757,7 @@
           const wiBody = document.getElementById("sp-walkin-body");
           if (wiBody) {
             wiBody.innerHTML =
+              '<div class="sp-steps">' + spStepsBar(3) + '</div>' +
               '<div style="display:flex;flex-direction:column;align-items:center;' +
               'justify-content:center;min-height:300px;text-align:center;padding:20px 16px 10px;">' +
                 '<div style="width:72px;height:72px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);' +
@@ -8295,13 +8812,16 @@
                 '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Save Failed</div>' +
                 '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;">' + escapeHtml(errMsg) + '</div>' +
               '</div>' +
-              '<div class="sp-actions" style="margin-top:auto;">' +
-                '<button class="sp-save-btn" style="background:#b45309;color:#fff;" onclick="_retryWalkInFailed()">' +
-                  '<i class="fa-solid fa-rotate-right"></i> Retry' +
+              '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+                '<button class="sp-save-btn" style="background:#b45309;color:#fff;" onclick="_editRetryWalkIn()">' +
+                  '<i class="fa-solid fa-pen"></i> Edit &amp; Retry' +
                 '</button>' +
-                '<button class="sp-cancel-btn" onclick="spClose()">' +
-                  '<i class="fa-solid fa-xmark"></i> Close' +
+                '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryWalkInFailed()" title="Resend the exact same details">' +
+                  '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
                 '</button>' +
+              '</div>' +
+              '<div style="text-align:center;margin-top:8px;">' +
+                '<a href="javascript:void(0)" onclick="spClose()" style="font-size:11.5px;color:#94a3b8;text-decoration:underline;">Close without saving</a>' +
               '</div>';
           } else {
             toast("Failed: " + errMsg, "error");
@@ -8321,13 +8841,16 @@
               '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Save Failed</div>' +
               '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;">' + escapeHtml(errMsg) + '</div>' +
             '</div>' +
-            '<div class="sp-actions" style="margin-top:auto;">' +
-              '<button class="sp-save-btn" style="background:#b45309;color:#fff;" onclick="_retryWalkInFailed()">' +
-                '<i class="fa-solid fa-rotate-right"></i> Retry' +
+            '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+              '<button class="sp-save-btn" style="background:#b45309;color:#fff;" onclick="_editRetryWalkIn()">' +
+                '<i class="fa-solid fa-pen"></i> Edit &amp; Retry' +
               '</button>' +
-              '<button class="sp-cancel-btn" onclick="spClose()">' +
-                '<i class="fa-solid fa-xmark"></i> Close' +
+              '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryWalkInFailed()" title="Resend the exact same details">' +
+                '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
               '</button>' +
+            '</div>' +
+            '<div style="text-align:center;margin-top:8px;">' +
+              '<a href="javascript:void(0)" onclick="spClose()" style="font-size:11.5px;color:#94a3b8;text-decoration:underline;">Close without saving</a>' +
             '</div>';
         } else {
           toast(errMsg, "error");
@@ -8411,13 +8934,16 @@
                 '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Save Failed</div>' +
                 '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;">' + escapeHtml(errMsg) + '</div>' +
               '</div>' +
-              '<div class="sp-actions" style="margin-top:auto;">' +
-                '<button class="sp-save-btn" style="background:#b45309;color:#fff;" onclick="_retryWalkInFailed()">' +
-                  '<i class="fa-solid fa-rotate-right"></i> Retry' +
+              '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+                '<button class="sp-save-btn" style="background:#b45309;color:#fff;" onclick="_editRetryWalkIn()">' +
+                  '<i class="fa-solid fa-pen"></i> Edit &amp; Retry' +
                 '</button>' +
-                '<button class="sp-cancel-btn" onclick="spClose()">' +
-                  '<i class="fa-solid fa-xmark"></i> Close' +
+                '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryWalkInFailed()" title="Resend the exact same details">' +
+                  '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
                 '</button>' +
+              '</div>' +
+              '<div style="text-align:center;margin-top:8px;">' +
+                '<a href="javascript:void(0)" onclick="spClose()" style="font-size:11.5px;color:#94a3b8;text-decoration:underline;">Close without saving</a>' +
               '</div>';
           }
         }
@@ -8433,24 +8959,97 @@
               '<div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">Save Failed</div>' +
               '<div style="font-size:12.5px;color:#64748b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;max-width:320px;line-height:1.6;">' + escapeHtml(errMsg) + '</div>' +
             '</div>' +
-            '<div class="sp-actions" style="margin-top:auto;">' +
-              '<button class="sp-save-btn" style="background:#b45309;color:#fff;" onclick="_retryWalkInFailed()">' +
-                '<i class="fa-solid fa-rotate-right"></i> Retry' +
+            '<div class="sp-actions" style="margin-top:auto;flex-wrap:wrap;">' +
+              '<button class="sp-save-btn" style="background:#b45309;color:#fff;" onclick="_editRetryWalkIn()">' +
+                '<i class="fa-solid fa-pen"></i> Edit &amp; Retry' +
               '</button>' +
-              '<button class="sp-cancel-btn" onclick="spClose()">' +
-                '<i class="fa-solid fa-xmark"></i> Close' +
+              '<button class="sp-cancel-btn" style="flex:0 0 auto;" onclick="_retryWalkInFailed()" title="Resend the exact same details">' +
+                '<i class="fa-solid fa-rotate-right"></i> Retry as-is' +
               '</button>' +
+            '</div>' +
+            '<div style="text-align:center;margin-top:8px;">' +
+              '<a href="javascript:void(0)" onclick="spClose()" style="font-size:11.5px;color:#94a3b8;text-decoration:underline;">Close without saving</a>' +
             '</div>';
         }
       }
     }
     window._retryWalkInFailed = _retryWalkInFailed;
 
+    /* ── Edit & Retry: reopen the walk-in form pre-filled with the failed
+       entry's values, then rebuild the Review step from those (possibly
+       edited) values. Confirming from there calls _submitWalkInFromPreview()
+       normally, which always mints a fresh IdempotencyKey. ── */
+    function _editRetryWalkIn() {
+      const stored = window._walkInFailedPayload;
+      if (!stored) { spClose(); return; }
+      openWalkInContribution(); // rebuilds a fresh wi_* form
+      const _s = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined && val !== null) el.value = val; };
+      _s("wi_name", stored.name);
+      _s("wi_mobile", stored.mobile);
+      _s("wi_email", stored.email);
+      _s("wi_amount", stored.amount);
+      _s("wi_year", stored.year);
+      _s("wi_month", stored.month);
+      _s("wi_type", stored.typeId);
+      if (stored.occasionId) _s("wi_occasion", stored.occasionId);
+      // Original note had "Walk-in: name | mobile" appended server-side —
+      // don't try to reverse-parse that back out, leave note blank to re-enter.
+      saveWalkIn(); // rebuilds the Review (step 2) screen from these values
+    }
+    window._editRetryWalkIn = _editRetryWalkIn;
+
     /* ═══════════════════════════════════════════════════════
-       IMPROVEMENT #6 — CONTRIBUTION TRACKER
-       Shows paid vs pending members per type/month/year.
-       Walk-in donors are excluded from pending (anonymous).
+       CONTRIBUTION TRACKER — year-wise, user-wise grid
+       Shows every member (active + inactive) across all 12 months of
+       the selected year. Respects each member's ContribStartDate (or,
+       failing that, their first recorded contribution, or their
+       RegisteredAt date) so late joiners aren't shown pending for
+       months before they started. Inactive members freeze at their
+       InactiveSince date instead of accruing pending forever.
+       Walk-in donors are excluded (anonymous, not trackable per-user).
        ═══════════════════════════════════════════════════════ */
+
+    // dd-MM-yyyy (optionally with a time suffix) → {y, m} (m is 0-indexed) or null
+    function _trParseDMY(s) {
+      if (!s) return null;
+      const m = /^(\d{2})-(\d{2})-(\d{4})/.exec(String(s).trim());
+      if (!m) return null;
+      const y = Number(m[3]), mo = Number(m[2]) - 1;
+      if (isNaN(y) || isNaN(mo) || mo < 0 || mo > 11) return null;
+      return { y, m: mo };
+    }
+
+    // Effective month a member's pending-tracking should start from:
+    // 1) admin-set ContribStartDate, else
+    // 2) their earliest recorded (non walk-in) contribution, else
+    // 3) their RegisteredAt date, else
+    // 4) null — no restriction, always countable
+    function _trEffectiveStart(u) {
+      const cs = _trParseDMY(u.ContribStartDate);
+      if (cs) return cs;
+      const mine = data.filter(c =>
+        String(c.UserId) === String(u.UserId) && !String(c.UserId).startsWith("WALKIN_")
+      );
+      let best = null;
+      mine.forEach(c => {
+        const y = Number(c.Year), mi = MONTHS.indexOf(c.ForMonth);
+        if (isNaN(y) || mi === -1) return;
+        if (!best || y < best.y || (y === best.y && mi < best.m)) best = { y, m: mi };
+      });
+      if (best) return best;
+      const reg = _trParseDMY(u.RegisteredAt);
+      if (reg) return reg;
+      return null;
+    }
+
+    // Month a now-inactive member's pending tracking should freeze at, or null
+    function _trInactiveFreeze(u) {
+      if (String(u.Status || "").toLowerCase() !== "inactive") return null;
+      return _trParseDMY(u.InactiveSince);
+    }
+
+    function _trYM(y, m) { return y * 12 + m; }
+
     function initTrackerDropdowns() {
       const MOS = MONTHS; // PERF: reuse global
       const now = new Date();
@@ -8465,7 +9064,7 @@
         });
       }
 
-      // Month dropdown
+      // Month dropdown (focus month, for the paid/pending lists below the grid)
       const trMonth = document.getElementById("tr_month");
       if (trMonth && trMonth.options.length === 0) {
         MOS.forEach((m, i) => {
@@ -8490,111 +9089,219 @@
           trYear.appendChild(o);
         });
       }
+
+      runTracker();
     }
 
-    /* ═══ ENHANCED runTracker() WITH TARGET + SHORTFALL ═════════════
- Drop-in replacement for the existing runTracker() function.
- Find runTracker() in admin.html and replace the entire function
- body with this one.
- ═══════════════════════════════════════════════════════════════ */
+    // Prev/next-year arrow buttons next to the Year select
+    function trShiftYear(delta) {
+      const sel = document.getElementById("tr_year");
+      if (!sel) return;
+      const target = Number(sel.value) + delta;
+      let found = false;
+      for (let i = 0; i < sel.options.length; i++) {
+        if (Number(sel.options[i].value) === target) { sel.selectedIndex = i; found = true; break; }
+      }
+      if (!found) {
+        const o = document.createElement("option");
+        o.value = target; o.textContent = target;
+        sel.appendChild(o);
+        const opts = Array.from(sel.options).sort((a, b) => Number(b.value) - Number(a.value));
+        sel.innerHTML = "";
+        opts.forEach(op => sel.appendChild(op));
+        sel.value = target;
+      }
+      runTracker();
+    }
+
     function runTracker() {
       const trType = document.getElementById("tr_type");
       const trMonth = document.getElementById("tr_month");
       const trYear = document.getElementById("tr_year");
-      if (!trType || !trMonth || !trYear) return;
+      if (!trType || !trMonth || !trYear || !trYear.value) return;
 
       const selTypeId = trType.value;
       const selMonth = trMonth.value;
       const selYear = String(trYear.value);
+      const selYearNum = Number(selYear);
+      const hideInactive = document.getElementById("tr_hide_inactive")?.checked;
+      const focusMonthIdx = MONTHS.indexOf(selMonth);
 
-      // All active non-admin members
-      const members = users.filter(u =>
-        u.Role !== "Admin" &&
-        String(u.Status || "").toLowerCase() === "active"
+      const now = new Date();
+      const curYM = _trYM(now.getFullYear(), now.getMonth());
+
+      // All non-admin members — active AND inactive (Tracker shows both;
+      // inactive ones freeze at InactiveSince instead of being hidden)
+      let members = users.filter(u => u.Role !== "Admin");
+      if (hideInactive) members = members.filter(u => String(u.Status || "").toLowerCase() !== "inactive");
+
+      // Contributions for the whole selected year (type-filtered), excluding walk-ins
+      let yearContribs = data.filter(c =>
+        String(c.Year) === selYear && !String(c.UserId).startsWith("WALKIN_")
       );
+      if (selTypeId) yearContribs = yearContribs.filter(c => String(c.TypeId) === selTypeId);
 
-      // Contributions matching current filter
-      let contribs = data.filter(c =>
-        String(c.Year) === selYear &&
-        c.ForMonth === selMonth &&
-        !String(c.UserId).startsWith("WALKIN_")
-      );
-      if (selTypeId) contribs = contribs.filter(c => String(c.TypeId) === selTypeId);
+      let fullyPaidYtd = 0, yearPendingMonths = 0, yearShortfall = 0, inactiveClosedCount = 0;
+      const rows = [];
+      const focusPaidMembers = [], focusPendingMembers = [];
+      let focusPaidAmt = 0;
 
-      // Paid member IDs
-      const paidUserIds = new Set(contribs.map(c => String(c.UserId)));
+      members.forEach(u => {
+        const start = _trEffectiveStart(u);   // {y,m} or null
+        const freeze = _trInactiveFreeze(u);  // {y,m} or null
+        const isInactive = String(u.Status || "").toLowerCase() === "inactive";
+        if (isInactive) inactiveClosedCount++;
 
-      const paidMembers = members.filter(u => paidUserIds.has(String(u.UserId)));
-      const pendingMembers = members.filter(u => !paidUserIds.has(String(u.UserId)));
-      const paidAmt = contribs.reduce((s, c) => s + Number(c.Amount || 0), 0);
-      const pctComplete = members.length > 0
-        ? Math.round((paidMembers.length / members.length) * 100) : 0;
+        const myContribs = yearContribs.filter(c => String(c.UserId) === String(u.UserId));
+        const paidMonthsSet = new Set(myContribs.map(c => c.ForMonth));
 
-      // ── Target calculations
-      // Total expected = sum of MonthlyTarget for all members who have one set
-      const totalExpected = members.reduce((s, u) => s + Number(u.MonthlyTarget || 0), 0);
-      const totalShortfall = Math.max(0, totalExpected - paidAmt);
-      const hasAnyTarget = members.some(u => Number(u.MonthlyTarget || 0) > 0);
+        let userPendingCount = 0;
+        const cells = MONTHS.map((mName, mi) => {
+          const ym = _trYM(selYearNum, mi);
+          if (ym > curYM) return { state: "future" };
+          if (start && ym < _trYM(start.y, start.m)) return { state: "before" };
+          if (freeze && ym > _trYM(freeze.y, freeze.m)) return { state: "closed" };
+          const paid = paidMonthsSet.has(mName);
+          if (!paid) userPendingCount++;
+          return { state: paid ? "paid" : "pending" };
+        });
 
-      // ── Update existing badges
+        if (userPendingCount === 0) fullyPaidYtd++;
+        yearPendingMonths += userPendingCount;
+        yearShortfall += userPendingCount * Number(u.MonthlyTarget || 0);
+        rows.push({ user: u, cells, pendingCount: userPendingCount, isInactive, start });
+
+        // Focus-month lists (same start/freeze rules, just for one month)
+        if (focusMonthIdx !== -1) {
+          const ym = _trYM(selYearNum, focusMonthIdx);
+          const beforeStart = start && ym < _trYM(start.y, start.m);
+          const closed = freeze && ym > _trYM(freeze.y, freeze.m);
+          const future = ym > curYM;
+          if (!beforeStart && !closed && !future) {
+            if (paidMonthsSet.has(selMonth)) {
+              focusPaidAmt += myContribs.filter(c => c.ForMonth === selMonth).reduce((s, c) => s + Number(c.Amount || 0), 0);
+              focusPaidMembers.push(u);
+            } else {
+              focusPendingMembers.push(u);
+            }
+          }
+        }
+      });
+
+      const focusTotal = focusPaidMembers.length + focusPendingMembers.length;
+      const pctComplete = focusTotal > 0 ? Math.round((focusPaidMembers.length / focusTotal) * 100) : 0;
+
+      // ── Update badges
       document.getElementById("tr_summary").style.display = "flex";
-      document.getElementById("tr_paid_count").innerText = paidMembers.length;
-      document.getElementById("tr_paid_amt").innerText = "₹" + fmt(paidAmt);
-      document.getElementById("tr_pending_count").innerText = pendingMembers.length;
+      document.getElementById("tr_year_summary").style.display = "flex";
+      document.getElementById("tr_paid_count").innerText = focusPaidMembers.length;
+      document.getElementById("tr_paid_amt").innerText = "₹" + fmt(focusPaidAmt);
+      document.getElementById("tr_pending_count").innerText = focusPendingMembers.length;
       document.getElementById("tr_pending_pct").innerText = pctComplete + "% complete";
       document.getElementById("tr_total_members").innerText = members.length;
+      document.getElementById("tr_year_pending_months").innerText = yearPendingMonths;
+      document.getElementById("tr_year_inactive_count").innerText = inactiveClosedCount;
 
-      // ── Add / update target summary badges (only if any target is set)
+      // ── Year shortfall badge (only if any member has a MonthlyTarget set)
+      const hasAnyTarget = members.some(u => Number(u.MonthlyTarget || 0) > 0);
       let tgtBadgeWrap = document.getElementById("tr_target_badges");
       if (hasAnyTarget) {
         if (!tgtBadgeWrap) {
           tgtBadgeWrap = document.createElement("div");
           tgtBadgeWrap.id = "tr_target_badges";
-          tgtBadgeWrap.style.cssText = "display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;";
-          // Insert after tr_summary
-          const summary = document.getElementById("tr_summary");
-          if (summary && summary.parentNode) {
-            summary.parentNode.insertBefore(tgtBadgeWrap, summary.nextSibling);
-          }
+          tgtBadgeWrap.style.cssText = "display:flex;";
+          const summary = document.getElementById("tr_year_summary");
+          if (summary) summary.appendChild(tgtBadgeWrap);
         }
         tgtBadgeWrap.style.display = "flex";
-        tgtBadgeWrap.innerHTML =
-          `<div style="background:#F0FDFA;border:1px solid #bfdbfe;border-radius:10px;padding:12px 20px;text-align:center;min-width:120px;">
-        <div style="font-size:1.4rem;font-weight:700;color:#0F766E;">${APP.currency||"₹"}${fmt(totalExpected)}</div>
-        <div style="font-size:11px;color:#115E59;font-weight:600;">🎯 Expected Total</div>
-        <div style="font-size:11px;color:#3b82f6;">${members.filter(u => Number(u.MonthlyTarget || 0) > 0).length} members with target</div>
-      </div>` +
-          (totalShortfall > 0
-            ? `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 20px;text-align:center;min-width:120px;">
-            <div style="font-size:1.4rem;font-weight:700;color:#ea580c;">${APP.currency||"₹"}${fmt(totalShortfall)}</div>
-            <div style="font-size:11px;color:#c2410c;font-weight:600;">⚠ Total Shortfall</div>
-            <div style="font-size:11px;color:#ea580c;">vs expected this month</div>
-          </div>`
-            : `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 20px;text-align:center;min-width:120px;">
-            <div style="font-size:1.4rem;font-weight:700;color:#16a34a;">₹0</div>
-            <div style="font-size:11px;color:#166534;font-weight:600;">✅ No Shortfall</div>
-            <div style="font-size:11px;color:#22c55e;">Target met or exceeded</div>
-          </div>`
-          );
+        tgtBadgeWrap.innerHTML = yearShortfall > 0
+          ? `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;text-align:center;width:100%;">
+              <div style="font-size:1.3rem;font-weight:700;color:#ea580c;">${APP.currency||"₹"}${fmt(yearShortfall)}</div>
+              <div style="font-size:10.5px;color:#c2410c;font-weight:600;">⚠ Shortfall (${selYear})</div>
+              <div style="font-size:10px;color:#ea580c;">${yearPendingMonths} pending months</div>
+            </div>`
+          : `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;text-align:center;width:100%;">
+              <div style="font-size:1.3rem;font-weight:700;color:#16a34a;">₹0</div>
+              <div style="font-size:10.5px;color:#166534;font-weight:600;">✅ No Shortfall (${selYear})</div>
+              <div style="font-size:10px;color:#22c55e;">${fullyPaidYtd}/${members.length} fully paid ytd</div>
+            </div>`;
       } else if (tgtBadgeWrap) {
         tgtBadgeWrap.style.display = "none";
       }
 
       const pw = document.getElementById("tr_progress_wrap");
       if (pw) pw.style.display = "block";
+      let pbEl = document.getElementById("tr_progress_bar");
+      if (pbEl) {
+        pbEl.style.width = pctComplete + "%";
+        pbEl.style.background = pctComplete >= 100 ? "#16a34a" : pctComplete >= 60 ? "#0F766E" : "#dc2626";
+      }
 
-      // ── Render PAID list (with target comparison)
+      // ── Render the year × month grid — clean, uniform "spreadsheet" styling:
+      // every cell gets the same thin light border (not just a random few),
+      // fixed equal-width columns via <colgroup>, lighter font weights.
+      const cellIcon = {
+        paid:    '<span style="color:#16a34a;font-weight:600;">✓</span>',
+        pending: '<span style="color:#dc2626;font-weight:600;">✕</span>',
+        before:  '<span style="color:#cbd5e1;">—</span>',
+        future:  '<span style="color:#e5e9ef;">·</span>',
+        closed:  '<span style="color:#94a3b8;font-weight:600;">◆</span>'
+      };
+      const CELL_BORDER = "1px solid #eef1f4";
+      const STICKY_EDGE_SHADOW = "2px 0 0 rgba(15,23,42,0.05)"; // box-shadow, not border — avoids the double/overlapping line sticky cells get with border-collapse during horizontal scroll
+
+      let gridHtml = '<colgroup>' +
+        '<col style="width:18%;">' +
+        MONTHS.map(() => '<col style="width:5.5%;">').join("") +
+        '<col style="width:9%;">' +
+        '</colgroup>';
+
+      gridHtml += '<tr style="background:#f8fafc;">' +
+        `<th style="text-align:left;padding:9px 12px;font-weight:600;color:#334155;position:sticky;left:0;background:#f8fafc;border-bottom:${CELL_BORDER};box-shadow:${STICKY_EDGE_SHADOW};white-space:normal;">Member</th>` +
+        MONTHS.map(m => `<th style="text-align:center;padding:9px 2px;font-weight:600;color:#94a3b8;font-size:10px;letter-spacing:.02em;border-bottom:${CELL_BORDER};border-right:${CELL_BORDER};white-space:nowrap;">${m.slice(0, 3).toUpperCase()}</th>`).join("") +
+        `<th style="text-align:center;padding:9px 10px;font-weight:600;color:#334155;font-size:10.5px;border-bottom:${CELL_BORDER};white-space:nowrap;">Pending</th></tr>`;
+
+      rows.forEach((r, idx) => {
+        const u = r.user;
+        const rowBg = r.isInactive ? "#f8fafc" : (idx % 2 === 1 ? "#fbfcfd" : "#fff");
+        const isLast = idx === rows.length - 1;
+        const rowBorderBottom = isLast ? "none" : CELL_BORDER;
+        const inactiveBadge = r.isInactive
+          ? '<span style="font-size:9px;background:#f1f5f9;color:#64748b;padding:1px 6px;border-radius:8px;margin-left:4px;font-weight:500;">Inactive</span>' : "";
+        const startNote = r.start
+          ? `<div style="font-size:9.5px;color:#94a3b8;">from ${MONTHS[r.start.m].slice(0, 3)} ${r.start.y}</div>` : "";
+        const pendingBadge = r.pendingCount > 0
+          ? `<span style="background:#fef2f2;color:#dc2626;padding:2px 9px;border-radius:20px;font-weight:600;">${r.pendingCount}</span>`
+          : r.isInactive
+            ? `<span style="background:#f1f5f9;color:#64748b;padding:2px 9px;border-radius:20px;font-weight:600;">Closed</span>`
+            : `<span style="background:#f0fdf4;color:#16a34a;padding:2px 9px;border-radius:20px;font-weight:600;">✓</span>`;
+
+        gridHtml += `<tr style="background:${rowBg};">` +
+          `<td style="padding:9px 12px;position:sticky;left:0;background:${rowBg};border-bottom:${rowBorderBottom};box-shadow:${STICKY_EDGE_SHADOW};white-space:normal;overflow-wrap:break-word;">` +
+          `<div style="font-weight:600;color:${r.isInactive ? '#64748b' : '#1e293b'};font-size:12px;">${escapeHtml(u.Name || "—")}${inactiveBadge}</div>` +
+          startNote + `</td>` +
+          r.cells.map(c => `<td style="text-align:center;padding:8px 2px;border-bottom:${rowBorderBottom};border-right:${CELL_BORDER};">${cellIcon[c.state]}</td>`).join("") +
+          `<td style="text-align:center;padding:8px 10px;border-bottom:${rowBorderBottom};">${pendingBadge}</td></tr>`;
+      });
+
+      const gridTable = document.getElementById("tr_grid_table");
+      if (gridTable) gridTable.innerHTML = gridHtml;
+      const gridWrap = document.getElementById("tr_grid_wrap");
+      if (gridWrap) gridWrap.style.display = rows.length ? "block" : "none";
+      const gridLegend = document.getElementById("tr_grid_legend");
+      if (gridLegend) gridLegend.style.display = rows.length ? "flex" : "none";
+
+      // ── Render focus-month PAID list (with target comparison)
       const paidList = document.getElementById("tr_paid_list");
-      paidList.innerHTML = paidMembers.length === 0
+      paidList.innerHTML = focusPaidMembers.length === 0
         ? '<div style="padding:20px;text-align:center;color:#aaa;font-size:12px;"><i class="fa-solid fa-inbox" style="font-size:1.5rem;display:block;margin-bottom:6px;"></i>No paid members</div>'
-        : paidMembers.map(function (u, i) {
-          const userContribs = contribs.filter(c => String(c.UserId) === String(u.UserId));
+        : focusPaidMembers.map(function (u, i) {
+          const userContribs = yearContribs.filter(c => String(c.UserId) === String(u.UserId) && c.ForMonth === selMonth);
           const paid = userContribs.reduce((s, c) => s + Number(c.Amount || 0), 0);
           const target = Number(u.MonthlyTarget || 0);
           const metTarget = target > 0 && paid >= target;
           const underTarget = target > 0 && paid < target;
 
-          // Badge: show "₹paid / ₹target" if under target, else just "₹paid"
           const badgeText = underTarget
             ? `${APP.currency||"₹"}${fmt(paid)} / ${APP.currency||"₹"}${fmt(target)}`
             : `${APP.currency||"₹"}${fmt(paid)}`;
@@ -8602,8 +9309,6 @@
             ? "linear-gradient(135deg,#fff7ed,#fed7aa)"
             : "linear-gradient(135deg,#dcfce7,#bbf7d0)";
           const badgeColor = underTarget ? "#c2410c" : "#15803d";
-
-          // Small target-met tick
           const targetTick = metTarget
             ? `<span style="font-size:10px;color:#16a34a;margin-left:4px;" title="Target met">🎯</span>`
             : "";
@@ -8622,11 +9327,11 @@
         </div>`;
         }).join("");
 
-      // ── Render PENDING list (with shortfall)
+      // ── Render focus-month PENDING list (with shortfall)
       const pendingList = document.getElementById("tr_pending_list");
-      pendingList.innerHTML = pendingMembers.length === 0
-        ? '<div style="padding:20px;text-align:center;color:#aaa;font-size:12px;"><i class="fa-solid fa-party-horn" style="font-size:1.5rem;display:block;margin-bottom:6px;color:#22c55e;"></i>🎉 All members have paid!</div>'
-        : pendingMembers.map(function (u, i) {
+      pendingList.innerHTML = focusPendingMembers.length === 0
+        ? '<div style="padding:20px;text-align:center;color:#aaa;font-size:12px;"><i class="fa-solid fa-party-horn" style="font-size:1.5rem;display:block;margin-bottom:6px;color:#22c55e;"></i>🎉 All eligible members have paid!</div>'
+        : focusPendingMembers.map(function (u, i) {
           const target = Number(u.MonthlyTarget || 0);
           const shortfall = target > 0 ? target : 0;
 
@@ -8650,17 +9355,11 @@
 
       document.getElementById("tr_empty").style.display = "none";
 
-      // Progress bar — unchanged
-      let pbEl = document.getElementById("tr_progress_bar");
-      if (pbEl) {
-        pbEl.style.width = pctComplete + "%";
-        pbEl.style.background = pctComplete >= 100 ? "#16a34a" : pctComplete >= 60 ? "#0F766E" : "#dc2626";
-      }
-
-      // Store state for WhatsApp send functions — unchanged
+      // Store state for WhatsApp send functions (scoped to the focus month)
       window._trackerState = {
         selTypeId, selMonth, selYear,
-        paidMembers, pendingMembers, paidAmt, pctComplete
+        paidMembers: focusPaidMembers, pendingMembers: focusPendingMembers,
+        paidAmt: focusPaidAmt, pctComplete
       };
     }
 
@@ -8711,18 +9410,23 @@
         var receiptOn  = s === true || (s && s.auto_receipt    === true);
         var monthlyOn  = s === true || (s && s.monthly_report  === true);
         var birthdayOn = s && s.birthday_email === true;
+        var adminSummaryOn = s && s.admin_monthly_summary === true;
         var tReceipt  = document.getElementById("toggle_auto_receipt");
         var tMonthly  = document.getElementById("toggle_monthly_report");
         var tBirthday = document.getElementById("toggle_birthday_email");
+        var tAdminSummary = document.getElementById("toggle_admin_monthly_summary");
         if (tReceipt)  { tReceipt.checked  = receiptOn;  tReceipt.disabled  = false; }
         if (tMonthly)  { tMonthly.checked  = monthlyOn;  tMonthly.disabled  = false; }
         if (tBirthday) { tBirthday.checked = birthdayOn; tBirthday.disabled = false; }
+        if (tAdminSummary) { tAdminSummary.checked = adminSummaryOn; tAdminSummary.disabled = false; }
         _updateToggleStatus("auto_receipt",   receiptOn);
         _updateToggleStatus("monthly_report", monthlyOn);
         _updateToggleStatus("birthday_email", birthdayOn);
+        _updateToggleStatus("admin_monthly_summary", adminSummaryOn);
         _updateCardStyle("ea_card_receipt",  receiptOn);
         _updateCardStyle("ea_card_monthly",  monthlyOn);
         _updateCardStyle("ea_card_birthday", birthdayOn);
+        _updateCardStyle("ea_card_admin_summary", adminSummaryOn);
         // logo_email_url removed from settings — logo now auto-loaded from CFG.folderLogo
         // Load live preview: call getLogoPreview action on Apps Script
         _loadEmailLogoPreview();
@@ -8732,13 +9436,14 @@
         }
       }).catch(function () {
         // Fetch failed — show OFF state, re-enable toggles
-        ["toggle_auto_receipt", "toggle_monthly_report", "toggle_birthday_email"].forEach(function (id) {
+        ["toggle_auto_receipt", "toggle_monthly_report", "toggle_birthday_email", "toggle_admin_monthly_summary"].forEach(function (id) {
           var el = document.getElementById(id);
           if (el) { el.checked = false; el.disabled = false; }
         });
         _updateToggleStatus("auto_receipt",   false);
         _updateToggleStatus("monthly_report", false);
         _updateToggleStatus("birthday_email", false);
+        _updateToggleStatus("admin_monthly_summary", false);
         var el = document.getElementById("ea_quota_display");
         if (el) el.innerHTML = "<span style='color:#f87171;'>Cannot reach server — check Apps Script deployment</span>";
       });
@@ -8789,7 +9494,8 @@
       var statusMap = {
         "auto_receipt":   "ea_receipt_status",
         "monthly_report": "ea_monthly_status",
-        "birthday_email": "ea_birthday_status"
+        "birthday_email": "ea_birthday_status",
+        "admin_monthly_summary": "ea_admin_summary_status"
       };
       var el = document.getElementById(statusMap[key]);
       if (!el) return;
@@ -8811,8 +9517,8 @@
 
     function saveEmailToggle(key, value) {
       // Show saving indicator
-      var cardMap = { "auto_receipt": "ea_card_receipt", "monthly_report": "ea_card_monthly", "birthday_email": "ea_card_birthday" };
-      var labelMap = { "auto_receipt": "Auto Receipt Email", "monthly_report": "Monthly Report", "birthday_email": "Birthday Email" };
+      var cardMap = { "auto_receipt": "ea_card_receipt", "monthly_report": "ea_card_monthly", "birthday_email": "ea_card_birthday", "admin_monthly_summary": "ea_card_admin_summary" };
+      var labelMap = { "auto_receipt": "Auto Receipt Email", "monthly_report": "Monthly Report", "birthday_email": "Birthday Email", "admin_monthly_summary": "Admin Monthly Summary" };
       const cardId = cardMap[key] || "ea_card_receipt";
       const card = document.getElementById(cardId);
       if (card) card.style.opacity = "0.6";
@@ -9018,6 +9724,132 @@
       }
 
       // Start polling after 8s (give the job time to start)
+      setTimeout(_pollResult, 8000);
+    }
+
+    // Manual "Send Now" for Admin Monthly Summary — same fire-and-poll pattern,
+    // reuses ea_test_month/ea_test_year selects from the Monthly Report block above.
+    function triggerManualAdminSummary() {
+      const month = document.getElementById("ea_test_month")?.value;
+      const year = document.getElementById("ea_test_year")?.value;
+      const withPdf = document.getElementById("ea_admin_summary_pdf")?.checked !== false;
+      if (!month || !year) { toast("Select month and year", "warn"); return; }
+      const res = document.getElementById("ea_admin_summary_result");
+      const btn = document.querySelector("[onclick='triggerManualAdminSummary()']");
+
+      if (btn) { btn.disabled = true; btn.textContent = "⏳ Sending..."; }
+      if (res) {
+        res.style.display = "block";
+        res.innerHTML = "⏳ " + (withPdf ? "Building summary + PDF and emailing" : "Emailing") + " admins... this can take up to a minute. Please wait.";
+        res.style.color = "#64748b";
+      }
+
+      // Same 30s-JSONP-cutoff workaround as the monthly report: fire-and-forget,
+      // then poll getAdminSummaryStatus every 5s until the stored result appears.
+      const jobKey = "admsum_" + Date.now();
+      let pollCount = 0;
+      const MAX_POLLS = 36; // 36 × 5s = 3 minutes max wait
+
+      const _asSess = JSON.parse(localStorage.getItem("session") || "{}");
+
+      // Step 1 — Fire the job.
+      // [FIX] Previously this ignored the response entirely — if the backend rejected
+      // the request (e.g. session expired, or the old 1-hour cooldown), the job was
+      // never actually started/stored, but the UI still polled forever showing
+      // "Sending...". Now we read the fire response: if it's an immediate error,
+      // stop right here instead of polling a jobKey that will never exist.
+      (function () {
+        const cbFire = "cb_asf_" + Date.now();
+        const script = document.createElement("script");
+        window[cbFire] = function (r) {
+          try { delete window[cbFire]; script.remove(); } catch (e) { }
+          if (r && r.status === "error") {
+            _summaryDone(r, false); // stop immediately, don't start polling
+          }
+          // status "ok" here just means the request was accepted/ran synchronously —
+          // the real result still comes from polling below either way.
+        };
+        script.onerror = function () {
+          try { delete window[cbFire]; script.remove(); } catch (e) { }
+          _summaryDone({ status: "error", message: "Could not reach server to start the job. Check your connection / Apps Script deployment." }, false);
+        };
+        script.src = API_URL + "?action=triggerAdminSummary&month=" + encodeURIComponent(month) +
+          "&year=" + encodeURIComponent(year) + "&jobKey=" + encodeURIComponent(jobKey) +
+          "&withPdf=" + (withPdf ? "1" : "0") +
+          "&sessionToken=" + encodeURIComponent(_asSess.sessionToken || "") +
+          "&userId=" + encodeURIComponent(_asSess.userId || "") +
+          "&callback=" + cbFire;
+        document.body.appendChild(script);
+      })();
+
+      // Step 2 — Poll every 5s for result
+      let _stopped = false;
+      function _pollResult() {
+        if (_stopped) return;
+        pollCount++;
+        const cbPoll = "cb_asp_" + Date.now();
+        const script = document.createElement("script");
+        const timer = setTimeout(function () {
+          try { delete window[cbPoll]; script.remove(); } catch (e) { }
+          if (_stopped) return;
+          if (pollCount < MAX_POLLS) {
+            setTimeout(_pollResult, 5000);
+          } else {
+            _summaryDone(null, true);
+          }
+        }, 8000);
+        window[cbPoll] = function (r) {
+          clearTimeout(timer);
+          try { delete window[cbPoll]; script.remove(); } catch (e) { }
+          if (_stopped) return;
+          if (r && r.status === "ok") {
+            _summaryDone(r, false);
+          } else if (r && r.status === "pending") {
+            if (pollCount < MAX_POLLS) setTimeout(_pollResult, 5000);
+            else _summaryDone(null, true);
+          } else if (r && r.status === "error") {
+            _summaryDone(r, false);
+          } else {
+            if (pollCount < MAX_POLLS) setTimeout(_pollResult, 5000);
+            else _summaryDone(null, true);
+          }
+        };
+        script.onerror = function () {
+          clearTimeout(timer);
+          try { delete window[cbPoll]; script.remove(); } catch (e) { }
+          if (_stopped) return;
+          if (pollCount < MAX_POLLS) setTimeout(_pollResult, 5000);
+          else _summaryDone(null, true);
+        };
+        script.src = API_URL + "?action=getAdminSummaryStatus&jobKey=" + encodeURIComponent(jobKey) +
+          "&sessionToken=" + encodeURIComponent(_asSess.sessionToken || "") +
+          "&userId=" + encodeURIComponent(_asSess.userId || "") +
+          "&callback=" + cbPoll;
+        document.body.appendChild(script);
+      }
+
+      function _summaryDone(r, timedOut) {
+        _stopped = true;
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Now';
+        }
+        if (!res) return;
+        if (timedOut) {
+          res.innerHTML = "⚠️ Still running in the background — check your Apps Script execution log. The email may still send successfully.";
+          res.style.color = "#92400e";
+        } else if (r && r.status === "ok") {
+          res.innerHTML = "✅ Done — sent to <strong>" + (r.sent || 0) + "</strong> admin(s). Paid: <strong>" +
+            (r.paidCount || 0) + "</strong>, Not paid: <strong>" + (r.unpaidCount || 0) +
+            "</strong>, Total collected: <strong>" + (r.totalCollected || 0) + "</strong>";
+          res.style.color = "#065f46";
+          _refreshEmailQuotaUI();
+        } else {
+          res.innerHTML = "❌ Failed: " + (r && r.message ? r.message : "Unknown error. Check Apps Script logs.");
+          res.style.color = "#991b1b";
+        }
+      }
+
       setTimeout(_pollResult, 8000);
     }
     // showPage lazy-init hooks handled by DOMContentLoaded listener below
@@ -11559,7 +12391,7 @@
       'dash_exportPDF',
       'sendBroadcast','scheduleBroadcast','previewBroadcast',
       'sendTrackerMsg','sendWhatsAppReport','sendWhatsAppPDFReport',
-      'triggerManualMonthlyReport',
+      'triggerManualMonthlyReport','triggerManualAdminSummary',
       'runHealthCheck','runTracker','loadTrafficStats',
       'runBulkInsert','_executeBulkInsert','_retryBulkFailed',
       'loadContributionRequests','loadFeedbackAdmin','loadAuditLog','loadYearSummary',
@@ -11588,7 +12420,7 @@
       dash_exportPDF: 'Generating PDF…',
       sendBroadcast: 'Sending…', sendTrackerMsg: 'Sending…',
       sendWhatsAppReport: 'Preparing…', sendWhatsAppPDFReport: 'Preparing PDF…',
-      triggerManualMonthlyReport: 'Sending…',
+      triggerManualMonthlyReport: 'Sending…', triggerManualAdminSummary: 'Sending…',
       runHealthCheck: 'Checking…', runTracker: 'Loading…', loadTrafficStats: 'Loading…',
       runBulkInsert: 'Inserting…',
       loadContributionRequests: 'Loading…', loadFeedbackAdmin: 'Loading…',

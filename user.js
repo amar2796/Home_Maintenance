@@ -1999,7 +1999,7 @@ existing updateUser action. No new Apps Script action needed.
       ldrEl.style.display = "flex";
     }
 
-    // ── Quick stats: This Month + Records ──
+    // ── Quick stats: This Month + Records + Pending ──
     const thisMonth = data.filter(c => String(c.Year) === String(curY) && c.ForMonth === curM).reduce((s, c) => s + Number(c.Amount || 0), 0);
     const noContrib = thisMonth === 0;
     const qs = document.getElementById("quickStats");
@@ -2014,11 +2014,63 @@ existing updateUser action. No new Apps Script action needed.
              <div class="hero-stat-l">📅 This Month</div>
              <div class="hero-stat-v">₹${fmt(thisMonth)}</div>
            </div>`;
-      const recordsCard = `<div class="hero-stat">
-             <div class="hero-stat-l">🧾 Records</div>
-             <div class="hero-stat-v">${data.length}</div>
+      // ── Pending months — same rules as the admin Tracker, scoped to just this member:
+      // effective start = ContribStartDate → first contribution → RegisteredAt (whichever
+      // is known), and frozen at InactiveSince if this member ever went inactive.
+      // Amount is intentionally NOT shown here — just the count, kept low-pressure.
+      const _uSess = _sess();
+      const myProfileForPending = users.find(u => String(u.UserId) === String(_uSess.userId)) || {};
+
+      function _u_parseDMY(v) {
+        if (!v) return null;
+        const mm = /^(\d{2})-(\d{2})-(\d{4})/.exec(String(v).trim());
+        if (!mm) return null;
+        const yy = Number(mm[3]), mo = Number(mm[2]) - 1;
+        if (isNaN(yy) || isNaN(mo) || mo < 0 || mo > 11) return null;
+        return { y: yy, m: mo };
+      }
+      const _u_ym = (y, m) => y * 12 + m;
+
+      let effStart = _u_parseDMY(myProfileForPending.ContribStartDate);
+      if (!effStart) {
+        let best = null;
+        data.forEach(c => {
+          const y = Number(c.Year), mi = months.indexOf(c.ForMonth);
+          if (isNaN(y) || mi === -1) return;
+          if (!best || y < best.y || (y === best.y && mi < best.m)) best = { y, m: mi };
+        });
+        effStart = best || _u_parseDMY(myProfileForPending.RegisteredAt);
+      }
+      let freeze = null;
+      if (String(myProfileForPending.Status || "").toLowerCase() === "inactive") {
+        freeze = _u_parseDMY(myProfileForPending.InactiveSince);
+      }
+
+      let pendingMonths = 0;
+      if (effStart) {
+        const paidSet = new Set(data.map(c => c.Year + "|" + c.ForMonth));
+        const curYM = _u_ym(curY, now.getMonth());
+        let y = effStart.y, m = effStart.m;
+        while (_u_ym(y, m) <= curYM) {
+          if (!freeze || _u_ym(y, m) <= _u_ym(freeze.y, freeze.m)) {
+            if (!paidSet.has(y + "|" + months[m])) pendingMonths++;
+          }
+          m++; if (m > 11) { m = 0; y++; }
+        }
+      }
+
+      const pendingCard = pendingMonths > 0
+        ? `<div class="hero-stat hero-stat--pending">
+             <div class="hero-stat-l">⏳ Pending</div>
+             <div class="hero-stat-v">${pendingMonths}</div>
+             <span class="hero-stat-hint">month${pendingMonths > 1 ? "s" : ""} pending</span>
+           </div>`
+        : `<div class="hero-stat hero-stat--allpaid">
+             <div class="hero-stat-l">✅ Status</div>
+             <div class="hero-stat-v">All Caught Up</div>
            </div>`;
-      qs.innerHTML = monthCard + recordsCard;
+
+      qs.innerHTML = monthCard + pendingCard;
     }
   }
 
@@ -2093,7 +2145,7 @@ existing updateUser action. No new Apps Script action needed.
       if (placeholder) {
         var mapContainer = placeholder.parentNode;
         var iframe = document.createElement("iframe");
-        iframe.src = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3576.167950147388!2d82.20519597492734!3d26.321060585267084!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x399a790bd4e8dff3%3A0x93c61c2049ae55f2!2sHanuman%20Mandir!5e0!3m2!1sen!2sin!4v1776331902479!5m2!1sen!2sin";
+        iframe.src = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d849.8414927304128!2d82.2058416695775!3d26.316155998562984!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x399a79fe680ff1d7%3A0x6161b25ff92ace37!2sVishwakarma%20House!5e1!3m2!1sen!2sin!4v1783874146777!5m2!1sen!2sin";
         iframe.width = "100%";
         iframe.height = "100%";
         iframe.style.cssText = "border:0;vertical-align:middle;";
@@ -3100,7 +3152,16 @@ Uses jsPDF already loaded. No server call needed.
   }
 
   // ── L12: Submit feedback
-  function submitFeedback() {
+  // FIX: made async so this ALWAYS returns a Promise — the button in user.html
+  // calls submitFeedback().finally(()=>_btnDone(...)); before this fix, the
+  // early "return;" on validation failure (or missing session) returned
+  // `undefined` instead of a Promise, so .finally() threw and _btnDone()
+  // never ran — that's why the submit button kept spinning forever.
+  // FIX: Name/Mobile/Address are now auto-filled from the logged-in user's
+  // own profile (same lookup pattern used elsewhere, e.g. openEditProfileDirect)
+  // instead of being sent blank — no need to ask a logged-in user to
+  // re-type details we already have.
+  async function submitFeedback() {
     const subject = (document.getElementById("fb_subject") || {}).value || "";
     const message = (document.getElementById("fb_message") || {}).value || "";
     const msgEl = document.getElementById("fbMsg");
@@ -3110,14 +3171,22 @@ Uses jsPDF already loaded. No server call needed.
     }
     const s = _sess();
     if (!s) return;
+
+    // Auto-fill from the logged-in member's own profile — already known, no need to ask again
+    const myProfile   = users.find(u => String(u.UserId) === String(s.userId));
+    const userName    = s.name || myProfile?.Name || "";
+    const userMobile  = myProfile?.Mobile || "";
+    const userAddress = myProfile?.Address || "";
+
     if (msgEl) { msgEl.textContent = "Submitting…"; msgEl.style.color = "var(--ink-soft)"; msgEl.style.display = "block"; }
-    postData({
-      action: "submitFeedback",
-      Name: s.name || "",
-      Mobile: "",
-      Address: "",
-      Message: (subject ? "[" + subject + "] " : "") + message
-    }).then(function (res) {
+    try {
+      const res = await postData({
+        action: "submitFeedback",
+        Name: userName,
+        Mobile: userMobile,
+        Address: userAddress,
+        Message: (subject ? "[" + subject + "] " : "") + message
+      });
       if (res && res.status === "success") {
         if (msgEl) { msgEl.textContent = "✅ Feedback submitted! Thank you."; msgEl.style.color = "#22c55e"; }
         document.getElementById("fb_subject").value = "";
@@ -3126,9 +3195,9 @@ Uses jsPDF already loaded. No server call needed.
       } else {
         if (msgEl) { msgEl.textContent = "❌ Could not submit. Please try again."; msgEl.style.color = "#e74c3c"; }
       }
-    }).catch(function (err) {
+    } catch (err) {
       if (msgEl) { msgEl.textContent = "❌ " + err.message; msgEl.style.color = "#e74c3c"; }
-    });
+    }
   }
 
   // ── M16: Direct edit profile shortcut

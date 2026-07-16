@@ -7,7 +7,8 @@
 //    [ID]  Sequential prefixed IDs for all sheets (USER-00001 etc.)
 //    [ID]  Role-based user IDs: USER-NNNNN / ADMIN-NNNNN
 //    [ID]  Walk-in IDs: WALKIN_YEAR_NNNNN (year-wise reset)
-//    [SEC] Server-side session expiry: 30-min sliding window
+//    [SEC] Server-side session expiry: sliding window — 30 min normally,
+//    24h when "remember me" is checked at login (see SessionTTL column)
 //    [PERF] Shared helpers: _findUserRow, _getSheet, _readSheetRaw
 //    [VAL] Server-side phone (10-digit) + email format validation
 //    [RPT] Yearly summary enhanced: receiptCount, expenseCount,
@@ -29,6 +30,7 @@ const CFG = {
   designation:   "Household Head",
   tagline:       "Jai Shree Ram",
   thankYouMsg:   "Thank you for your generous contribution",
+  websiteUrl:    "https://your-app-url-here.web.app",   // TODO: replace with your live app URL — used as the "Open Website" button in emails
   // ── PUBLIC DISPLAY FIELDS (shown on homepage — change for any temple/institution)
   splashText:    "॥ जय श्री राम ॥",          // Splash screen greeting
   heroText:      "|| श्री हनुमत आश्रम ||",    // Hero section heading
@@ -93,8 +95,9 @@ const SHEETS = {
 //  Call at the top of every write action in doGet().
 //  Returns true if session is valid, false if rejected/expired.
 //
-//  TokenExpiry column in USERS sheet stores ISO timestamp.
-//  On every valid action, expiry slides forward by 30 minutes.
+//  TokenExpiry column in USERS sheet stores a Unix ms timestamp.
+//  On every valid action, expiry slides forward by the window stored in
+//  SessionTTL (30 min normally, 24h if "remember me" was checked at login).
 //  On tab/browser close, clearSessionToken is called via sendBeacon.
 // ════════════════════════════════════════════════════════════════
 function _verifySession(params, actionName) {
@@ -147,7 +150,8 @@ function _verifySession(params, actionName) {
           logAction(userId, "SESSION_TOKEN_MISMATCH", "Action: " + actionName + " — token rejected", "", "", { severity:"WARN", result:"BLOCKED" });
           return false;
         }
-        // [SEC] Check server-side expiry (30-min sliding window)
+        // [SEC] Check server-side expiry (sliding window — length depends on
+        // whether "remember me" was checked at login; see SessionTTL below)
         // [FIX] TokenExpiry stored as Unix ms number — Number() avoids timezone
         // corruption where Sheets auto-converts date strings to UTC Date objects.
         if (expiryCol !== -1) {
@@ -158,9 +162,21 @@ function _verifySession(params, actionName) {
               logAction(userId, "SESSION_EXPIRED", "Action: " + actionName + " — session expired (server-side)", "", "", { severity:"WARN", result:"BLOCKED" });
               return false;
             }
-            // Slide expiry forward 30 min — store as Unix ms number (never a string).
+            // [FIX-24H] Slide expiry forward by whatever window was granted at
+            // login (SessionTTL column) — 30 min normally, or 24h if the user
+            // checked "remember me". Previously this always hardcoded 30 min,
+            // so a remember-me session got silently capped down to 30 min on
+            // the very first subsequent action, regardless of the checkbox.
+            // Falls back to 30 min if the column is missing/blank (older rows
+            // written before this column existed).
+            const ttlCol = headers.indexOf("SessionTTL");
+            let slideMs = 30 * 60 * 1000;
+            if (ttlCol !== -1) {
+              const storedTtl = Number(allData[i][ttlCol]);
+              if (!isNaN(storedTtl) && storedTtl > 0) slideMs = storedTtl;
+            }
             try {
-              const newExpiry = Date.now() + 30 * 60 * 1000;
+              const newExpiry = Date.now() + slideMs;
               sheet.getRange(i + 1, expiryCol + 1).setValue(newExpiry);
               _bustSheetCache(_VS_CACHE_KEY);
             } catch(slErr) { /* non-fatal — don't block the action */ }
@@ -184,12 +200,6 @@ function hashPassword(pwd) {
 // ── Format date for display
 function formatDate() {
   return Utilities.formatDate(new Date(), "GMT+5:30", "dd-MM-yyyy HH:mm:ss");
-}
-
-// ── Generate unique ID (UUID-style) — kept for legacy/fallback use only
-// New code uses generateSheetId() for all sheet IDs.
-function generateId() {
-  return Utilities.getUuid().replace(/-/g, "").substring(0, 16);
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -606,7 +616,7 @@ function autoBackupSystem() {
           MailApp.sendEmail({
             to:       String(admin.Email).trim(),
             subject:  CFG.name + " — BACKUP FAILED " + Utilities.formatDate(new Date(), "GMT+5:30", "dd-MM-yyyy"),
-            htmlBody: "<h3 style='color:red;'>Automatic Backup Failed</h3><p>Error: " + err.message + "</p><p>Please backup manually from Google Sheets → File → Download.</p>"
+            htmlBody: "<div style='max-width:480px;margin:0 auto;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#fff;border-radius:14px;overflow:hidden;border:1px solid #e7ebe9;'><div style='background:#dc2626;padding:16px 24px;'><span style='color:#fff;font-size:15px;font-weight:700;'>Automatic Backup Failed</span></div><div style='padding:20px 24px;'><p style='color:#475569;font-size:13px;margin:0 0 8px;'>Error: " + err.message + "</p><p style='color:#64748b;font-size:12.5px;margin:0;'>Please backup manually from Google Sheets → File → Download.</p></div></div>"
           });
         } catch(mailErr) {}
       });
@@ -642,7 +652,7 @@ function getSheetData(name) {
       // This prevents "11-04-2026" being stored as Nov 4 (MM-DD auto-parse by Sheets).
       if ((h === "PaymentDate" || h === "CreatedAt" || h === "RegisteredAt") && r[i] instanceof Date) {
         o[h] = Utilities.formatDate(r[i], "GMT+5:30", "dd-MM-yyyy HH:mm:ss");
-      } else if (h === "DOB" && r[i] instanceof Date) {
+      } else if ((h === "DOB" || h === "ContribStartDate" || h === "InactiveSince") && r[i] instanceof Date) {
         o[h] = Utilities.formatDate(r[i], "GMT+5:30", "dd-MM-yyyy");
       } else {
         o[h] = r[i];
@@ -788,9 +798,9 @@ function getEmailSettings() {
   const ss    = SpreadsheetApp.getActiveSpreadsheet();
   let sheet   = ss.getSheetByName(SHEETS.SETTINGS);
   // Default OFF — never silently re-enable a toggle the user turned off
-  if (!sheet) return { auto_receipt: false, monthly_report: false };
+  if (!sheet) return { auto_receipt: false, monthly_report: false, admin_monthly_summary: false };
   const data  = sheet.getDataRange().getValues();
-  if (!data || data.length === 0) return { auto_receipt: false, monthly_report: false };
+  if (!data || data.length === 0) return { auto_receipt: false, monthly_report: false, admin_monthly_summary: false };
   // Build map — skip header row where col A is "Key"
   // FIX: Google Sheets stores 1/0 as Number type, coerce to String for reliable comparison
   const map = {};
@@ -800,9 +810,10 @@ function getEmailSettings() {
   });
   return {
     // FIX: === "1" exact string match — "!== 0" was always true for Number 1
-    auto_receipt:   map["auto_receipt"]   === "1",
-    monthly_report: map["monthly_report"] === "1",
-    birthday_email: map["birthday_email"] === "1"
+    auto_receipt:          map["auto_receipt"]          === "1",
+    monthly_report:        map["monthly_report"]        === "1",
+    birthday_email:        map["birthday_email"]        === "1",
+    admin_monthly_summary: map["admin_monthly_summary"] === "1"
     // logo_email_url removed — logo is now auto-loaded from CFG.folderLogo (Drive folder)
   };
 }
@@ -866,6 +877,7 @@ function _doSendMonthlyReports(overrideMonth, overrideYear) {
 
   const users         = getSheetData(SHEETS.USERS);
   const contributions = getSheetData(SHEETS.CONTRIBUTIONS);
+  const types          = getSheetData(SHEETS.TYPES);
 
   const activeMembers = users.filter(u =>
     String(u.Role||"").toLowerCase() !== "admin" &&
@@ -894,16 +906,23 @@ function _doSendMonthlyReports(overrideMonth, overrideYear) {
       String(c.Year) === year
     );
 
-    // ✅ FIX 1: was "retrun" (typo) — skip members who already contributed
-    if (myContribs.length > 0) return;
-
     // [FIX-5] Removed non-atomic canSendEmail() pre-check here.
     // canSendEmail() is a read-only check with no lock — it could return true
     // for many members in the loop even when quota is about to be exhausted,
     // causing the queue to be overfilled. tryConsumeEmailQuota() in the send
     // loop below is atomic and is the single source of truth for quota.
+
+    if (myContribs.length > 0) {
+      // Member already contributed this month — send a Monthly Summary
+      // of everything they gave, instead of a reminder.
+      const totalAmt = myContribs.reduce((sum, c) => sum + Number(c.Amount || 0), 0);
+      const summaryHtml = _buildMonthlyReceiptEmail(member, myContribs, types, month, year, totalAmt);
+      emailQueue.push({ to: String(member.Email).trim(), htmlBody: summaryHtml, name: member.Name, kind: "summary" });
+      return;
+    }
+
     let htmlBody = _buildReminderEmail(member, month, year);
-    emailQueue.push({ to: String(member.Email).trim(), htmlBody: htmlBody, name: member.Name });
+    emailQueue.push({ to: String(member.Email).trim(), htmlBody: htmlBody, name: member.Name, kind: "reminder" });
   });
 
   emailQueue.forEach(function(item) {
@@ -911,8 +930,9 @@ function _doSendMonthlyReports(overrideMonth, overrideYear) {
       if (!tryConsumeEmailQuota()) { skipped++; return; }
       MailApp.sendEmail({
         to:       item.to,
-        // ✅ FIX 2: subject now correctly says "Contribution Reminder"
-        subject:  CFG.name + " — Gentle Reminder: " + month + " " + year + " Contribution Pending",
+        subject:  item.kind === "summary"
+                    ? CFG.name + " — Your " + month + " " + year + " Contribution Summary"
+                    : CFG.name + " — Final Reminder: " + month + " " + year + " Contribution Still Pending",
         htmlBody: item.htmlBody
       });
       sent++;
@@ -923,9 +943,382 @@ function _doSendMonthlyReports(overrideMonth, overrideYear) {
     }
   });
 
-  logAction("System", "Monthly Reminder Sent", month + " " + year + " — sent:" + sent + ", skipped:" + skipped);
+  logAction("System", "Monthly Report Sent", month + " " + year + " — sent:" + sent + ", skipped:" + skipped);
   const quota = getEmailQuotaStatus();
   return { status: "ok", sent: sent, skipped: skipped, quotaRemaining: quota.remaining };
+}
+
+// ════════════════════════════════════════════════════════════════
+//  #10 — ADMIN MONTHLY SUMMARY (who paid, who didn't, PDF attached)
+//  Set up a Time-based trigger: Last day of month → sendAdminMonthlySummary
+//  Sends ONE email per active admin with a paid/unpaid table + PDF.
+//  Multiple entries by the same member in a month are merged into ONE
+//  total (same reduce() pattern as _doSendMonthlyReports).
+// ════════════════════════════════════════════════════════════════
+function sendAdminMonthlySummary(overrideMonth, overrideYear) {
+  // Same guard as sendMonthlyEndReports — ignore the trigger event object
+  // Apps Script auto-passes when fired by a Time-based trigger.
+  var safeMonth = (typeof overrideMonth === "string" && overrideMonth.trim()) ? overrideMonth.trim() : null;
+  var safeYear  = (typeof overrideYear  === "string" && overrideYear.trim())  ? overrideYear.trim()
+                : (typeof overrideYear  === "number")                         ? String(overrideYear)
+                : null;
+
+  const settings = getEmailSettings();
+  if (!settings.admin_monthly_summary) {
+    logAction("System", "ADMIN_SUMMARY_SKIPPED", "Month: " + (safeMonth||"auto") + " Year: " + (safeYear||"auto"), "admin_monthly_summary toggle is OFF", "", { severity:"INFO", result:"BLOCKED" });
+    return { status: "ok", sent: 0, message: "Disabled" };
+  }
+  return _doSendAdminSummary(safeMonth, safeYear);
+}
+
+// Internal — also called by triggerAdminSummary (manual admin-panel button)
+function _doSendAdminSummary(overrideMonth, overrideYear, withPdf) {
+  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const now    = new Date();
+  const month  = overrideMonth || MONTHS[now.getMonth()];
+  const year   = String(overrideYear || now.getFullYear());
+  const attachPdf = withPdf !== false; // default true when called from the automatic trigger (no 3rd arg)
+
+  const data = _buildAdminSummaryData(month, year);
+
+  const users  = getSheetData(SHEETS.USERS);
+  const admins = users.filter(u =>
+    String(u.Role||"").toLowerCase() === "admin" &&
+    String(u.Email||"").trim() !== "" &&
+    String(u.Status||"Active").toLowerCase() === "active"
+  );
+
+  if (admins.length === 0) {
+    logAction("System", "ADMIN_SUMMARY_NO_ADMIN", month + " " + year, "No active admin with email found", "", { severity:"WARN", result:"BLOCKED" });
+    return { status: "error", message: "No active admin with an email address found." };
+  }
+
+  let pdfBlob = null;
+  if (attachPdf) {
+    try {
+      pdfBlob = _buildAdminSummaryPdf(data);
+    } catch (e) {
+      // Never fail the whole job just because PDF generation failed — send email without it.
+      logAction("System", "ADMIN_SUMMARY_PDF_ERROR", month + " " + year, e.message, "", { severity:"WARN", result:"FAILURE", error:e });
+    }
+  }
+
+  const htmlBody = _buildAdminSummaryEmail(data);
+  let sent = 0, skipped = 0;
+
+  admins.forEach(admin => {
+    try {
+      if (!tryConsumeEmailQuota()) { skipped++; return; }
+      const mailOpts = {
+        to:       String(admin.Email).trim(),
+        subject:  CFG.name + " — " + month + " " + year + " Contribution Summary (Admin)",
+        htmlBody: htmlBody
+      };
+      if (pdfBlob) mailOpts.attachments = [pdfBlob];
+      MailApp.sendEmail(mailOpts);
+      sent++;
+      Utilities.sleep(300);
+    } catch(e) {
+      logAction("System", "ADMIN_SUMMARY_SEND_ERROR", "To: " + admin.Email, e.message, "", { severity:"WARN", result:"FAILURE", error:e });
+      skipped++;
+    }
+  });
+
+  logAction("System", "Admin Monthly Summary Sent", month + " " + year + " — sent:" + sent + ", skipped:" + skipped + ", paid:" + data.paidList.length + ", unpaid:" + data.unpaidList.length);
+  const quota = getEmailQuotaStatus();
+  return {
+    status: "ok", sent: sent, skipped: skipped,
+    paidCount: data.paidList.length, unpaidCount: data.unpaidList.length,
+    walkinCount: data.walkinList.length,
+    totalCollected: data.grandTotal, quotaRemaining: quota.remaining
+  };
+}
+
+// ── Build paid/unpaid data — merges multiple entries per member into ONE total row
+function _buildAdminSummaryData(month, year) {
+  const users         = getSheetData(SHEETS.USERS);
+  const contributions = getSheetData(SHEETS.CONTRIBUTIONS);
+
+  // Same fix as _doSendMonthlyReports: ForMonth may come back as a Date object from Sheets.
+  function _normalizeMonth(val) {
+    if (val instanceof Date) return Utilities.formatDate(val, "GMT+5:30", "MMMM");
+    return String(val || "").trim();
+  }
+
+  // ✅ [FIX] Strict "active" match — was `!== "inactive"`, which also counted
+  // Pending/Rejected/Suspended members as if they should be chased for payment.
+  // Only fully-approved, active members belong in a paid/not-paid list.
+  const activeMembers = users.filter(u =>
+    String(u.Role||"").toLowerCase() !== "admin" &&
+    String(u.Status||"").toLowerCase() === "active"
+  );
+
+  const paidList = [];
+  const unpaidList = [];
+  let totalCollected = 0;
+
+  activeMembers.forEach(member => {
+    const myContribs = contributions.filter(c =>
+      String(c.UserId) === String(member.UserId) &&
+      _normalizeMonth(c.ForMonth) === month &&
+      String(c.Year) === year
+    );
+    if (myContribs.length > 0) {
+      // ✅ Multiple entries this month → summed into ONE total, one row.
+      const totalAmt = myContribs.reduce((sum, c) => sum + Number(c.Amount || 0), 0);
+      totalCollected += totalAmt;
+      paidList.push({ name: member.Name, mobile: member.Mobile, amount: totalAmt, entries: myContribs.length });
+    } else {
+      unpaidList.push({ name: member.Name, mobile: member.Mobile });
+    }
+  });
+
+  paidList.sort((a, b) => b.amount - a.amount); // highest contributor first
+
+  // ── Walk-in contributions (no USERS row — donor's name lives in the Note field
+  // as "Walk-in: <name> | <phone>"). These aren't tracked as "members" so there's
+  // no stable ID to merge repeat visits by the same person — each entry is listed
+  // separately rather than risk merging two different people who share a name.
+  const walkinList = [];
+  let walkinTotal = 0;
+  contributions.forEach(c => {
+    if (!c.UserId || String(c.UserId).indexOf("WALKIN_") !== 0) return;
+    if (_normalizeMonth(c.ForMonth) !== month || String(c.Year) !== year) return;
+    const noteStr   = String(c.Note || "");
+    const nameMatch = noteStr.match(/Walk-in:\s*([^|]+)/);
+    const donorName = nameMatch ? nameMatch[1].trim() : "Walk-in Donor";
+    const amt       = Number(c.Amount || 0);
+    walkinTotal += amt;
+    walkinList.push({ name: donorName, amount: amt, receiptId: c.ReceiptID || "" });
+  });
+  walkinList.sort((a, b) => b.amount - a.amount);
+
+  return {
+    month: month, year: year,
+    paidList: paidList, unpaidList: unpaidList, walkinList: walkinList,
+    totalCollected: totalCollected,       // from registered members only (unchanged meaning)
+    walkinTotal: walkinTotal,
+    grandTotal: totalCollected + walkinTotal
+  };
+}
+
+// ── Build the PDF via direct HTML→PDF blob conversion.
+//    [FIX] Previous version used DocumentApp — a service never called elsewhere in this
+//    project, so its first run needed a NEW OAuth scope the deployment wasn't authorized
+//    for. That threw silently (caught by the try/catch in _doSendAdminSummary) and the
+//    email went out with no attachment. Utilities/MailApp blob conversion below uses only
+//    scopes this project already has authorized — no re-auth needed, no temp Drive file
+//    to create/trash either.
+function _buildAdminSummaryPdf(data) {
+  const html = _buildAdminSummaryPdfHtml(data);
+  return Utilities.newBlob(html, "text/html", "temp.html")
+           .getAs("application/pdf")
+           .setName(CFG.name + "_" + data.month + "_" + data.year + "_Summary.pdf");
+}
+
+function _buildAdminSummaryPdfHtml(data) {
+  function esc(s) { return _htmlEscape(String(s || "")); }
+  const thPaid   = "padding:8px 14px;border:1px solid #bbf7d0;text-align:left;background:#dcfce7;color:#166534;";
+  const thUnpaid = "padding:8px 14px;border:1px solid #fecaca;text-align:left;background:#fee2e2;color:#991b1b;";
+  const thWalkin = "padding:8px 14px;border:1px solid #fde68a;text-align:left;background:#fef3c7;color:#92400e;";
+  const tdPaid   = "padding:8px 14px;border:1px solid #bbf7d0;background:#f0fdf4;";
+  const tdUnpaid = "padding:8px 14px;border:1px solid #fecaca;background:#fef2f2;";
+  const tdWalkin = "padding:8px 14px;border:1px solid #fde68a;background:#fffbeb;";
+  const numCol   = "width:28px;text-align:center;color:#94a3b8;font-weight:600;";
+  const walkinList = data.walkinList || [];
+
+  // ── Each section is skipped entirely (no heading, no table) when its list is empty —
+  // rather than printing a placeholder row like "— none —".
+  let sections = "";
+
+  if (data.paidList.length > 0) {
+    const paidRows = data.paidList.map((m, i) =>
+      "<tr><td style='" + tdPaid + numCol + "'>" + (i + 1) + ".</td>" +
+      "<td style='" + tdPaid + "'>" + esc(m.name) + "</td>" +
+      "<td style='" + tdPaid + "text-align:right;'>" + CFG.currencyText + " " + m.amount + "</td>" +
+      "<td style='" + tdPaid + "text-align:center;'>" + (m.entries > 1 ? m.entries : "—") + "</td></tr>"
+    ).join("");
+    sections += "<h3 style='color:#166534;margin-bottom:10px;'>✅ Paid</h3>" +
+      "<table style='border-collapse:collapse;width:100%;margin-bottom:6px;'>" +
+        "<tr><th style='" + thPaid + numCol + "'>#</th><th style='" + thPaid + "'>Name</th><th style='" + thPaid + "text-align:right;'>Amount</th><th style='" + thPaid + "text-align:center;'>Entries</th></tr>" +
+        paidRows +
+      "</table>";
+  }
+
+  if (walkinList.length > 0) {
+    const walkinRows = walkinList.map((m, i) =>
+      "<tr><td style='" + tdWalkin + numCol + "'>" + (i + 1) + ".</td>" +
+      "<td style='" + tdWalkin + "'>" + esc(m.name) + "</td>" +
+      "<td style='" + tdWalkin + "text-align:right;'>" + CFG.currencyText + " " + m.amount + "</td></tr>"
+    ).join("");
+    sections += "<h3 style='color:#92400e;margin-top:20px;margin-bottom:10px;'>🚶 Walk-in Contributions</h3>" +
+      "<table style='border-collapse:collapse;width:100%;margin-bottom:6px;'>" +
+        "<tr><th style='" + thWalkin + numCol + "'>#</th><th style='" + thWalkin + "'>Name</th><th style='" + thWalkin + "text-align:right;'>Amount</th></tr>" +
+        walkinRows +
+      "</table>";
+  }
+
+  if (data.unpaidList.length > 0) {
+    const unpaidRows = data.unpaidList.map((m, i) =>
+      "<tr><td style='" + tdUnpaid + numCol + "'>" + (i + 1) + ".</td>" +
+      "<td style='" + tdUnpaid + "font-weight:600;'>" + esc(m.name) + "</td></tr>"
+    ).join("");
+    sections += "<h3 style='color:#991b1b;margin-top:20px;margin-bottom:10px;'>⚠️ Not Yet Paid</h3>" +
+      "<table style='border-collapse:collapse;width:100%;margin-bottom:6px;'>" +
+        "<tr><th style='" + thUnpaid + numCol + "'>#</th><th style='" + thUnpaid + "'>Name</th></tr>" +
+        unpaidRows +
+      "</table>";
+  }
+
+  // [NEW] System-generated footer note — printed at the bottom of the PDF page.
+  const footerNote =
+    "<p style='margin-top:28px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:10.5px;color:#94a3b8;text-align:center;'>" +
+      "This is a system-generated document from " + esc(CFG.name) + ". No signature is required." +
+    "</p>";
+
+  return "<html><body style='font-family:Arial,sans-serif;color:#1e293b;font-size:13px;padding:18px 22px;'>" +
+    "<h2 style='margin-bottom:2px;'>" + esc(CFG.name) + "</h2>" +
+    "<p style='color:#64748b;margin-top:0;'>" + esc(data.month) + " " + esc(data.year) + " — Contribution Summary</p>" +
+    "<p><strong>Members collected:</strong> " + CFG.currencyText + " " + data.totalCollected +
+      " &nbsp;|&nbsp; <strong>Walk-in collected:</strong> " + CFG.currencyText + " " + (data.walkinTotal||0) + "</p>" +
+    "<p style='font-size:15px;'><strong>Grand total: " + CFG.currencyText + " " + (data.grandTotal != null ? data.grandTotal : data.totalCollected) + "</strong></p>" +
+    "<p>Paid: " + data.paidList.length + " &nbsp;|&nbsp; Not yet paid: " + data.unpaidList.length +
+      " &nbsp;|&nbsp; Walk-in entries: " + walkinList.length + "</p>" +
+    sections +
+    footerNote +
+    "</body></html>";
+}
+
+// ── Plain-text version, ready to select-all + copy-paste into WhatsApp/group chat.
+//    Email HTML can't run a working "Copy" button in most clients (Gmail strips onclick),
+//    so a pre-formatted block the admin can manually select is the reliable fallback —
+//    it's also shown even when the PDF attaches fine, since forwarding text is often faster.
+function _buildAdminSummaryPlainText(data) {
+  const walkinList = data.walkinList || [];
+  const lines = [];
+  lines.push(CFG.symbol + " " + CFG.name);
+  lines.push("📍 " + CFG.location);
+  lines.push("━━━━━━━━━━━━━━━━━━━━");
+  lines.push("📋 ADMIN MONTHLY SUMMARY");
+  lines.push("📅 " + data.month + " " + data.year);
+
+  if (data.paidList.length > 0) {
+    lines.push("");
+    lines.push("✅ PAID (" + data.paidList.length + ")");
+    data.paidList.forEach((m, i) => {
+      lines.push((i + 1) + ". " + m.name + " — " + CFG.currencyText + " " + m.amount + (m.entries > 1 ? " (" + m.entries + " entries)" : ""));
+    });
+  }
+
+  if (walkinList.length > 0) {
+    lines.push("");
+    lines.push("🚶 WALK-IN (" + walkinList.length + ")");
+    walkinList.forEach((m, i) => {
+      lines.push((i + 1) + ". " + m.name + " — " + CFG.currencyText + " " + m.amount);
+    });
+  }
+
+  if (data.unpaidList.length > 0) {
+    lines.push("");
+    lines.push("⚠️ NOT PAID (" + data.unpaidList.length + ")");
+    data.unpaidList.forEach((m, i) => {
+      lines.push((i + 1) + ". " + m.name);
+    });
+  }
+
+  lines.push("");
+  lines.push("💰 Members Collected: " + CFG.currencyText + " " + data.totalCollected);
+  lines.push("💰 Walk-in Collected: " + CFG.currencyText + " " + (data.walkinTotal||0));
+  lines.push("💰 Grand Total: " + CFG.currencyText + " " + (data.grandTotal != null ? data.grandTotal : data.totalCollected));
+  lines.push("━━━━━━━━━━━━━━━━━━━━");
+  lines.push(CFG.tagline);
+  return lines.join("\n");
+}
+
+// Numbered row for admin summary tables — dedicated to this feature so the shared
+// _emailRow() (used by receipts etc.) stays untouched. Adds a "#" column and real
+// left/right padding so content never sits flush against the table edge.
+function _adminSummaryRow(num, name, value, textColor) {
+  const c = textColor || "#1e293b";
+  const valueCell = (value !== undefined)
+    ? `<td style="padding:10px 14px;color:${c};font-size:13px;font-weight:700;text-align:right;border-bottom:1px solid rgba(0,0,0,0.06);">${_htmlEscape(value)}</td>`
+    : `<td style="padding:10px 14px;border-bottom:1px solid rgba(0,0,0,0.06);"></td>`;
+  return `<tr>
+    <td style="padding:10px 4px 10px 14px;color:${c};opacity:0.55;font-size:12px;font-weight:700;text-align:center;width:26px;border-bottom:1px solid rgba(0,0,0,0.06);">${num}.</td>
+    <td style="padding:10px 8px;color:${c};font-size:13px;font-weight:600;border-bottom:1px solid rgba(0,0,0,0.06);">${_htmlEscape(name)}</td>
+    ${valueCell}
+  </tr>`;
+}
+
+// ── HTML email body — Paid → Walk-in → Not-Paid, each section skipped entirely
+//    (no heading, no empty table) when its list has zero entries. Every row is
+//    numbered, with real horizontal padding so text never touches the card edge.
+function _buildAdminSummaryEmail(data) {
+  const walkinList = data.walkinList || [];
+
+  let sectionsHtml = "";
+
+  if (data.paidList.length > 0) {
+    const paidRows = data.paidList.map((m, i) =>
+      _adminSummaryRow(i + 1, m.name, CFG.currencyText + " " + m.amount + (m.entries > 1 ? " (" + m.entries + " entries)" : ""), "#166534")
+    ).join("");
+    sectionsHtml += `
+    <p style="color:#166534;font-size:13px;font-weight:600;margin:0 0 8px;">✅ Paid</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;overflow:hidden;">${paidRows}</table>`;
+  }
+
+  if (walkinList.length > 0) {
+    const walkinRows = walkinList.map((m, i) =>
+      _adminSummaryRow(i + 1, m.name, CFG.currencyText + " " + m.amount, "#92400e")
+    ).join("");
+    sectionsHtml += `
+    <p style="color:#92400e;font-size:13px;font-weight:600;margin:20px 0 8px;">🚶 Walk-in Contributions</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;overflow:hidden;">${walkinRows}</table>`;
+  }
+
+  if (data.unpaidList.length > 0) {
+    const unpaidRows = data.unpaidList.map((m, i) =>
+      _adminSummaryRow(i + 1, m.name, undefined, "#991b1b")
+    ).join("");
+    sectionsHtml += `
+    <p style="color:#991b1b;font-size:13px;font-weight:700;margin:20px 0 8px;">⚠️ Not Yet Paid</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:8px;overflow:hidden;">${unpaidRows}</table>`;
+  }
+
+  const plainText = _buildAdminSummaryPlainText(data);
+  const preId = "admsum_copy_text";
+
+  const body = `
+  ${_emHeader("ADMIN MONTHLY SUMMARY")}
+  <tr><td style="padding:24px 28px;">
+    <p style="color:${_EM.ink};font-size:14px;margin:0 0 12px;">
+      ${data.month} ${data.year} contribution status — ${data.paidList.length} paid, ${data.unpaidList.length} pending, ${walkinList.length} walk-in.
+    </p>
+    <p style="color:${_EM.ink};font-size:13px;margin:0 0 4px;">
+      Members: ${CFG.currencyText} ${data.totalCollected} &nbsp;+&nbsp; Walk-in: ${CFG.currencyText} ${data.walkinTotal||0}
+    </p>
+    <p style="color:${_EM.ink};font-size:15px;font-weight:600;margin:0 0 16px;">
+      Grand total: ${CFG.currencyText} ${data.grandTotal != null ? data.grandTotal : data.totalCollected}
+    </p>
+    ${sectionsHtml}
+
+    <p style="color:${_EM.sub};font-size:12px;margin:18px 0 6px;">
+      Ready-to-forward text:
+      <!-- Attempts a real click-to-copy — works in mail clients that don't strip
+           inline scripts. Gmail/Outlook web strip <script>/onclick, so this button
+           silently does nothing there; the block below is always select-and-copy-able
+           regardless, so nothing is lost if the button doesn't fire. -->
+      <button type="button" onclick="try{var t=document.getElementById('${preId}').innerText;navigator.clipboard.writeText(t);this.innerText='Copied ✓';}catch(e){}" style="border:1px solid #c4b5fd;background:#f5f3ff;color:#5b21b6;font-size:11px;padding:3px 10px;border-radius:6px;cursor:pointer;margin-left:4px;">Copy</button>
+    </p>
+    <pre id="${preId}" style="white-space:pre-wrap;font-family:'Courier New',monospace;font-size:11.5px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;color:#334155;margin:0;">${_htmlEscape(plainText)}</pre>
+
+    <p style="color:${_EM.sub};font-size:12px;margin:16px 0 0;">
+      A PDF copy of this table is also attached — forward either to the group if needed.
+
+    </p>
+  </td></tr>
+  ${_emFooter()}`;
+  return _emShell(560, body);
 }
 
 // ── Logo URL helper — used by ALL email types
@@ -971,11 +1364,98 @@ function _getLogoUrl() {
 function _logoHtml() {
   const url = _getLogoUrl();
   if (url) {
-    return `<img src="${url}" alt="${CFG.name}" width="60" height="60"
-              style="width:60px;height:60px;border-radius:50%;border:3px solid rgba(15,118,110,0.7);
-                     object-fit:cover;display:block;margin:0 auto 10px;">`;
+    return `<img src="${url}" alt="${CFG.name}" width="52" height="52"
+              style="width:52px;height:52px;border-radius:50%;border:2px solid rgba(255,255,255,0.85);
+                     object-fit:cover;display:block;margin:0 auto 12px;">`;
   }
-  return `<div style="font-size:36px;margin-bottom:10px;">${CFG.symbol||"🕉️"}</div>`;
+  return `<div style="width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,0.14);
+              display:flex;align-items:center;justify-content:center;margin:0 auto 12px;
+              font-size:24px;line-height:52px;text-align:center;">${CFG.symbol||"🕉️"}</div>`;
+}
+
+// ── Shared design tokens for a calmer, lighter email look ──
+const _EM = {
+  bg:      "#eef2f1",                 // soft neutral page background (was a loud 4-stop gradient)
+  brand:   "#0F766E",                 // single accent colour, used consistently
+  brandDk: "#0B5B54",
+  ink:     "#1e293b",
+  sub:     "#64748b",
+  faint:   "#94a3b8",
+  line:    "#e7ebe9",
+  panel:   "#f6f9f8",
+  card:    "#ffffff",
+  radius:  "14px"
+};
+
+// Shared header block — solid brand colour, no gradients, one badge.
+function _emHeader(badgeText, badgeColor, bgColor) {
+  const badge = badgeText
+    ? `<span style="display:inline-block;margin-top:14px;background:${badgeColor||"rgba(255,255,255,0.16)"};
+         color:#fff;padding:5px 16px;border-radius:20px;font-size:11px;font-weight:600;
+         letter-spacing:0.4px;">${badgeText}</span>`
+    : "";
+  return `<tr><td style="background:${bgColor||_EM.brand};padding:30px 32px 26px;text-align:center;">
+    ${_logoHtml()}
+    <div style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:0.3px;">${CFG.name.toUpperCase()}</div>
+    <div style="color:rgba(255,255,255,0.72);font-size:12px;margin-top:3px;">${CFG.location}</div>
+    ${badge}
+  </td></tr>`;
+}
+
+// Shared footer block — quiet, consistent across every email.
+function _emFooter(noteText) {
+  return `<tr><td style="background:${_EM.panel};padding:16px 32px;text-align:center;border-top:1px solid ${_EM.line};">
+    <div style="color:${_EM.sub};font-size:11px;font-weight:600;">${CFG.name}</div>
+    <div style="color:${_EM.faint};font-size:10.5px;margin-top:2px;">${CFG.address}</div>
+    ${noteText ? `<div style="color:${_EM.faint};font-size:10px;margin-top:8px;">${noteText}</div>` : ""}
+  </td></tr>`;
+}
+
+// Lighter-weight header/footer pair — used for reminder & birthday emails where
+// a quieter, more personal tone reads better than the full branded badge header.
+function _emHeadSimple(label) {
+  return `<tr><td style="background:${_EM.brand};padding:26px 32px 22px;text-align:center;">
+    ${_logoHtml()}
+    <div style="color:#ffffff;font-size:16px;font-weight:700;">${CFG.name}</div>
+    <div style="color:rgba(255,255,255,0.72);font-size:11.5px;margin-top:2px;">${CFG.location}</div>
+    ${label ? `<span style="display:inline-block;margin-top:14px;background:rgba(255,255,255,0.16);
+         color:#fff;padding:5px 16px;border-radius:20px;font-size:11px;font-weight:600;
+         letter-spacing:0.4px;">✓ ${label}</span>` : ""}
+  </td></tr>`;
+}
+function _emFooterSimple(noteText) {
+  return `<tr><td style="background:#fafafa;padding:14px 32px;text-align:center;border-top:1px solid #eef0ef;">
+    <div style="color:${_EM.faint};font-size:10.5px;">${CFG.name} &nbsp;|&nbsp; ${CFG.address}</div>
+    ${noteText ? `<div style="color:#c1c5c3;font-size:10px;margin-top:6px;">${noteText}</div>` : ""}
+  </td></tr>`;
+}
+
+// Button link — used on Approval / Admin-Added emails to open the app/website directly.
+function _emButton(text, url) {
+  if (!url) return "";
+  return `<tr><td style="padding:4px 32px 22px;text-align:center;">
+    <a href="${url}" target="_blank"
+       style="display:inline-block;background:${_EM.brand};color:#ffffff;text-decoration:none;
+              font-size:13px;font-weight:700;padding:11px 28px;border-radius:8px;">
+      ${text} →
+    </a>
+  </td></tr>`;
+}
+
+// Shared outer shell — one place controls page background, card width/shadow.
+function _emShell(innerWidth, bodyHtml) {
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/></head>
+<body style="margin:0;padding:0;background:${_EM.bg};font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:${_EM.bg};padding:36px 0;">
+<tr><td align="center">
+<table width="${innerWidth}" cellpadding="0" cellspacing="0" style="max-width:${innerWidth}px;width:92%;
+  background:${_EM.card};border-radius:${_EM.radius};overflow:hidden;
+  box-shadow:0 1px 3px rgba(15,23,42,0.06),0 8px 24px rgba(15,23,42,0.06);">
+  ${bodyHtml}
+</table>
+</td></tr></table>
+</body></html>`;
 }
 
 // ── Monthly receipt summary email (member contributed)
@@ -996,165 +1476,66 @@ function _buildMonthlyReceiptEmail(member, contribs, types, month, year, totalAm
       CFG.currencyText + " " + Number(c.Amount||0).toLocaleString("en-IN") + " · " + (c.PaymentMode||"") + " · " + payDateStr);
   }).join("");
 
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
-<body style="margin:0;padding:0;background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:30px 0;">
-<tr><td align="center">
-<table width="580" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.10);max-width:580px;width:100%;">
-  <tr><td style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:28px 32px 22px;text-align:center;border-top:4px solid #0F766E;">
-    ${_logoHtml()}
-    <div style="color:#0F766E;font-size:20px;font-weight:700;letter-spacing:1px;">${CFG.name.toUpperCase()}</div>
-    <div style="color:#94a3b8;font-size:12px;margin-top:4px;">${CFG.location}</div>
-    <div style="margin-top:12px;">
-      <span style="background:#22c55e;color:#fff;padding:4px 16px;border-radius:20px;font-size:11px;font-weight:700;">✓ MONTHLY CONTRIBUTION SUMMARY</span>
+  const body = `
+  ${_emHeader("✓ MONTHLY SUMMARY")}
+  <tr><td style="padding:10px 32px 0;text-align:center;">
+    <div style="color:${_EM.sub};font-size:12px;margin-top:14px;">${month} ${year} — Personal summary for
+      <strong style="color:${_EM.ink};">${member.Name}</strong>
     </div>
   </td></tr>
-  <tr><td style="background:linear-gradient(90deg,#F0FDFA,#99F6E4,#F0FDFA);padding:12px 32px;text-align:center;">
-    <span style="color:#134E4A;font-size:12px;font-weight:600;">📅 ${month} ${year} — Personal Summary for </span>
-    <span style="color:#115E59;font-size:14px;font-weight:700;">${member.Name}</span>
+  <tr><td style="padding:18px 32px 6px;text-align:center;">
+    <div style="color:${_EM.faint};font-size:11px;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">Total Contributed</div>
+    <div style="color:#15803d;font-size:36px;font-weight:700;">${amountFmt}</div>
+    <div style="color:${_EM.sub};font-size:12px;margin-top:2px;">in ${month} ${year}</div>
   </td></tr>
-  <tr><td style="padding:24px 32px 16px;text-align:center;border-bottom:1px dashed #e2e8f0;background:#fafffe;">
-    <div style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">Total Contributed</div>
-    <div style="color:#15803d;font-size:38px;font-weight:800;">${amountFmt}</div>
-    <div style="color:#16a34a;font-size:12px;margin-top:4px;">in ${month} ${year}</div>
-  </td></tr>
-  <tr><td style="padding:16px 32px;">
-    <div style="font-weight:700;color:#334155;font-size:13px;margin-bottom:8px;">📋 Contribution Details</div>
+  <tr><td style="padding:20px 32px 8px;">
+    <div style="font-weight:700;color:${_EM.ink};font-size:13px;margin-bottom:8px;">Contribution Details</div>
     <table width="100%" cellpadding="0" cellspacing="0">${rowsHtml}</table>
   </td></tr>
-  <tr><td style="background:#F0FDFA;padding:18px 32px;text-align:center;border-top:2px solid #99F6E4;">
-    <div style="color:#115E59;font-size:14px;font-weight:700;">🙏 ${CFG.thankYouMsg}</div>
-    <div style="color:#0F766E;font-size:12px;margin-top:4px;font-style:italic;">${CFG.tagline}</div>
+  <tr><td style="padding:8px 32px 22px;text-align:center;">
+    <div style="color:${_EM.brand};font-size:13px;font-weight:600;">🙏 ${CFG.thankYouMsg}</div>
+    <div style="color:${_EM.sub};font-size:11.5px;margin-top:3px;">${CFG.tagline}</div>
   </td></tr>
-  <tr><td style="background:#f8fafc;padding:12px 32px;text-align:center;border-top:1px solid #e2e8f0;">
-    <div style="color:#94a3b8;font-size:10px;">${CFG.name} | ${CFG.address}</div>
-    <div style="color:#cbd5e1;font-size:10px;margin-top:2px;">This email was sent only to you — your data is private and not shared with others.</div>
-  </td></tr>
-</table></td></tr></table></body></html>`;
+  ${_emFooter("This email was sent only to you — your data is private and not shared with others.")}`;
+  return _emShell(580, body);
 }
 
-// ── Monthly reminder email (member did NOT contribute)
+// ── Month-end reminder email (member still did NOT contribute after the mid-month nudge)
 function _buildReminderEmail(member, month, year) {
   var firstName = (member.Name || "Friend").split(" ")[0];
-  return `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-</head>
-<body style="margin:0;padding:0;background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);font-family:Georgia,'Times New Roman',serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:30px 0;">
-<tr><td align="center">
-<table width="580" cellpadding="0" cellspacing="0"
-  style="max-width:580px;width:92%;background:#ffffff;border-radius:20px;overflow:hidden;
-         box-shadow:0 8px 40px rgba(0,0,0,0.12);border:1px solid #99F6E4;">
+  const body = `
+  ${_emHeadSimple("Final Reminder")}
 
-  <!-- ═══ HEADER ═══ -->
-  <tr><td style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);
-                 padding:30px 28px 24px;text-align:center;
-                 border-bottom:3px solid #0F766E;">
-    ${_logoHtml()}
-    <div style="color:#0F766E;font-size:21px;font-weight:700;letter-spacing:1.5px;margin-bottom:3px;">
-      ${CFG.name.toUpperCase()}
-    </div>
-    <div style="color:#94a3b8;font-size:11px;letter-spacing:2px;margin-bottom:14px;">
-      ${CFG.location.toUpperCase()}
-    </div>
-    <span style="display:inline-block;background:linear-gradient(135deg,#0F766E,#115E59);
-                 color:#fff;padding:5px 20px;border-radius:20px;font-size:11px;font-weight:700;
-                 letter-spacing:1px;font-family:Arial,sans-serif;
-                 box-shadow:0 3px 10px rgba(79, 70, 229,0.4);">
-      🙏 GENTLE REMINDER
-    </span>
-  </td></tr>
+  <tr><td style="padding:26px 32px;">
+    <p style="color:${_EM.ink};font-size:14px;margin:0 0 14px;">Dear ${firstName} जी,</p>
 
-  <!-- ═══ DIVIDER STRIP ═══ -->
-  <tr><td style="background:linear-gradient(90deg,#F0FDFA,#99F6E4,#CCFBF1,#99F6E4,#F0FDFA);
-                 padding:9px 28px;text-align:center;">
-    <span style="color:#115E59;font-size:11px;font-weight:600;letter-spacing:2px;font-family:Arial,sans-serif;">
-      ✦ &nbsp; A GENTLE REQUEST FROM HOME &nbsp; ✦
-    </span>
-  </td></tr>
-
-  <!-- ═══ BODY ═══ -->
-  <tr><td style="padding:30px 36px 24px;">
-
-    <!-- Greeting -->
-    <p style="color:#1e293b;font-size:16px;margin:0 0 6px;font-weight:600;">
-      प्रिय (Dear) <span style="color:#115E59;">${firstName}</span> जी,
-    </p>
-    <div style="width:50px;height:2px;background:linear-gradient(90deg,#0F766E,transparent);
-                margin:0 0 18px;border-radius:2px;"></div>
-
-    <!-- Opening line -->
-    <p style="color:#475569;font-size:13.5px;line-height:1.85;margin:0 0 18px;font-family:Arial,sans-serif;">
-      We hope you and your family are keeping well. 🙏<br/>
-      With great respect, we wish to gently bring to your attention that your
-      contribution for <strong style="color:#1e293b;">${month} ${year}</strong>
-      has not yet been recorded in our system.
+    <p style="color:${_EM.sub};font-size:13.5px;line-height:1.85;margin:0 0 16px;">
+      यह इस महीने का last reminder है — आपका contribution
+      <strong style="color:${_EM.ink};">${month} ${year}</strong> के लिए अभी तक हमारे records में नहीं आया है।
     </p>
 
-    <!-- Highlighted pending box -->
-    <div style="background:linear-gradient(135deg,#F0FDFA,#CCFBF1);
-                border:1.5px solid #5EEAD4;border-left:4px solid #0F766E;
-                border-radius:12px;padding:18px 22px;margin:0 0 20px;text-align:center;">
-      <div style="font-size:22px;margin-bottom:6px;">📅</div>
-      <div style="color:#115E59;font-size:14px;font-weight:700;font-family:Arial,sans-serif;margin-bottom:6px;">
-        ${month} ${year} — Contribution Awaited
+    <div style="background:${_EM.panel};border-left:3px solid ${_EM.brand};padding:14px 18px;margin:0 0 18px;">
+      <div style="color:${_EM.ink};font-size:13px;font-weight:600;margin-bottom:4px;">
+        ${month} ${year} — Still Pending
       </div>
-      <div style="color:#0F766E;font-size:12px;line-height:1.7;font-family:Arial,sans-serif;">
-        If you have already made your contribution, kindly coordinate<br/>
-        with the household admin to have it recorded. 🙏
+      <div style="color:${_EM.sub};font-size:12.5px;line-height:1.7;">
+        महीना समाप्त हो चुका है, कृपया जल्द से जल्द अपना contribution पूरा करें। अगर already pay कर दिया है,
+        तो कृपया household admin से coordinate करके इसे record करवा दें।
       </div>
     </div>
 
-    <!-- Warm message -->
-    <div style="background:#f8fafc;border-radius:12px;padding:18px 20px;
-                border:1px solid #e2e8f0;margin-bottom:20px;">
-      <p style="color:#475569;font-size:13px;line-height:1.9;margin:0;font-family:Arial,sans-serif;">
-        Your association with <strong style="color:#1e293b;">${CFG.name}</strong>
-        is a source of great strength for our entire household.
-        Your generosity helps us keep the home running smoothly, cover shared
-        expenses, and take care of the family's needs together. ${CFG.symbol||"🏠"}
-      </p>
-      <p style="color:#475569;font-size:13px;line-height:1.9;margin:12px 0 0;font-family:Arial,sans-serif;">
-        Every contribution — however big or small — makes a real difference
-        for our home, and is received with heartfelt gratitude. 🌸
-      </p>
-    </div>
-
-    <!-- Thank you line -->
-    <p style="color:#115E59;font-size:13px;line-height:1.8;margin:0;
-              font-style:italic;text-align:center;font-family:Arial,sans-serif;">
-      🙏 &nbsp;<em>${CFG.thankYouMsg}</em> &nbsp;🙏
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.8;margin:0 0 18px;">
+      यह contribution हमारे घर के मासिक खर्चों को manage करने के लिए है, and every family member's timely
+      share helps us run things smoothly — आपकी भागीदारी हमेशा गिनी जाती है। 🌸
     </p>
 
+    <p style="color:${_EM.brand};font-size:12.5px;line-height:1.7;margin:0;font-style:italic;text-align:center;">
+      धन्यवाद — Thank you for being part of our home. 🙏
+    </p>
   </td></tr>
 
-  <!-- ═══ FOOTER ═══ -->
-  <tr><td style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);
-                 padding:20px 28px;text-align:center;
-                 border-top:2px solid #0F766E;">
-    <div style="color:#0F766E;font-size:15px;font-weight:700;letter-spacing:0.5px;margin-bottom:4px;">
-      ${CFG.tagline} ${CFG.symbol||"🕉️"}
-    </div>
-    <div style="color:#94a3b8;font-size:11px;font-style:italic;">
-      ${CFG.tagline} 🙏 &nbsp;|&nbsp; ${CFG.name}
-    </div>
-  </td></tr>
-
-  <!-- ═══ DISCLAIMER ═══ -->
-  <tr><td style="background:#f8fafc;padding:10px 28px;text-align:center;
-                 border-top:1px solid #e2e8f0;">
-    <div style="color:#94a3b8;font-size:10px;font-family:Arial,sans-serif;">
-      ${CFG.name} &nbsp;|&nbsp; ${CFG.address}
-    </div>
-    <div style="color:#cbd5e1;font-size:10px;margin-top:2px;font-family:Arial,sans-serif;">
-      This is a private reminder sent only to you. Your information is not shared with others.
-    </div>
-  </td></tr>
-
-</table>
-</td></tr></table>
-</body></html>`;
+  ${_emFooterSimple("This is a private reminder sent only to you.")}`;
+  return _emShell(520, body);
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1174,99 +1555,55 @@ function sendReceiptEmail(toEmail, donorName, receiptId, amount, forMonth, year,
   const modeLabel = paymentMode || "—";
   const amountFmt = CFG.currencyText + " " + Number(amount || 0).toLocaleString("en-IN");
 
-  const htmlBody = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"/></head>
-<body style="margin:0;padding:0;background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);font-family:Poppins,Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:30px 0;">
-<tr><td align="center">
-<table width="580" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.10);max-width:580px;width:100%;">
-
-  <!-- HEADER -->
-  <tr>
-    <td style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:28px 32px 22px;text-align:center;border-top:4px solid #0F766E;">
-      ${_logoHtml()}
-      <div style="color:#0F766E;font-size:20px;font-weight:700;letter-spacing:1px;">${CFG.name.toUpperCase()}</div>
-      <div style="color:#94a3b8;font-size:12px;margin-top:4px;">${CFG.location}</div>
-      <div style="margin-top:12px;">
-        <span style="background:#22c55e;color:#fff;padding:4px 16px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:0.5px;">✓ OFFICIAL CONTRIBUTION RECEIPT</span>
-      </div>
-    </td>
-  </tr>
-
-  <!-- RECEIPT ID BAND -->
-  <tr>
-    <td style="background:#F0FDFA;padding:12px 32px;text-align:center;border-bottom:1px solid #99F6E4;">
-      <span style="color:#115E59;font-size:13px;font-weight:600;">Receipt No: </span>
-      <span style="color:#115E59;font-size:15px;font-weight:700;font-family:monospace;letter-spacing:1px;">${receiptId}</span>
-    </td>
-  </tr>
-
-  <!-- AMOUNT HERO -->
-  <tr>
-    <td style="padding:28px 32px 16px;text-align:center;border-bottom:1px dashed #e2e8f0;">
-      <div style="color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Amount Received</div>
-      <div style="color:#16a34a;font-size:36px;font-weight:700;">${amountFmt}</div>
-      <div style="color:#94a3b8;font-size:12px;margin-top:4px;">Payment Mode: <strong style="color:#334155;">${modeLabel}</strong></div>
-    </td>
-  </tr>
-
-  <!-- DETAILS TABLE -->
-  <tr>
-    <td style="padding:20px 32px;">
-      <table width="100%" cellpadding="0" cellspacing="0">
+  const detailRows = `
         ${_emailRow("Donor Name", donorName || "—")}
         ${_emailRow("For Month", (forMonth || "—") + " " + (year || ""))}
         ${_emailRow("Contribution Type", typeName || "—")}
         ${occasionName && occasionName !== "—" ? _emailRow("Occasion", occasionName) : ""}
         ${note ? _emailRow("Note", note) : ""}
         ${_emailRow("Date Recorded", paymentDate || "—")}
-        ${_emailRow("Receipt ID", receiptId)}
-      </table>
-    </td>
-  </tr>
+        ${_emailRow("Receipt ID", receiptId)}`;
 
-  <!-- SIGNATURE -->
-  <tr>
-    <td style="padding:8px 32px 24px;">
-      <table width="100%" cellpadding="0" cellspacing="0">
-        <tr>
-          <td style="text-align:left;padding-top:16px;border-top:1px solid #e2e8f0;">
-            <div style="color:#334155;font-size:12px;font-weight:700;">${CFG.signatory}</div>
-            <div style="color:#64748b;font-size:11px;">${CFG.designation}</div>
-            <div style="color:#64748b;font-size:11px;">${CFG.name}</div>
-          </td>
-          <td style="text-align:right;padding-top:16px;border-top:1px solid #e2e8f0;">
-            <div style="color:#94a3b8;font-size:11px;">This is a system-generated</div>
-            <div style="color:#94a3b8;font-size:11px;">receipt. No signature required.</div>
-          </td>
-        </tr>
-      </table>
-    </td>
-  </tr>
+  const body = `
+  ${_emHeader("✓ OFFICIAL RECEIPT")}
 
-  <!-- THANK YOU -->
-  <tr>
-    <td style="background:linear-gradient(135deg,#F0FDFA,#CCFBF1);padding:18px 32px;text-align:center;border-top:2px solid #99F6E4;">
-      <div style="color:#115E59;font-size:14px;font-weight:700;">🙏 ${CFG.thankYouMsg}</div>
-      <div style="color:#0F766E;font-size:12px;margin-top:4px;font-style:italic;">${CFG.tagline}</div>
-    </td>
-  </tr>
+  <tr><td style="padding:16px 32px 0;text-align:center;">
+    <span style="color:${_EM.sub};font-size:12px;">Receipt No.</span>
+    <span style="color:${_EM.brand};font-size:14px;font-weight:700;font-family:monospace;letter-spacing:0.5px;"> ${receiptId}</span>
+  </td></tr>
 
-  <!-- FOOTER -->
-  <tr>
-    <td style="background:#f8fafc;padding:14px 32px;text-align:center;border-top:1px solid #e2e8f0;">
-      <div style="color:#94a3b8;font-size:10px;">${CFG.name} | ${CFG.address}</div>
-      <div style="color:#cbd5e1;font-size:10px;margin-top:2px;">System Generated Receipt — This email was sent only to you. Do not reply.</div>
-    </td>
-  </tr>
+  <tr><td style="padding:20px 32px 8px;text-align:center;">
+    <div style="color:${_EM.faint};font-size:11px;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px;">Amount Received</div>
+    <div style="color:#16a34a;font-size:34px;font-weight:700;">${amountFmt}</div>
+    <div style="color:${_EM.sub};font-size:12px;margin-top:2px;">Payment Mode: <strong style="color:${_EM.ink};">${modeLabel}</strong></div>
+  </td></tr>
 
-</table>
-</td></tr>
-</table>
-</body>
-</html>`;
+  <tr><td style="padding:20px 32px 4px;">
+    <table width="100%" cellpadding="0" cellspacing="0">${detailRows}</table>
+  </td></tr>
+
+  <tr><td style="padding:16px 32px 22px;">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td style="text-align:left;padding-top:16px;border-top:1px solid ${_EM.line};">
+        <div style="color:${_EM.ink};font-size:12px;font-weight:700;">${CFG.signatory}</div>
+        <div style="color:${_EM.sub};font-size:11px;">${CFG.designation}</div>
+        <div style="color:${_EM.sub};font-size:11px;">${CFG.name}</div>
+      </td>
+      <td style="text-align:right;padding-top:16px;border-top:1px solid ${_EM.line};">
+        <div style="color:${_EM.faint};font-size:11px;">System-generated receipt.</div>
+        <div style="color:${_EM.faint};font-size:11px;">No signature required.</div>
+      </td>
+    </tr></table>
+  </td></tr>
+
+  <tr><td style="padding:0 32px 22px;text-align:center;">
+    <div style="color:${_EM.brand};font-size:13px;font-weight:600;">🙏 ${CFG.thankYouMsg}</div>
+    <div style="color:${_EM.sub};font-size:11.5px;margin-top:3px;">${CFG.tagline}</div>
+  </td></tr>
+
+  ${_emFooter("System-generated receipt — sent only to you. Please do not reply to this email.")}`;
+
+  const htmlBody = _emShell(580, body);
 
   try {
     MailApp.sendEmail({
@@ -1293,8 +1630,8 @@ function _htmlEscape(str) {
 // Helper: one row in the receipt email table
 function _emailRow(label, value) {
   return `<tr>
-    <td style="padding:8px 0;color:#64748b;font-size:12px;border-bottom:1px solid #f1f5f9;width:45%;">${_htmlEscape(label)}</td>
-    <td style="padding:8px 0;color:#1e293b;font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;text-align:right;">${_htmlEscape(value)}</td>
+    <td style="padding:9px 0;color:#64748b;font-size:12px;border-bottom:1px solid #f1f5f9;width:45%;">${_htmlEscape(label)}</td>
+    <td style="padding:9px 0;color:#1e293b;font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;text-align:right;">${_htmlEscape(value)}</td>
   </tr>`;
 }
 
@@ -1337,6 +1674,7 @@ function doGet(e) {
     // Email blast actions — must require auth to prevent spam abuse
     "triggerMonthlyReport","triggerMonthlyReminder","sendMonthlyReminders","sendBirthdayEmails",
     "sendContribReceiptEmail",
+    "triggerAdminSummary","getAdminSummaryStatus",
     // Mobile number change — requires active session
     "sendMobileChangeOTP","verifyMobileChangeOTP",
     // Audit log write — prevent unauthenticated fake entries
@@ -1441,12 +1779,21 @@ function doGet(e) {
     }
   }
 
-  // ── SET SESSION TOKEN — writes token + TokenExpiry (30-min window) to USERS sheet
-  // [SEC] TokenExpiry is now server-enforced. Every subsequent write action
-  // checks this column and slides it forward by 30 min (see _verifySession).
+  // ── SET SESSION TOKEN — writes token + TokenExpiry to USERS sheet
+  // [SEC] TokenExpiry is server-enforced. Every subsequent write action checks
+  // this column and slides it forward (see _verifySession) by whatever window
+  // was granted here — 30 min normally, or 24h if rememberMe was checked at
+  // login. The granted window itself is stored in the SessionTTL column so
+  // _verifySession's sliding renewal uses the SAME duration every time, rather
+  // than silently capping a "remember me" session back down to 30 min.
   else if (action === "setSessionToken") {
     const userId = sanitize(e.parameter.userId, 30);
     const token  = sanitize(e.parameter.token,  64);
+    // [FIX-24H] rememberMe wasn't previously read at all — every login got a
+    // 30-min server session regardless of the "Remember me for 24 hours"
+    // checkbox, so audit logs showed SESSION_EXPIRED at 30 min even when the
+    // box was checked.
+    const rememberMe = sanitize(e.parameter.rememberMe, 5) === "1";
     if (!userId || !token) {
       result = { status: "error", message: "Missing userId or token" };
     } else {
@@ -1459,22 +1806,31 @@ function doGet(e) {
       // Ensure TokenExpiry column exists
       let expiryCol = headers.indexOf("TokenExpiry");
       if (expiryCol === -1) { expiryCol = headers.length + (tokenCol === headers.length ? 1 : 0); sheet.getRange(1, expiryCol + 1).setValue("TokenExpiry"); }
+      // Ensure SessionTTL column exists — stores the granted sliding-window
+      // length (ms) so _verifySession renews by the same amount each time.
+      let ttlCol = headers.indexOf("SessionTTL");
+      if (ttlCol === -1) {
+        ttlCol = Math.max(tokenCol, expiryCol) + 1;
+        sheet.getRange(1, ttlCol + 1).setValue("SessionTTL");
+      }
       let found = false;
       // [FIX] Store TokenExpiry as Unix ms number — NOT a formatted date string.
       // Sheets auto-converts date strings to UTC Date objects on read-back,
       // making IST tokens appear 5.5h expired instantly.
-      const expiryTime = Date.now() + 30 * 60 * 1000;
+      const sessionTtlMs  = rememberMe ? 24 * 60 * 60 * 1000 : 30 * 60 * 1000;
+      const expiryTime    = Date.now() + sessionTtlMs;
       const expiryDisplay = Utilities.formatDate(new Date(expiryTime), "GMT+5:30", "dd-MM-yyyy HH:mm:ss"); // audit log only
       for (let i = 1; i < data.length; i++) {
         if (String(data[i][0]) === userId) {
           sheet.getRange(i + 1, tokenCol + 1).setValue(token);
           sheet.getRange(i + 1, expiryCol + 1).setValue(expiryTime); // plain number
+          sheet.getRange(i + 1, ttlCol + 1).setValue(sessionTtlMs);  // plain number, ms
           SpreadsheetApp.flush();
           found = true; break;
         }
       }
       if (found) {
-        logAction(userId, "SESSION_TOKEN_SET", "UserId: " + userId + " | Expiry: " + expiryDisplay, "Session token + expiry stored after login", sanitize(e.parameter.deviceInfo||"",200), { severity:"INFO", result:"SUCCESS" });
+        logAction(userId, "SESSION_TOKEN_SET", "UserId: " + userId + " | Expiry: " + expiryDisplay + " | RememberMe: " + (rememberMe ? "24h" : "30min"), "Session token + expiry stored after login", sanitize(e.parameter.deviceInfo||"",200), { severity:"INFO", result:"SUCCESS" });
       } else {
         logAction(userId, "SESSION_TOKEN_SET_FAILED", "UserId: " + userId + " — user not found", "", "", { severity:"WARN", result:"FAILURE" });
       }
@@ -1483,6 +1839,7 @@ function doGet(e) {
       result = found ? { status: "ok" } : { status: "error", message: "User not found" };
     }
   }
+
 
   // ── CHECK SESSION TOKEN + EXPIRY
   else if (action === "checkSession") {
@@ -1670,7 +2027,7 @@ function doGet(e) {
     // Admin passes: action=saveEmailSettings&key=auto_receipt&value=1
     const key      = sanitize(e.parameter.key || "", 30);
     const value    = sanitize(e.parameter.value || "0", 2);   // toggles only: "0" or "1"
-    const allowed  = ["auto_receipt", "monthly_report", "birthday_email"];
+    const allowed  = ["auto_receipt", "monthly_report", "birthday_email", "admin_monthly_summary"];
     // logo_email_url removed — logo is now auto-loaded from CFG.folderLogo (Drive folder)
     if (allowed.indexOf(key) !== -1) {
       result = saveEmailSettings(key, value, sanitize(e.parameter.AdminName||"Admin",100));
@@ -1739,6 +2096,61 @@ function doGet(e) {
           // Clean up once read successfully (only if done)
           if (result.status !== "pending") {
             try { PropertiesService.getScriptProperties().deleteProperty("MREPORT_" + jobKey); } catch(e) {}
+          }
+        }
+      } catch(e) {
+        result = { status: "pending" };
+      }
+    }
+  }
+
+  // ── #10: MANUAL TRIGGER — Admin Monthly Summary (fire-and-store pattern, same as #9)
+  else if (action === "triggerAdminSummary") {
+    const month  = sanitize(e.parameter.month,  20);
+    const year   = sanitize(e.parameter.year,   10);
+    const jobKey = sanitize(e.parameter.jobKey, 50) || ("job_" + Date.now());
+    // [FIX] No 1-hour cooldown here — this action is the manual/admin "Send Now" test
+    // button, gated by _verifySession already (a real admin must be logged in to fire
+    // it). A 1-hour lockout on a test tool caused it to silently reject re-clicks, and
+    // the old code never wrote a "pending" record for the throttled case — so the
+    // frontend poll loop waited forever for a jobKey that was never stored. If you want
+    // this un-throttled from anywhere, keep it this way; the automatic month-end trigger
+    // (sendAdminMonthlySummary) is separate and unaffected.
+    const withPdf = sanitize(e.parameter.withPdf, 2) !== "0"; // default true — pass withPdf=0 to skip PDF generation
+    try {
+      PropertiesService.getScriptProperties().setProperty(
+        "ADMSUM_" + jobKey, JSON.stringify({ status: "pending" })
+      );
+    } catch(e) {}
+    let jobResult;
+    try {
+      jobResult = _doSendAdminSummary(month || null, year || null, withPdf);
+    } catch(err) {
+      logAction("System", "ADMIN_SUMMARY_ERROR", "Month: " + (month||"auto") + " | Year: " + (year||"auto"), err.message, "", { severity:"ERROR", result:"FAILURE", error:err });
+      jobResult = { status: "error", message: err.message };
+    }
+    try {
+      PropertiesService.getScriptProperties().setProperty(
+        "ADMSUM_" + jobKey, JSON.stringify(jobResult)
+      );
+    } catch(e) {}
+    result = jobResult;
+  }
+
+  // ── #10b: POLL for admin summary result
+  else if (action === "getAdminSummaryStatus") {
+    const jobKey = sanitize(e.parameter.jobKey, 50);
+    if (!jobKey) {
+      result = { status: "error", message: "Missing jobKey" };
+    } else {
+      try {
+        const raw = PropertiesService.getScriptProperties().getProperty("ADMSUM_" + jobKey);
+        if (!raw) {
+          result = { status: "pending" };
+        } else {
+          result = JSON.parse(raw);
+          if (result.status !== "pending") {
+            try { PropertiesService.getScriptProperties().deleteProperty("ADMSUM_" + jobKey); } catch(e) {}
           }
         }
       } catch(e) {
@@ -2148,11 +2560,15 @@ function doGet(e) {
         let hashedPwd = hashPassword(DEFAULT_PASSWORD);
         // [ID] Generate role-aware sequential UserId — never trust frontend-supplied ID
         const newUserId = _genUserId(role);
-        // [FIX] Write ALL 16 columns in exact sheet order to prevent field misalignment.
+        // [FIX] Write ALL 18 columns in exact sheet order to prevent field misalignment.
         // Previously only 9 values were written, causing DOB to land in the Village column.
         // Column order: UserId,Name,Mobile,Role,Password,Email,Status,SessionToken,
-        //               Village,Address,RegisteredAt,PhotoURL,MonthlyTarget,LastLogin,DOB,TokenExpiry
+        //               Village,Address,RegisteredAt,PhotoURL,MonthlyTarget,LastLogin,DOB,TokenExpiry,
+        //               ContribStartDate,InactiveSince
+        // NOTE: ContribStartDate + InactiveSince must exist as headers (columns 17 & 18)
+        // in the USERS sheet — add them once manually if they aren't there yet.
         const _addDob = sanitize(e.parameter.DOB || "", 12);
+        const _addContribStart = sanitize(e.parameter.ContribStartDate || "", 12);
         addRow(SHEETS.USERS, [
           newUserId,                                          // UserId
           sanitize(e.parameter.Name,   100),                 // Name
@@ -2169,7 +2585,9 @@ function doGet(e) {
           0,                                                 // MonthlyTarget
           "",                                                // LastLogin
           _addDob,                                           // DOB
-          ""                                                 // TokenExpiry
+          "",                                                // TokenExpiry
+          _addContribStart,                                  // ContribStartDate — optional, admin-set
+          ""                                                 // InactiveSince — blank, user starts Active
         ]);
         logAction(sanitize(e.parameter.AdminName||"Admin",100), "Add User", "UserId: " + newUserId + " | Mobile: " + mobile + " | Name: " + sanitize(e.parameter.Name||"",100) + " | Role: " + role);
 
@@ -2257,12 +2675,19 @@ function doGet(e) {
         MailApp.sendEmail({
           to: user.Email,
           subject: CFG.name + " — Password Reset Code",
-          htmlBody: `<div style="font-family:sans-serif;padding:20px;border:1px solid #0F766E;border-radius:8px;max-width:480px;">
-            <h2 style="color:#115E59;">${CFG.name}</h2>
-            <p style="color:#475569;">A password reset was requested for your account. Use this code:</p>
-            <h1 style="color:#0F766E;font-size:48px;letter-spacing:8px;margin:16px 0;">${otp}</h1>
-            <p style="color:#64748b;font-size:13px;">This code expires in 10 minutes. If you did not request this, please ignore this email.</p>
-            <p style="color:#94a3b8;font-size:11px;">${CFG.name} | ${CFG.location}</p>
+          htmlBody: `<div style="max-width:480px;margin:0 auto;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+              background:#fff;border-radius:14px;overflow:hidden;border:1px solid #e7ebe9;">
+            <div style="background:#0F766E;padding:20px 28px;text-align:center;">
+              <div style="color:#fff;font-size:16px;font-weight:700;">${CFG.name}</div>
+            </div>
+            <div style="padding:26px 28px;">
+              <p style="color:#475569;font-size:13.5px;margin:0 0 6px;">A password reset was requested for your account. Use this code:</p>
+              <div style="text-align:center;color:#0F766E;font-size:42px;font-weight:700;letter-spacing:8px;margin:18px 0;">${otp}</div>
+              <p style="color:#64748b;font-size:12.5px;margin:0;">This code expires in 10 minutes. If you did not request this, please ignore this email.</p>
+            </div>
+            <div style="background:#f6f9f8;padding:12px 28px;text-align:center;border-top:1px solid #e7ebe9;">
+              <div style="color:#94a3b8;font-size:11px;">${CFG.name} | ${CFG.location}</div>
+            </div>
           </div>`
         });
         logAction(userId, "FORGOT_PASSWORD_OTP_SENT", "UserId: " + userId, "Password reset OTP sent to registered email", "", { severity:"INFO", result:"SUCCESS" });
@@ -2628,6 +3053,26 @@ function doGet(e) {
 
   // ── ADD EXPENSE — [ID] EXP-2025-00001 (year-wise reset)
   else if (action === "addExpense") {
+    // ── [GUARANTEE] Idempotency check — same guard addContribution uses above.
+    // If this exact request (same IdempotencyKey) already ran, replay its
+    // result instead of inserting a second expense row.
+    const expIdemKey = sanitize(e.parameter.IdempotencyKey, 100);
+    if (expIdemKey) {
+      const _expIdemPrior = _idempotencyCheckAndReserve(expIdemKey);
+      if (_expIdemPrior === "__IN_PROGRESS__") {
+        result = { status: "error", message: "Previous request for this entry is still processing. Please wait a moment.", errorCode: "duplicate_in_progress" };
+        return ContentService
+          .createTextOutput(callback + "(" + JSON.stringify(result) + ")")
+          .setMimeType(ContentService.MimeType.JAVASCRIPT);
+      }
+      if (_expIdemPrior) {
+        // Already completed on a prior attempt — hand back the ORIGINAL result verbatim.
+        return ContentService
+          .createTextOutput(callback + "(" + _expIdemPrior + ")")
+          .setMimeType(ContentService.MimeType.JAVASCRIPT);
+      }
+    }
+
     const expYear = sanitize(e.parameter.Year, 10) || String(new Date().getFullYear());
     // [ID] Year-wise expense ID so each year's expenses count from 00001
     const expId = sanitize(e.parameter.Id, 30) || generateSheetId("EXP", true);
@@ -2641,7 +3086,12 @@ function doGet(e) {
       sanitize(e.parameter.ForMonth,       20) || ""
     ]);
     logAction(sanitize(e.parameter.AdminName||"Admin",100), "Add Expense", "Id: " + expId + " | Title: " + e.parameter.Title + " | Amount: ₹" + e.parameter.Amount + " | Year: " + expYear);
-    result = { status: "success" };
+    result = { status: "success", expId: expId };
+
+    // ── [GUARANTEE] Save result under the idempotency key so any retry of
+    // this exact request (same key) replays this result instead of
+    // inserting a second row. Must happen AFTER the row is safely written.
+    if (expIdemKey) _idempotencySave(expIdemKey, result);
   }
 
   else if (action === "deleteContribution") {
@@ -2797,7 +3247,7 @@ function doGet(e) {
 
       // ── Column integrity check per sheet ──
       var expectedCols = {
-        "USERS":                 ["UserId","Name","Mobile","Role","Password","Email","Status","SessionToken","Village","Address","RegisteredAt","PhotoURL","MonthlyTarget","LastLogin","DOB","TokenExpiry"],
+        "USERS":                 ["UserId","Name","Mobile","Role","Password","Email","Status","SessionToken","Village","Address","RegisteredAt","PhotoURL","MonthlyTarget","LastLogin","DOB","TokenExpiry","ContribStartDate","InactiveSince","SessionTTL"],
         "CONTRIBUTION_REQUESTS": ["ReqId","UserId","Amount","PaymentMode","ForMonth","Year","Note","UtrRef","Status","RequestedAt","SlipURL","RejectionNote"],
         "BROADCAST":             ["BcId","Type","Priority","Title","Message","Time","AdminName"],
         "CONTRIBUTIONS":         ["Id","UserId","Amount","PaymentDate","ForMonth","Year","TypeId","OccasionId","Note","ReceiptID","PaymentMode"],
@@ -2901,12 +3351,19 @@ function doGet(e) {
           MailApp.sendEmail({
             to: String(user.Email).trim(),
             subject: CFG.name + " — Mobile Number Change OTP",
-            htmlBody: `<div style="font-family:sans-serif;padding:20px;border:1px solid #0F766E;border-radius:8px;">
-              <h2 style="color:#115E59;">Mobile Number Change Verification</h2>
-              <p>You requested to change your registered mobile to: <strong>${newMobile}</strong></p>
-              <h1 style="color:#0F766E;font-size:48px;letter-spacing:8px;">${otp}</h1>
-              <p style="color:#666;">This code expires in 10 minutes. Do not share it.</p>
-              <p style="color:#999;font-size:12px;">${CFG.name} | ${CFG.location}</p>
+            htmlBody: `<div style="max-width:480px;margin:0 auto;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+              background:#fff;border-radius:14px;overflow:hidden;border:1px solid #e7ebe9;">
+              <div style="background:#0F766E;padding:20px 28px;text-align:center;">
+                <div style="color:#fff;font-size:16px;font-weight:700;">Mobile Number Change</div>
+              </div>
+              <div style="padding:26px 28px;">
+                <p style="color:#475569;font-size:13.5px;margin:0 0 6px;">You requested to change your registered mobile to: <strong style="color:#1e293b;">${newMobile}</strong></p>
+                <div style="text-align:center;color:#0F766E;font-size:42px;font-weight:700;letter-spacing:8px;margin:18px 0;">${otp}</div>
+                <p style="color:#64748b;font-size:12.5px;margin:0;">This code expires in 10 minutes. Do not share it.</p>
+              </div>
+              <div style="background:#f6f9f8;padding:12px 28px;text-align:center;border-top:1px solid #e7ebe9;">
+                <div style="color:#94a3b8;font-size:11px;">${CFG.name} | ${CFG.location}</div>
+              </div>
             </div>`
           });
           logAction(userId, "MOBILE_CHANGE_OTP_SENT", "UserId: " + userId + " | NewMobile: " + newMobile.substring(0,4) + "***", "Mobile change OTP sent to registered email", "", { severity:"INFO", result:"SUCCESS" });
@@ -3283,12 +3740,19 @@ function doGet(e) {
         MailApp.sendEmail({
           to: email,
           subject: CFG.name + " — Email Verification Code",
-          htmlBody: `<div style="font-family:sans-serif;padding:20px;border:1px solid #0F766E;border-radius:8px;max-width:480px;">
-            <h2 style="color:#115E59;">${CFG.name}</h2>
-            <p style="color:#475569;">You are registering a new account. Please verify your email with this code:</p>
-            <h1 style="color:#0F766E;font-size:48px;letter-spacing:8px;margin:16px 0;">${otp}</h1>
-            <p style="color:#64748b;font-size:13px;">This code expires in 10 minutes. Do not share it with anyone.</p>
-            <p style="color:#94a3b8;font-size:11px;">${CFG.name} | ${CFG.address}</p>
+          htmlBody: `<div style="max-width:480px;margin:0 auto;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+              background:#fff;border-radius:14px;overflow:hidden;border:1px solid #e7ebe9;">
+            <div style="background:#0F766E;padding:20px 28px;text-align:center;">
+              <div style="color:#fff;font-size:16px;font-weight:700;">${CFG.name}</div>
+            </div>
+            <div style="padding:26px 28px;">
+              <p style="color:#475569;font-size:13.5px;margin:0 0 6px;">You are registering a new account. Please verify your email with this code:</p>
+              <div style="text-align:center;color:#0F766E;font-size:42px;font-weight:700;letter-spacing:8px;margin:18px 0;">${otp}</div>
+              <p style="color:#64748b;font-size:12.5px;margin:0;">This code expires in 10 minutes. Do not share it with anyone.</p>
+            </div>
+            <div style="background:#f6f9f8;padding:12px 28px;text-align:center;border-top:1px solid #e7ebe9;">
+              <div style="color:#94a3b8;font-size:11px;">${CFG.name} | ${CFG.address}</div>
+            </div>
           </div>`
         });
         result = { status: "success", otpKey: otpKey };
@@ -3621,22 +4085,42 @@ function updateUser(p) {
         const col = headers.indexOf(headerName);
         if (col !== -1 && value !== undefined) newRow[col] = value;
       }
+      const _newStatus = sanitize(p.Status, 20) || "Active";
+      const _oldStatus = String(data[i][headers.indexOf("Status")] || "Active");
       _setCol("Name",          sanitize(p.Name,    100));
       _setCol("Mobile",        sanitize(p.Mobile,  15));
       _setCol("Role",          sanitize(p.Role,    20));
       _setCol("Password",      newPwd);
       _setCol("Email",         sanitize(p.Email,   200));
-      _setCol("Status",        sanitize(p.Status,  20) || "Active");
+      _setCol("Status",        _newStatus);
       _setCol("PhotoURL",      sanitize(p.PhotoURL, 500) || "");
       if (p.Village       !== undefined) _setCol("Village",       sanitize(p.Village, 100));
       if (p.Address       !== undefined) _setCol("Address",       sanitize(p.Address, 300));
       if (p.MonthlyTarget !== undefined) _setCol("MonthlyTarget", Number(p.MonthlyTarget||0));
       if (p.DOB           !== undefined) _setCol("DOB",           sanitize(p.DOB || "", 12));
+      // [TRACKER] Contribution Start Date — optional, admin-set. Used by the Tracker
+      // to know from which month a late-joining member's pending should start counting.
+      if (p.ContribStartDate !== undefined) _setCol("ContribStartDate", sanitize(p.ContribStartDate || "", 12));
+      // [TRACKER] InactiveSince — auto-managed, not directly editable from the form.
+      // Active → Inactive: stamp today's date so Tracker freezes pending from here.
+      // Inactive → Active: clear it, member is back to normal pending tracking.
+      if (headers.indexOf("InactiveSince") !== -1) {
+        if (_oldStatus.toLowerCase() !== "inactive" && _newStatus.toLowerCase() === "inactive") {
+          _setCol("InactiveSince", Utilities.formatDate(new Date(), "GMT+5:30", "dd-MM-yyyy"));
+        } else if (_oldStatus.toLowerCase() === "inactive" && _newStatus.toLowerCase() !== "inactive") {
+          _setCol("InactiveSince", "");
+        }
+      }
       // Single batched write — 1 API call instead of ~10
       sheet.getRange(i + 1, 1, 1, newRow.length).setValues([newRow]);
       // Force DOB cell to plain text — prevents Sheets auto-converting "03-02-1998" to a Date object
       const _dobCol = headers.indexOf("DOB");
       if (_dobCol !== -1) sheet.getRange(i + 1, _dobCol + 1).setNumberFormat("@");
+      // Same plain-text guard for the two new Tracker date columns
+      const _csdCol = headers.indexOf("ContribStartDate");
+      if (_csdCol !== -1) sheet.getRange(i + 1, _csdCol + 1).setNumberFormat("@");
+      const _isCol = headers.indexOf("InactiveSince");
+      if (_isCol !== -1) sheet.getRange(i + 1, _isCol + 1).setNumberFormat("@");
       SpreadsheetApp.flush();
       found = true; break;
     }
@@ -4185,7 +4669,7 @@ function uploadUserPhoto(base64Data, fileName) {
 
 function verifyEmailSystem() {
   try {
-    MailApp.sendEmail({ to:"amarjeetvish@gmail.com", subject:CFG.name+" - Verification Test", htmlBody:"<h2>It Works!</h2><p>Email system is operational.</p>" });
+    MailApp.sendEmail({ to:"amarjeetvish@gmail.com", subject:CFG.name+" - Verification Test", htmlBody:"<div style='max-width:400px;margin:0 auto;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#fff;border-radius:14px;overflow:hidden;border:1px solid #e7ebe9;'><div style='background:#0F766E;padding:18px 24px;text-align:center;'><span style='color:#fff;font-size:15px;font-weight:700;'>It Works!</span></div><div style='padding:18px 24px;text-align:center;color:#475569;font-size:13px;'>Email system is operational.</div></div>" });
     logAction("System", "EMAIL_VERIFY_TEST", "Test email sent successfully to amarjeetvish@gmail.com", "", "", { severity:"INFO", result:"SUCCESS" });
   } catch(e) {
     logAction("System", "EMAIL_VERIFY_TEST_FAILED", "Test email failed", e.message, "", { severity:"ERROR", result:"FAILURE", error:e });
@@ -4340,17 +4824,24 @@ function _checkGoalCompletion(goalId) {
           MailApp.sendEmail({
             to:       String(admin.Email).trim(),
             subject:  "🎉 " + CFG.name + " — Goal Fully Funded: " + goalName,
-            htmlBody: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#fff;border-radius:12px;border:2px solid #22c55e;padding:28px;">
-              <div style="text-align:center;font-size:36px;margin-bottom:8px;">🎉</div>
-              <h2 style="color:#15803d;text-align:center;">Goal Fully Funded!</h2>
-              <p style="color:#334155;font-size:14px;">Dear ${admin.Name},</p>
-              <p style="font-size:14px;color:#475569;">The fundraising goal <strong>"${goalName}"</strong> has been fully funded.</p>
-              <table style="width:100%;font-size:13px;border-collapse:collapse;margin:12px 0;">
-                <tr style="background:#f0fdf4;"><td style="padding:8px 12px;font-weight:700;color:#15803d;">Target</td><td style="padding:8px 12px;">${targetFmt}</td></tr>
-                <tr><td style="padding:8px 12px;font-weight:700;color:#15803d;">Collected</td><td style="padding:8px 12px;">${amountFmt}</td></tr>
-              </table>
-              <p style="color:#475569;font-size:13px;">The goal has been automatically marked as Completed in the system.</p>
-              <p style="color:#0F766E;font-size:12px;text-align:center;margin-top:20px;">${CFG.name} | ${CFG.location}</p>
+            htmlBody: `<div style="max-width:520px;margin:0 auto;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+              background:#fff;border-radius:14px;overflow:hidden;border:1px solid #e7ebe9;">
+              <div style="background:#0F766E;padding:26px 28px;text-align:center;">
+                <div style="font-size:30px;margin-bottom:4px;">🎉</div>
+                <div style="color:#fff;font-size:17px;font-weight:700;">Goal Fully Funded!</div>
+              </div>
+              <div style="padding:24px 28px;">
+                <p style="color:#1e293b;font-size:14px;margin:0 0 8px;">Dear ${admin.Name},</p>
+                <p style="font-size:13.5px;color:#475569;margin:0 0 14px;">The fundraising goal <strong>"${goalName}"</strong> has been fully funded.</p>
+                <table style="width:100%;font-size:13px;border-collapse:collapse;margin:0 0 14px;">
+                  <tr><td style="padding:8px 0;color:#64748b;border-bottom:1px solid #f1f5f9;">Target</td><td style="padding:8px 0;text-align:right;font-weight:700;color:#1e293b;border-bottom:1px solid #f1f5f9;">${targetFmt}</td></tr>
+                  <tr><td style="padding:8px 0;color:#64748b;">Collected</td><td style="padding:8px 0;text-align:right;font-weight:700;color:#16a34a;">${amountFmt}</td></tr>
+                </table>
+                <p style="color:#475569;font-size:12.5px;margin:0;">The goal has been automatically marked as Completed in the system.</p>
+              </div>
+              <div style="background:#f6f9f8;padding:12px 28px;text-align:center;border-top:1px solid #e7ebe9;">
+                <div style="color:#94a3b8;font-size:11px;">${CFG.name} | ${CFG.location}</div>
+              </div>
             </div>`
           });
         } catch(mailErr) {}
@@ -4361,38 +4852,42 @@ function _checkGoalCompletion(goalId) {
   } catch(err) { /* non-fatal — never crash main operation */ }
 }
 
-// ── Reminder email body (used by sendMonthlyReminders)
+// ── Mid-month reminder email (used by sendMonthlyReminders — fires ~25th, still time to pay)
 function _buildMonthlyReminderEmail(member, month, year) {
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
-<body style="margin:0;padding:0;background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:30px 0;">
-<tr><td align="center">
-<table width="540" cellpadding="0" cellspacing="0"
-  style="background:#fff;border-radius:16px;overflow:hidden;
-         box-shadow:0 4px 20px rgba(0,0,0,0.08);max-width:540px;width:100%;
-         border-top:4px solid #0F766E;">
-  <tr><td style="background:#334155;padding:24px 32px;text-align:center;">
-    ${_logoHtml()}
-    <div style="color:#0F766E;font-size:18px;font-weight:700;">${CFG.name.toUpperCase()}</div>
-    <div style="color:#94a3b8;font-size:12px;margin-top:4px;">${CFG.location}</div>
-  </td></tr>
-  <tr><td style="padding:24px 32px;">
-    <p style="color:#334155;font-size:14px;">Dear <strong>${member.Name}</strong>,</p>
-    <p style="color:#475569;font-size:13px;line-height:1.6;">
-      🙏 We hope this finds you well.<br><br>
-      This is a gentle reminder that your contribution for
-      <strong>${month} ${year}</strong> has not yet been recorded
-      in our system. If you have already contributed, please coordinate
-      with the household admin to get it updated.<br><br>
-      If you need any assistance, please contact us.
+  var firstName = (member.Name || "Friend").split(" ")[0];
+  const body = `
+  ${_emHeadSimple("Gentle Reminder")}
+
+  <tr><td style="padding:26px 32px;">
+    <p style="color:${_EM.ink};font-size:14px;margin:0 0 14px;">Dear ${firstName} जी,</p>
+
+    <p style="color:${_EM.sub};font-size:13.5px;line-height:1.85;margin:0 0 16px;">
+      Hope you and your family are doing well 🙏। यह एक friendly reminder है कि आपका contribution
+      <strong style="color:${_EM.ink};">${month} ${year}</strong> के लिए अभी तक record नहीं हुआ है।
+    </p>
+
+    <div style="background:${_EM.panel};border-left:3px solid ${_EM.brand};padding:14px 18px;margin:0 0 18px;">
+      <div style="color:${_EM.ink};font-size:13px;font-weight:600;margin-bottom:4px;">
+        ${month} ${year} — Contribution Due
+      </div>
+      <div style="color:${_EM.sub};font-size:12.5px;line-height:1.7;">
+        अभी महीना खत्म होने में समय है, तो कृपया जल्द ही अपना contribution complete कर दें। अगर already
+        pay कर दिया है, तो household admin से coordinate करके इसे record करवा दें।
+      </div>
+    </div>
+
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.8;margin:0 0 18px;">
+      यह contribution हमारे घर के मासिक खर्चों को manage करने के लिए है, and every family member's timely
+      share helps us run things smoothly — आपकी भागीदारी हमेशा गिनी जाती है। 🌸
+    </p>
+
+    <p style="color:${_EM.brand};font-size:12.5px;line-height:1.7;margin:0;font-style:italic;text-align:center;">
+      धन्यवाद — Thank you for being part of our home. 🙏
     </p>
   </td></tr>
-  <tr><td style="background:#F0FDFA;padding:14px 32px;text-align:center;border-top:1px solid #99F6E4;">
-    <div style="color:#0F766E;font-size:11px;">${CFG.name} | ${CFG.address}</div>
-    <div style="color:#0F766E;font-size:11px;margin-top:2px;">${CFG.tagline}</div>
-  </td></tr>
-</table></td></tr></table>
-</body></html>`;
+
+  ${_emFooterSimple("This is a private reminder sent only to you.")}`;
+  return _emShell(520, body);
 }
 
 // ── CHATBOT CONFIG ────────────────────────────────────────────
@@ -4617,30 +5112,23 @@ function registerUser(params) {
           to: email,
           subject: CFG.name + " — Registration Received",
           htmlBody: `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
-<body style="margin:0;padding:0;background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:30px 0;">
+<body style="margin:0;padding:0;background:${_EM.bg};font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:${_EM.bg};padding:36px 0;">
 <tr><td align="center">
-<table width="540" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);max-width:540px;width:100%;border-top:4px solid #0F766E;">
-  <tr><td style="background:#334155;padding:24px 32px;text-align:center;">
-    ${_logoHtml()}
-    <div style="color:#0F766E;font-size:18px;font-weight:700;">${CFG.name.toUpperCase()}</div>
-    <div style="color:#94a3b8;font-size:12px;margin-top:4px;">${CFG.location}</div>
-    <div style="margin-top:10px;"><span style="background:#0F766E;color:#fff;padding:3px 14px;border-radius:20px;font-size:11px;font-weight:700;">REGISTRATION RECEIVED</span></div>
-  </td></tr>
+<table width="540" cellpadding="0" cellspacing="0" style="max-width:540px;width:92%;background:${_EM.card};border-radius:${_EM.radius};overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,0.06),0 8px 24px rgba(15,23,42,0.06);">
+  ${_emHeader("REGISTRATION RECEIVED")}
   <tr><td style="padding:24px 28px;">
-    <p style="color:#334155;font-size:15px;font-weight:700;margin:0 0 8px;">${CFG.tagline}, ${name}!</p>
-    <p style="color:#475569;font-size:13px;line-height:1.7;margin:0 0 16px;">Thank you for registering with <strong>${CFG.name}</strong>. Your request has been received and is pending review by the household admin.</p>
-    <div style="background:#F0FDFA;border:1px solid #99F6E4;border-radius:12px;padding:16px 20px;margin:0 0 16px;">
-      <div style="color:#115E59;font-size:13px;font-weight:700;margin-bottom:10px;">Your Registration Details</div>
-      <div style="color:#134E4A;font-size:13px;margin-bottom:5px;"><strong>Name:</strong> ${name}</div>
-      <div style="color:#134E4A;font-size:13px;margin-bottom:5px;"><strong>Mobile (Login ID):</strong> ${mobile}</div>
-      <div style="color:#134E4A;font-size:13px;"><strong>Email:</strong> ${email}</div>
+    <p style="color:${_EM.ink};font-size:14.5px;font-weight:700;margin:0 0 8px;">${CFG.tagline}, ${name}!</p>
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.7;margin:0 0 16px;">Thank you for registering with <strong>${CFG.name}</strong>. Your request has been received and is pending review by the household admin.</p>
+    <div style="background:${_EM.panel};border-radius:10px;padding:16px 20px;margin:0 0 16px;">
+      <div style="color:${_EM.ink};font-size:12.5px;font-weight:700;margin-bottom:10px;">Your Registration Details</div>
+      <div style="color:${_EM.sub};font-size:13px;margin-bottom:5px;"><strong style="color:${_EM.ink};">Name:</strong> ${name}</div>
+      <div style="color:${_EM.sub};font-size:13px;margin-bottom:5px;"><strong style="color:${_EM.ink};">Mobile (Login ID):</strong> ${mobile}</div>
+      <div style="color:${_EM.sub};font-size:13px;"><strong style="color:${_EM.ink};">Email:</strong> ${email}</div>
     </div>
-    <p style="color:#64748b;font-size:13px;line-height:1.7;margin:0;">You will receive another email once the admin approves your account. Your <strong>mobile number</strong> will be your Login ID.</p>
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.7;margin:0;">You will receive another email once the admin approves your account. Your <strong>mobile number</strong> will be your Login ID.</p>
   </td></tr>
-  <tr><td style="background:#F0FDFA;padding:14px 28px;text-align:center;border-top:1px solid #99F6E4;">
-    <div style="color:#0F766E;font-size:11px;">${CFG.name} | ${CFG.address} | ${CFG.tagline}</div>
-  </td></tr>
+  ${_emFooter()}
 </table></td></tr></table></body></html>`
         });
       }
@@ -4660,28 +5148,25 @@ function registerUser(params) {
           MailApp.sendEmail({
             to: String(admin.Email).trim(),
             subject: CFG.name + " — New Registration Request from " + name,
-            htmlBody: `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:30px;">
-<table width="540" style="background:#fff;border-radius:16px;overflow:hidden;border-top:4px solid #0F766E;box-shadow:0 4px 20px rgba(0,0,0,0.08);margin:0 auto;">
-  <tr><td style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:24px;text-align:center;">
-    ${_logoHtml()}
-    <div style="color:#0F766E;font-size:18px;font-weight:700;">${CFG.name.toUpperCase()}</div>
-    <div style="margin-top:10px;"><span style="background:#0F766E;color:#fff;padding:3px 14px;border-radius:20px;font-size:11px;font-weight:700;">NEW REGISTRATION REQUEST</span></div>
-  </td></tr>
+            htmlBody: `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:${_EM.bg};font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:${_EM.bg};padding:36px 0;">
+<tr><td align="center">
+<table width="540" cellpadding="0" cellspacing="0" style="max-width:540px;width:92%;background:${_EM.card};border-radius:${_EM.radius};overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,0.06),0 8px 24px rgba(15,23,42,0.06);">
+  ${_emHeader("NEW REGISTRATION REQUEST")}
   <tr><td style="padding:24px 28px;">
-    <p style="color:#334155;font-size:14px;">Hello <strong>${admin.Name}</strong>,</p>
-    <p style="color:#475569;font-size:13px;">A new user has submitted a registration request:</p>
-    <table style="width:100%;border-collapse:collapse;font-size:13px;margin:12px 0;">
-      <tr style="background:#F0FDFA;"><td style="padding:8px 12px;font-weight:700;color:#115E59;border:1px solid #99F6E4;">Name</td><td style="padding:8px 12px;border:1px solid #99F6E4;">${name}</td></tr>
-      <tr><td style="padding:8px 12px;font-weight:700;color:#334155;border:1px solid #e2e8f0;background:#f8fafc;">Mobile</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">${mobile}</td></tr>
-      <tr style="background:#f8fafc;"><td style="padding:8px 12px;font-weight:700;color:#334155;border:1px solid #e2e8f0;">Email</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">${email}</td></tr>
-      <tr><td style="padding:8px 12px;font-weight:700;color:#334155;border:1px solid #e2e8f0;background:#f8fafc;">Village</td><td style="padding:8px 12px;border:1px solid #e2e8f0;">${village || "—"}</td></tr>
+    <p style="color:${_EM.ink};font-size:14px;margin:0 0 6px;">Hello <strong>${admin.Name}</strong>,</p>
+    <p style="color:${_EM.sub};font-size:13px;margin:0 0 12px;">A new user has submitted a registration request:</p>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      ${_emailRow("Name", name)}
+      ${_emailRow("Mobile", mobile)}
+      ${_emailRow("Email", email)}
+      ${_emailRow("Village", village || "—")}
     </table>
-    <p style="color:#64748b;font-size:12px;">Please login to the admin panel → Users tab → Pending to approve or reject.</p>
+    <p style="color:${_EM.sub};font-size:12px;margin:16px 0 0;">Please login to the admin panel → Users tab → Pending to approve or reject.</p>
   </td></tr>
-  <tr><td style="background:#F0FDFA;padding:14px 28px;text-align:center;border-top:1px solid #99F6E4;">
-    <div style="color:#0F766E;font-size:11px;">${CFG.name} | ${CFG.address}</div>
-  </td></tr>
-</table></body></html>`
+  ${_emFooter()}
+</table></td></tr></table></body></html>`
           });
         } catch(mailErr) {
           logAction("System", "ADMIN_NOTIFY_EMAIL_ERROR", "Admin: " + (admin.Name||admin.Email||"") + " | NewUser: " + name, mailErr.message, "", { severity:"WARN", result:"FAILURE", error:mailErr });
@@ -4801,124 +5286,114 @@ function rejectUser(params) {
   }
 }
  
-function _buildApprovalEmail(user) {
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
-<body style="margin:0;padding:0;background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:30px 0;">
-<tr><td align="center">
-<table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.10);max-width:560px;width:100%;">
-  <tr><td style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:28px 32px;text-align:center;border-top:4px solid #0F766E;">
-    ${_logoHtml()}
-    <div style="color:#0F766E;font-size:20px;font-weight:700;letter-spacing:1px;">${CFG.name.toUpperCase()}</div>
-    <div style="color:#94a3b8;font-size:12px;margin-top:4px;">${CFG.location}</div>
-    <div style="margin-top:12px;"><span style="background:#22c55e;color:#fff;padding:5px 18px;border-radius:20px;font-size:11px;font-weight:700;">REGISTRATION APPROVED</span></div>
-  </td></tr>
-  <tr><td style="padding:28px 32px;">
-    <p style="color:#334155;font-size:16px;font-weight:700;margin:0 0 8px;">${CFG.tagline}, <span style="color:#0F766E;">${user.Name}</span>!</p>
-    <p style="color:#475569;font-size:13px;line-height:1.8;margin:0 0 20px;">Your registration request for <strong>${CFG.name}</strong> has been <strong style="color:#16a34a;">approved</strong> by the admin. You can now login to access your account.</p>
-    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:18px 22px;margin:0 0 20px;">
-      <div style="color:#15803d;font-size:13px;font-weight:700;margin-bottom:12px;border-bottom:1px solid #bbf7d0;padding-bottom:8px;">Your Login Details</div>
-      <div style="color:#166534;font-size:13px;margin-bottom:6px;"><strong>Login ID (Mobile):</strong> ${user.Mobile}</div>
-      <div style="color:#166534;font-size:13px;"><strong>Password:</strong> The password you set during registration</div>
+// ── Shared onboarding content block — inserted into both the approval email
+//    and the admin-added email, so every new user (whichever flow created
+//    them) sees the same explanation of what the app offers and why.
+//    Keep this as the single place to edit the wording — do not duplicate
+//    the bullet lists inline in each email builder.
+function _emWelcomeInfoBlock() {
+  return `
+    <div style="font-weight:700;color:${_EM.ink};font-size:13px;margin-bottom:8px;">Yeh app hai kya</div>
+    <ul style="color:${_EM.sub};font-size:12.5px;line-height:1.9;margin:0 0 20px;padding-left:18px;">
+      <li>Ghar ke saare contributions ka digital record hai</li>
+      <li>Kisne kitna diya, kab diya — sab track hota hai</li>
+      <li>Kisi se poochna nahi padega, khud check kar sakta hai kabhi bhi</li>
+    </ul>
+
+    <div style="font-weight:700;color:${_EM.ink};font-size:13px;margin-bottom:8px;">Yaha kya kar sakta hai</div>
+    <ul style="color:#334155;font-size:12.5px;line-height:2;margin:0 0 20px;padding-left:18px;">
+      <li>Apna contribution history dekh sakta hai, kahi bhi aur kabhi bhi</li>
+      <li>Naya payment submit kar sakta hai, nhi toh group me receipt send kar sakta hai</li>
+      <li>Current year ka receipt download kar sakta hai</li>
+      <li>Complete receipt (ab tak ka pura statement) download kar sakta hai</li>
+      <li>Goals ka live progress track kar sakta hai</li>
+      <li>Events aur announcements dekh sakta hai</li>
+    </ul>
+
+    <div style="font-weight:700;color:${_EM.ink};font-size:13px;margin-bottom:8px;">Reminder ka system (every month)</div>
+    <div style="border-left:3px solid ${_EM.brand};background:${_EM.panel};padding:4px 16px;margin:0 0 20px;">
+      <ul style="color:#334155;font-size:12.5px;line-height:2;margin:10px 0;padding-left:16px;">
+        <li><strong style="color:${_EM.ink};">25 tareek</strong> — reminder mail, agar contribution abhi tak submit nahi huwa ho</li>
+        <li><strong style="color:${_EM.ink};">30 tareek</strong> — contribution ho chuka ho toh complete summary mail</li>
+        <li><strong style="color:${_EM.ink};">30 tareek</strong> — nahi huwa ho toh last/final reminder mail</li>
+      </ul>
     </div>
-    <p style="color:#64748b;font-size:13px;line-height:1.7;margin:0;">You can now view your donation history, download receipts, and more. Welcome to the ${CFG.name} family!</p>
+
+    <div style="font-weight:700;color:${_EM.ink};font-size:13px;margin-bottom:8px;">Safety</div>
+    <ul style="color:${_EM.sub};font-size:12.5px;line-height:1.9;margin:0 0 4px;padding-left:18px;">
+      <li>Har mail hamesha isi official Gmail ID se aayega — kisi aur address se aaye toh verify/ignore kare</li>
+      <li>Password sirf usko hi pata hai — admin sahit koi bhi ise dekh nahi sakta, encrypted form me store hota hai</li>
+    </ul>`;
+}
+
+function _buildApprovalEmail(user) {
+  const body = `
+  ${_emHeader("✓ REGISTRATION APPROVED", "#22c55e")}
+  <tr><td style="padding:26px 32px 8px;">
+    <p style="color:${_EM.ink};font-size:14px;margin:0 0 14px;">Namaste <strong style="color:${_EM.brand};">${user.Name}</strong> ji,</p>
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.8;margin:0 0 18px;">Aapki registration request approve ho gaya hai. Ab aap login kar sakta hai.</p>
+    <div style="background:${_EM.panel};border-radius:10px;padding:16px 20px;margin:0 0 20px;">
+      <div style="color:${_EM.ink};font-size:12.5px;font-weight:700;margin-bottom:10px;">Login Details</div>
+      <div style="color:${_EM.sub};font-size:13px;margin-bottom:6px;"><strong style="color:${_EM.ink};">Login ID (Mobile):</strong> ${user.Mobile}</div>
+      <div style="color:${_EM.sub};font-size:13px;"><strong style="color:${_EM.ink};">Password:</strong> Aapne registration ke time jo set kiya tha</div>
+    </div>
+    ${_emWelcomeInfoBlock()}
   </td></tr>
-  <tr><td style="background:#F0FDFA;padding:18px 32px;text-align:center;border-top:2px solid #99F6E4;">
-    <div style="color:#115E59;font-size:14px;font-weight:700;">${CFG.tagline}</div>
-    <div style="color:#0F766E;font-size:12px;margin-top:4px;">${CFG.tagline}</div>
-  </td></tr>
-  <tr><td style="background:#f8fafc;padding:12px 32px;text-align:center;border-top:1px solid #e2e8f0;">
-    <div style="color:#94a3b8;font-size:10px;">${CFG.name} | ${CFG.address}</div>
-  </td></tr>
-</table></td></tr></table></body></html>`;
+  ${_emButton("Open App", CFG.websiteUrl)}
+  ${_emFooter("Koi sawaal ho toh app ke Feedback / Contact section se seedha message kar sakta hai.")}`;
+  return _emShell(560, body);
 }
  
 // Welcome email sent when an admin manually adds a user (account Active from day one).
 // Same design language as _buildApprovalEmail — green badge, login details box.
 function _buildAdminAddedEmail(user) {
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
-<body style="margin:0;padding:0;background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:30px 0;">
-<tr><td align="center">
-<table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.10);max-width:560px;width:100%;">
-  <tr><td style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:28px 32px;text-align:center;border-top:4px solid #0F766E;">
-    ${_logoHtml()}
-    <div style="color:#0F766E;font-size:20px;font-weight:700;letter-spacing:1px;">${CFG.name.toUpperCase()}</div>
-    <div style="color:#94a3b8;font-size:12px;margin-top:4px;">${CFG.location}</div>
-    <div style="margin-top:12px;"><span style="background:#22c55e;color:#fff;padding:5px 18px;border-radius:20px;font-size:11px;font-weight:700;">ACCOUNT CREATED</span></div>
-  </td></tr>
-  <tr><td style="padding:28px 32px;">
-    <p style="color:#334155;font-size:16px;font-weight:700;margin:0 0 8px;">${CFG.tagline}, <span style="color:#0F766E;">${user.Name}</span>!</p>
-    <p style="color:#475569;font-size:13px;line-height:1.8;margin:0 0 20px;">
-      Welcome to <strong>${CFG.name}</strong>! Your account has been created by the admin
-      and is <strong style="color:#16a34a;">active immediately</strong>.
-      You can login right away using the details below.
-    </p>
-    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:18px 22px;margin:0 0 20px;">
-      <div style="color:#15803d;font-size:13px;font-weight:700;margin-bottom:12px;border-bottom:1px solid #bbf7d0;padding-bottom:8px;">Your Login Details</div>
-      <div style="color:#166534;font-size:13px;margin-bottom:6px;"><strong>Login ID (Mobile):</strong> ${user.Mobile}</div>
-      <div style="color:#166534;font-size:13px;margin-bottom:6px;"><strong>Member ID:</strong> ${user.UserId}</div>
-      <div style="color:#166534;font-size:13px;margin-bottom:6px;"><strong>Password:</strong> <span style="background:#dcfce7;border:1px solid #86efac;border-radius:6px;padding:2px 10px;font-family:monospace;font-size:14px;font-weight:700;letter-spacing:1px;color:#15803d;">JaiShreeRam</span></div>
-      <div style="background:#fefce8;border:1px solid #fde047;border-radius:8px;padding:10px 14px;margin-top:10px;">
-        <div style="color:#854d0e;font-size:12px;font-weight:700;margin-bottom:4px;">⚠️ Important — First Login Instruction</div>
-        <div style="color:#713f12;font-size:12px;line-height:1.7;">This is a <strong>temporary password</strong> set by the admin. For your account's security, you will be asked to <strong>set a new password immediately after your first login</strong>. Please keep your new password safe and do not share it with anyone.</div>
+  const body = `
+  ${_emHeader("✓ ACCOUNT CREATED", "#22c55e")}
+  <tr><td style="padding:26px 32px 8px;">
+    <p style="color:${_EM.ink};font-size:14px;margin:0 0 14px;">Namaste <strong style="color:${_EM.brand};">${user.Name}</strong> ji,</p>
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.8;margin:0 0 18px;">Aapka account admin ne bana diya hai — abhi se active hai, neeche diye gaye details se login kar sakta hai.</p>
+    <div style="background:${_EM.panel};border-radius:10px;padding:16px 20px;margin:0 0 20px;">
+      <div style="color:${_EM.ink};font-size:12.5px;font-weight:700;margin-bottom:10px;">Login Details</div>
+      <div style="color:${_EM.sub};font-size:13px;margin-bottom:6px;"><strong style="color:${_EM.ink};">Login ID (Mobile):</strong> ${user.Mobile}</div>
+      <div style="color:${_EM.sub};font-size:13px;margin-bottom:6px;"><strong style="color:${_EM.ink};">Member ID:</strong> ${user.UserId}</div>
+      <div style="color:${_EM.sub};font-size:13px;"><strong style="color:${_EM.ink};">Password:</strong> <span style="background:#eef2f2;border:1px solid #d6e2e0;border-radius:6px;padding:2px 10px;font-family:monospace;font-size:13px;font-weight:700;letter-spacing:0.5px;color:${_EM.brand};">JaiShreeRam</span></div>
+      <div style="background:#fffbeb;border-radius:8px;padding:10px 14px;margin-top:12px;">
+        <div style="color:#854d0e;font-size:12px;font-weight:700;margin-bottom:4px;">⚠ First login par yeh zaroor kare</div>
+        <div style="color:#78500e;font-size:12px;line-height:1.7;">Yeh ek temporary password hai. Pehli baar login karne ke baad turant naya password set karna hoga — us naye password ko kisi ke saath share na kare.</div>
       </div>
     </div>
-    <p style="color:#64748b;font-size:13px;line-height:1.7;margin:0;">
-      You can view your donation history, download receipts, and more.
-      Welcome to the ${CFG.name} family!
-    </p>
+    ${_emWelcomeInfoBlock()}
   </td></tr>
-  <tr><td style="background:#F0FDFA;padding:18px 32px;text-align:center;border-top:2px solid #99F6E4;">
-    <div style="color:#115E59;font-size:14px;font-weight:700;">${CFG.tagline}</div>
-    <div style="color:#0F766E;font-size:12px;margin-top:4px;">${CFG.tagline}</div>
-  </td></tr>
-  <tr><td style="background:#f8fafc;padding:12px 32px;text-align:center;border-top:1px solid #e2e8f0;">
-    <div style="color:#94a3b8;font-size:10px;">${CFG.name} | ${CFG.address}</div>
-  </td></tr>
-</table></td></tr></table></body></html>`;
+  ${_emButton("Open App", CFG.websiteUrl)}
+  ${_emFooter("Koi sawaal ho toh app ke Feedback / Contact section se seedha message kar sakta hai.")}`;
+  return _emShell(560, body);
 }
 
 function _buildRejectionEmail(user, reason) {
   const reasonBlock = reason
-    ? `<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:14px 18px;margin:16px 0;">
+    ? `<div style="background:#fef2f2;border-left:3px solid #ef4444;border-radius:10px;padding:14px 18px;margin:16px 0;">
          <div style="color:#991b1b;font-size:12px;font-weight:700;margin-bottom:6px;">Reason:</div>
          <div style="color:#7f1d1d;font-size:13px;line-height:1.6;">${reason}</div>
        </div>`
-    : `<div style="background:#F0FDFA;border:1px solid #99F6E4;border-radius:10px;padding:14px 18px;margin:16px 0;">
-         <div style="color:#115E59;font-size:13px;">If you have questions, please contact the household admin directly.</div>
+    : `<div style="background:${_EM.panel};border-radius:10px;padding:14px 18px;margin:16px 0;">
+         <div style="color:${_EM.sub};font-size:13px;">If you have questions, please contact the household admin directly.</div>
        </div>`;
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
-<body style="margin:0;padding:0;background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:30px 0;">
-<tr><td align="center">
-<table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.10);max-width:560px;width:100%;">
-  <tr><td style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:28px 32px;text-align:center;border-top:4px solid #0F766E;">
-    ${_logoHtml()}
-    <div style="color:#0F766E;font-size:20px;font-weight:700;">${CFG.name.toUpperCase()}</div>
-    <div style="color:#94a3b8;font-size:12px;margin-top:4px;">${CFG.location}</div>
-    <div style="margin-top:12px;"><span style="background:#64748b;color:#fff;padding:5px 18px;border-radius:20px;font-size:11px;font-weight:700;">REGISTRATION UPDATE</span></div>
-  </td></tr>
-  <tr><td style="padding:28px 32px;">
-    <p style="color:#334155;font-size:15px;margin:0 0 12px;">Dear <strong>${user.Name}</strong>,</p>
-    <p style="color:#475569;font-size:13px;line-height:1.8;margin:0 0 12px;">
+  const body = `
+  ${_emHeader("REGISTRATION UPDATE", "rgba(255,255,255,0.18)", "#B45309")}
+  <tr><td style="padding:26px 32px;">
+    <p style="color:${_EM.ink};font-size:14px;margin:0 0 12px;">Dear <strong>${user.Name}</strong>,</p>
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.8;margin:0 0 4px;">
       Thank you for your interest in registering with <strong>${CFG.name}</strong>.
       After review, we are unable to approve your registration request at this time.
     </p>
     ${reasonBlock}
-    <p style="color:#475569;font-size:13px;line-height:1.7;">
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.7;margin:0;">
       For assistance, please contact us at:<br/>
-      <strong>Phone:</strong> ${CFG.address}
+      <strong style="color:${_EM.ink};">Phone:</strong> ${CFG.address}
     </p>
   </td></tr>
-  <tr><td style="background:#F0FDFA;padding:18px 32px;text-align:center;border-top:2px solid #99F6E4;">
-    <div style="color:#115E59;font-size:14px;font-weight:700;">${CFG.tagline}</div>
-    <div style="color:#0F766E;font-size:12px;margin-top:4px;">${CFG.name}</div>
-  </td></tr>
-  <tr><td style="background:#f8fafc;padding:12px 32px;text-align:center;border-top:1px solid #e2e8f0;">
-    <div style="color:#94a3b8;font-size:10px;">${CFG.name} | ${CFG.address}</div>
-  </td></tr>
-</table></td></tr></table></body></html>`;
+  ${_emFooter()}`;
+  return _emShell(560, body);
 }
 
 
@@ -4927,43 +5402,28 @@ function _buildContribRejectionEmail(user, amount, forMonth, year, reason) {
   const name      = user ? (user.Name || "Member") : "Member";
   const amtFmt    = CFG.currencyText + " " + Number(amount).toLocaleString("en-IN");
   const reasonHtml = reason
-    ? `<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:14px 16px;margin:14px 0;">
+    ? `<div style="background:#fef2f2;border-left:3px solid #ef4444;border-radius:10px;padding:14px 16px;margin:14px 0;">
          <div style="color:#991b1b;font-size:12px;font-weight:700;margin-bottom:6px;">Reason from Admin:</div>
          <div style="color:#7f1d1d;font-size:13px;line-height:1.6;">${reason}</div>
        </div>`
-    : `<div style="background:#F0FDFA;border:1px solid #99F6E4;border-radius:10px;padding:12px 16px;margin:14px 0;color:#115E59;font-size:13px;">
+    : `<div style="background:${_EM.panel};border-radius:10px;padding:12px 16px;margin:14px 0;color:${_EM.sub};font-size:13px;">
          No specific reason provided. Please contact the household admin for details.
        </div>`;
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head>
-<body style="margin:0;padding:0;background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:30px 0;">
-<tr><td align="center">
-<table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.10);max-width:560px;width:100%;">
-  <tr><td style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:24px 32px;text-align:center;border-top:4px solid #0F766E;">
-    ${_logoHtml()}
-    <div style="color:#0F766E;font-size:18px;font-weight:700;">${CFG.name.toUpperCase()}</div>
-    <div style="color:#94a3b8;font-size:12px;margin-top:4px;">${CFG.location}</div>
-    <div style="margin-top:10px;"><span style="background:#64748b;color:#fff;padding:4px 16px;border-radius:20px;font-size:11px;font-weight:700;">PAYMENT REQUEST UPDATE</span></div>
-  </td></tr>
+  const body = `
+  ${_emHeader("PAYMENT REQUEST UPDATE", "rgba(255,255,255,0.18)", "#B45309")}
   <tr><td style="padding:24px 32px;">
-    <p style="color:#334155;font-size:15px;margin:0 0 10px;">Dear <strong>${name}</strong>,</p>
-    <p style="color:#475569;font-size:13px;line-height:1.7;margin:0 0 10px;">
-      Your payment request of <strong>${amtFmt}</strong> for <strong>${forMonth} ${year}</strong>
+    <p style="color:${_EM.ink};font-size:14px;margin:0 0 10px;">Dear <strong>${name}</strong>,</p>
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.7;margin:0 0 4px;">
+      Your payment request of <strong style="color:${_EM.ink};">${amtFmt}</strong> for <strong style="color:${_EM.ink};">${forMonth} ${year}</strong>
       has been reviewed and could not be approved at this time.
     </p>
     ${reasonHtml}
-    <p style="color:#475569;font-size:13px;line-height:1.7;margin:0;">
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.7;margin:0;">
       If you have questions or would like to resubmit with correct details, please contact the household admin.
     </p>
   </td></tr>
-  <tr><td style="background:#F0FDFA;padding:16px 32px;text-align:center;border-top:2px solid #99F6E4;">
-    <div style="color:#115E59;font-size:13px;font-weight:700;">${CFG.tagline} 🙏</div>
-    <div style="color:#0F766E;font-size:12px;margin-top:4px;">${CFG.tagline} | ${CFG.name}</div>
-  </td></tr>
-  <tr><td style="background:#f8fafc;padding:10px 32px;text-align:center;border-top:1px solid #e2e8f0;">
-    <div style="color:#94a3b8;font-size:10px;">${CFG.name} | ${CFG.address}</div>
-  </td></tr>
-</table></td></tr></table></body></html>`;
+  ${_emFooter()}`;
+  return _emShell(560, body);
 }
 
 // ── Public stats — safe aggregated data only, no personal info
@@ -5358,113 +5818,33 @@ function sendBirthdayEmails(isTest, testUserId) {
 // ── Beautiful home-themed birthday HTML email ──────
 function _buildBirthdayEmail(member) {
   var firstName = (member.Name || "Friend").split(" ")[0];
-  var fullName  = member.Name || "Friend";
   var today     = Utilities.formatDate(new Date(), "GMT+5:30", "dd MMMM yyyy");
 
-  return `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-</head>
-<body style="margin:0;padding:0;background:#0F172A;font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0"
-  style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);padding:30px 0;">
-<tr><td align="center">
-<table width="580" cellpadding="0" cellspacing="0"
-  style="max-width:580px;width:92%;border-radius:20px;overflow:hidden;
-         border:1.5px solid rgba(15,118,110,0.45);
-         box-shadow:0 0 60px rgba(15,118,110,0.15),0 24px 80px rgba(0,0,0,0.7);">
+  const body = `
+  ${_emHeadSimple("Happy Birthday 🎂")}
 
-  <!-- HEADER -->
-  <tr><td style="background:linear-gradient(135deg,#0F172A 0%,#115E59 45%,#0F766E 75%,#F59E0B 100%);
-                 padding:30px 28px 22px;text-align:center;
-                 border-bottom:2px solid rgba(15,118,110,0.35);">
-    ${_logoHtml()}
-    <div style="color:rgba(15,118,110,0.6);font-size:1.1rem;letter-spacing:8px;margin-bottom:6px;">${CFG.symbol||"🕉"}</div>
-    <div style="color:#0F766E;font-size:20px;font-weight:700;letter-spacing:1.5px;">${CFG.name.toUpperCase()}</div>
-    <div style="color:rgba(255,255,255,0.4);font-size:11px;margin-top:3px;letter-spacing:1px;">${CFG.location.toUpperCase()}</div>
-    <div style="margin-top:16px;">
-      <span style="background:linear-gradient(135deg,#0F766E,#F59E0B);color:#fff;
-                   padding:6px 22px;border-radius:20px;font-size:12px;font-weight:700;
-                   letter-spacing:0.5px;box-shadow:0 4px 14px rgba(15,118,110,0.45);">
-        🎂 जन्मदिन मुबारक हो! 🎉
-      </span>
-    </div>
-  </td></tr>
+  <tr><td style="padding:28px 32px;">
+    <p style="color:${_EM.ink};font-size:14px;margin:0 0 14px;">Dear ${firstName} जी,</p>
 
-  <!-- DIYAS -->
-  <tr><td style="background:linear-gradient(135deg,#0F3B38,#0A2E2B);
-                 padding:16px 28px 8px;text-align:center;">
-    <div style="font-size:26px;letter-spacing:14px;">🪔 🪔 🪔</div>
-    <div style="width:80px;height:1px;
-                background:linear-gradient(90deg,transparent,rgba(15,118,110,0.5),transparent);
-                margin:12px auto 0;"></div>
-  </td></tr>
+    <p style="color:${_EM.sub};font-size:13.5px;line-height:1.85;margin:0 0 16px;">
+      Wishing you a very Happy Birthday! 🎉 आपका यह दिन खुशियों, अच्छी सेहत और अपनों के साथ प्यार भरे
+      पलों से भरा रहे।
+    </p>
 
-  <!-- MAIN BODY -->
-  <tr><td style="background:linear-gradient(160deg,#0F3B38,#0A2E2B);
-                 padding:20px 32px 28px;text-align:center;">
-    <div style="font-size:26px;font-weight:800;color:#0F766E;line-height:1.2;margin-bottom:4px;">
-      जन्मदिन मुबारक हो!
-    </div>
-    <div style="font-size:12px;font-weight:700;color:rgba(15,118,110,0.55);
-                letter-spacing:3px;margin-bottom:18px;">✦ HAPPY BIRTHDAY ✦</div>
-
-    <div style="font-size:21px;font-weight:700;color:#fff;margin-bottom:4px;">
-      🌸 ${firstName} जी 🌸
-    </div>
-    <div style="font-size:11px;color:rgba(15,118,110,0.55);font-style:italic;
-                letter-spacing:1px;margin-bottom:18px;">
-      ~ आपका दिन खुशियों से भरा रहे ~
-    </div>
-
-    <div style="width:80px;height:1px;
-                background:linear-gradient(90deg,transparent,rgba(15,118,110,0.5),transparent);
-                margin:0 auto 18px;"></div>
-
-    <!-- Blessing box -->
-    <div style="background:rgba(15,118,110,0.07);border:1px solid rgba(15,118,110,0.22);
-                border-radius:14px;padding:20px 22px;text-align:left;margin-bottom:18px;">
-      <p style="color:rgba(255,255,255,0.88);font-size:13.5px;line-height:1.85;margin:0 0 12px;">
-        प्रिय <strong style="color:#fff;">${fullName}</strong> जी,
-      </p>
-      <p style="color:rgba(255,255,255,0.76);font-size:13px;line-height:1.85;margin:0 0 12px;">
-        आपका यह जन्मदिन खुशियों, सेहत और अपनों के साथ प्यार भरे पलों से
-        भरा रहे। जीवन में सुख और समृद्धि सदैव बनी रहे। 🙏
-      </p>
-      <p style="color:rgba(255,255,255,0.76);font-size:13px;line-height:1.85;margin:0;">
-        आप स्वस्थ रहें, प्रसन्न रहें और इसी तरह हमारे घर-परिवार का हिस्सा
-        बने रहें। 🌺
+    <div style="background:${_EM.panel};border-left:3px solid ${_EM.brand};padding:16px 18px;margin:0 0 18px;">
+      <p style="color:${_EM.sub};font-size:13px;line-height:1.8;margin:0;">
+        On behalf of <strong style="color:${_EM.ink};">${CFG.name}</strong>, हम आपकी दीर्घायु,
+        स्वास्थ्य और खुशहाली की कामना करते हैं। May the year ahead bring you much joy and success. 🌸
       </p>
     </div>
 
-    <div style="width:80px;height:1px;
-                background:linear-gradient(90deg,transparent,rgba(15,118,110,0.5),transparent);
-                margin:0 auto 16px;"></div>
-
-    <div style="color:rgba(15,118,110,0.7);font-size:12px;line-height:1.75;">
-      पूरे घर-परिवार की ओर से हार्दिक शुभकामनाएं।<br/>
-      आप स्वस्थ रहें, प्रसन्न रहें, धन्य रहें। 🌺
-    </div>
+    <p style="color:${_EM.brand};font-size:12.5px;line-height:1.7;margin:0;font-style:italic;text-align:center;">
+      जन्मदिन मुबारक हो — ${CFG.tagline} 🙏
+    </p>
   </td></tr>
 
-  <!-- FOOTER -->
-  <tr><td style="background:linear-gradient(135deg,#0A2E2B,#071F1D);
-                 padding:18px 28px;text-align:center;
-                 border-top:1.5px solid rgba(15,118,110,0.28);">
-    <div style="color:#0F766E;font-size:15px;font-weight:700;margin-bottom:5px;">
-      🙏 ${CFG.tagline} 🙏
-    </div>
-    <div style="color:rgba(255,255,255,0.35);font-size:10px;margin-top:4px;font-style:italic;">
-      ${CFG.name} | ${CFG.location}
-    </div>
-    <div style="color:rgba(255,255,255,0.22);font-size:10px;margin-top:3px;">
-      Sent to ${member.Email} on ${today}
-    </div>
-  </td></tr>
-
-</table>
-</td></tr></table>
-</body></html>`;
+  ${_emFooterSimple("Sent to " + member.Email + " on " + today)}`;
+  return _emShell(520, body);
 }
 
 // ════════════════════════════════════════════════════════════════
