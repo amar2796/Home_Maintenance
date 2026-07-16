@@ -487,9 +487,16 @@
         try {
           var rt = getRememberToken();
           if (rt && rt.role === "Admin" && Date.now() < rt.expiry) {
+            // [FIX-24H] Previously hardcoded expiry:Date.now()+30*60*1000 here,
+            // which silently capped a 24h "remember me" session back down to
+            // 30 min on every restore — even though rt.expiry (the remember
+            // token's own real expiry) still had up to 24h left. Reuse it
+            // directly so this matches what "remember me" actually promised
+            // and what the server now grants (see setSessionToken/rememberMe
+            // in login.js and appscript.txt).
             s = {
               userId: rt.userId, name: rt.name, role: rt.role, email: rt.email || "",
-              sessionToken: rt.sessionToken || "", expiry: Date.now() + 30 * 60 * 1000
+              sessionToken: rt.sessionToken || "", expiry: rt.expiry
             };
             localStorage.setItem("session", JSON.stringify(s));
             return true;
@@ -4724,6 +4731,14 @@
       // Clear existing rows
       container.innerHTML = "";
       _BK_MONTHS.forEach((m) => bkAddRow(m, defAmt || ""));
+      // [MOBILE-FIX] Some mobile WebKit builds fail to repaint a flex/scroll
+      // container after many children are appended in a tight loop — the rows
+      // exist in the DOM (totals calculate correctly) but don't visually paint
+      // until something forces a reflow. This forces one with no visible flicker.
+      void container.offsetHeight;
+      container.style.display = "none";
+      void container.offsetHeight;
+      container.style.display = "";
     }
 
     function openBulkInsert() {

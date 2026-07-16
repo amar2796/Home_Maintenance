@@ -22,7 +22,12 @@ function clearRememberToken(){try{localStorage.removeItem(_RMK);}catch(e){}}
     // Then check remember-me token
     const t=loadRememberToken();
     if(t&&(t.role==="Admin"||t.role==="User")){
-      localStorage.setItem("session",JSON.stringify({userId:t.userId,name:t.name,role:t.role,email:t.email||"",sessionToken:t.sessionToken||"",expiry:Date.now()+30*60*1000}));
+      // [FIX-24H] Previously hardcoded expiry:Date.now()+30*60*1000 here, which
+      // silently capped a 24h remember-me session down to 30 min on every page
+      // load — even though the remember token itself (t.expiry) is still valid
+      // for up to 24h. Reuse t.expiry directly so the client-side session
+      // window matches what "remember me" actually promised.
+      localStorage.setItem("session",JSON.stringify({userId:t.userId,name:t.name,role:t.role,email:t.email||"",sessionToken:t.sessionToken||"",expiry:t.expiry}));
       location.replace(t.role==="Admin"?"admin.html":"user.html");
     }
   }catch(e){}
@@ -90,10 +95,13 @@ function postData(data){
   });
 }
 
-function setSessionTokenOnServer(userId,token){
+function setSessionTokenOnServer(userId,token,rememberMe){
   // Returns a Promise that resolves when the token is confirmed written (or after timeout/error).
   // This allows doLogin() to await it before redirecting, preventing SESSION_TOKEN_MISMATCH
   // and VERIFY_SESSION_ERROR caused by the page loading before the token hits the server.
+  // [FIX-24H] rememberMe wasn't previously sent to the server at all, so setSessionToken
+  // always granted a 30-min server-side window regardless of the checkbox — the audit
+  // log showed SESSION_EXPIRED at 30 min even when "remember me" was checked.
   return new Promise(function(resolve){
     function _attempt(n){
       try{
@@ -104,7 +112,7 @@ function setSessionTokenOnServer(userId,token){
           if(done)return;done=true;try{delete window[cb];s.remove();}catch(e){};
           if(n===1){setTimeout(()=>_attempt(2),2000);}else{resolve();} // resolve after retry so we don't block forever
         };
-        s.src=API_URL+"?action=setSessionToken&userId="+encodeURIComponent(userId)+"&token="+encodeURIComponent(token)+"&callback="+cb;
+        s.src=API_URL+"?action=setSessionToken&userId="+encodeURIComponent(userId)+"&token="+encodeURIComponent(token)+"&rememberMe="+(rememberMe?"1":"0")+"&callback="+cb;
         document.body.appendChild(s);
         // Timeout safety: resolve after 5s max so redirect is never stuck
         setTimeout(()=>{if(!done){done=true;try{delete window[cb];s.remove();}catch(e){}}resolve();},5000);
@@ -198,9 +206,15 @@ async function doLogin(){
     if(res.status==="success"){
       const user=res.user;delete user.Password;
       const sessionToken=Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b=>b.toString(16).padStart(2,"0")).join("");
-      const sessionData={userId:user.UserId,name:user.Name,role:user.Role,email:user.Email||"",photoURL:user.PhotoURL||"",expiry:Date.now()+30*60*1000,sessionToken};
+      // [FIX-24H] previously hardcoded expiry:Date.now()+30*60*1000 here regardless
+      // of the "remember me" checkbox — the client-side session window (used by
+      // _checkAdminSession's page-gating) was capped at 30 min even when the box
+      // was checked. Now matches the same window granted server-side.
+      const rememberMeChecked=document.getElementById("rememberMe").checked;
+      const clientTtlMs=rememberMeChecked?24*60*60*1000:30*60*1000;
+      const sessionData={userId:user.UserId,name:user.Name,role:user.Role,email:user.Email||"",photoURL:user.PhotoURL||"",expiry:Date.now()+clientTtlMs,sessionToken};
       localStorage.setItem("session",JSON.stringify(sessionData));
-      if(document.getElementById("rememberMe").checked){
+      if(rememberMeChecked){
         saveRememberToken(user.UserId,user.Name,user.Role,user.Email||"",sessionToken);
       }
       try{const bc=new BroadcastChannel("mandir_session");bc.postMessage({type:"SESSION_REVOKED",userId:String(user.UserId)});setTimeout(()=>bc.close(),500);}catch(e){}
@@ -226,7 +240,7 @@ async function doLogin(){
       // FIX: Await token write BEFORE redirecting. This prevents SESSION_TOKEN_MISMATCH
       // and VERIFY_SESSION_ERROR that occurred when admin.html loaded and called getAllData/
       // getEmailQuota before the new sessionToken was persisted on the server.
-      setSessionTokenOnServer(String(user.UserId),sessionToken).then(function(){
+      setSessionTokenOnServer(String(user.UserId),sessionToken,rememberMeChecked).then(function(){
         location.href=user.Role==="Admin"?"admin.html":"user.html";
       });
     }else if(res.status==="pending"){

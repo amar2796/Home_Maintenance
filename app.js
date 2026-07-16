@@ -744,9 +744,19 @@ function checkSession() {
     try {
       const rt = (typeof getRememberToken === "function") ? getRememberToken() : null;
       if (rt && Date.now() < rt.expiry) {
+        // [FIX-24H] Previously hardcoded expiry:Date.now()+30*60*1000 here,
+        // capping a 24h remember-me session back down to 30 min on every
+        // restore — even though rt.expiry (the remember token's own real
+        // expiry) still had up to 24h left. Reuse it directly so this
+        // matches the server-side window now granted (see setSessionToken/
+        // rememberMe in login.js and appscript.txt). The "Refresh sliding
+        // expiry window on activity" line below still nudges an already-valid
+        // session forward in 30-min hops during active use — that's fine and
+        // unrelated, since this restore path is what recovers the FULL
+        // remaining time whenever the session actually lapses.
         s = {
           userId: rt.userId, name: rt.name, role: rt.role, email: rt.email || "",
-          sessionToken: rt.sessionToken || "", expiry: Date.now() + 30 * 60 * 1000
+          sessionToken: rt.sessionToken || "", expiry: rt.expiry
         };
         localStorage.setItem("session", JSON.stringify(s));
         return true;

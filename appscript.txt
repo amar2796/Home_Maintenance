@@ -7,7 +7,8 @@
 //    [ID]  Sequential prefixed IDs for all sheets (USER-00001 etc.)
 //    [ID]  Role-based user IDs: USER-NNNNN / ADMIN-NNNNN
 //    [ID]  Walk-in IDs: WALKIN_YEAR_NNNNN (year-wise reset)
-//    [SEC] Server-side session expiry: 30-min sliding window
+//    [SEC] Server-side session expiry: sliding window — 30 min normally,
+//    24h when "remember me" is checked at login (see SessionTTL column)
 //    [PERF] Shared helpers: _findUserRow, _getSheet, _readSheetRaw
 //    [VAL] Server-side phone (10-digit) + email format validation
 //    [RPT] Yearly summary enhanced: receiptCount, expenseCount,
@@ -94,8 +95,9 @@ const SHEETS = {
 //  Call at the top of every write action in doGet().
 //  Returns true if session is valid, false if rejected/expired.
 //
-//  TokenExpiry column in USERS sheet stores ISO timestamp.
-//  On every valid action, expiry slides forward by 30 minutes.
+//  TokenExpiry column in USERS sheet stores a Unix ms timestamp.
+//  On every valid action, expiry slides forward by the window stored in
+//  SessionTTL (30 min normally, 24h if "remember me" was checked at login).
 //  On tab/browser close, clearSessionToken is called via sendBeacon.
 // ════════════════════════════════════════════════════════════════
 function _verifySession(params, actionName) {
@@ -148,7 +150,8 @@ function _verifySession(params, actionName) {
           logAction(userId, "SESSION_TOKEN_MISMATCH", "Action: " + actionName + " — token rejected", "", "", { severity:"WARN", result:"BLOCKED" });
           return false;
         }
-        // [SEC] Check server-side expiry (30-min sliding window)
+        // [SEC] Check server-side expiry (sliding window — length depends on
+        // whether "remember me" was checked at login; see SessionTTL below)
         // [FIX] TokenExpiry stored as Unix ms number — Number() avoids timezone
         // corruption where Sheets auto-converts date strings to UTC Date objects.
         if (expiryCol !== -1) {
@@ -159,9 +162,21 @@ function _verifySession(params, actionName) {
               logAction(userId, "SESSION_EXPIRED", "Action: " + actionName + " — session expired (server-side)", "", "", { severity:"WARN", result:"BLOCKED" });
               return false;
             }
-            // Slide expiry forward 30 min — store as Unix ms number (never a string).
+            // [FIX-24H] Slide expiry forward by whatever window was granted at
+            // login (SessionTTL column) — 30 min normally, or 24h if the user
+            // checked "remember me". Previously this always hardcoded 30 min,
+            // so a remember-me session got silently capped down to 30 min on
+            // the very first subsequent action, regardless of the checkbox.
+            // Falls back to 30 min if the column is missing/blank (older rows
+            // written before this column existed).
+            const ttlCol = headers.indexOf("SessionTTL");
+            let slideMs = 30 * 60 * 1000;
+            if (ttlCol !== -1) {
+              const storedTtl = Number(allData[i][ttlCol]);
+              if (!isNaN(storedTtl) && storedTtl > 0) slideMs = storedTtl;
+            }
             try {
-              const newExpiry = Date.now() + 30 * 60 * 1000;
+              const newExpiry = Date.now() + slideMs;
               sheet.getRange(i + 1, expiryCol + 1).setValue(newExpiry);
               _bustSheetCache(_VS_CACHE_KEY);
             } catch(slErr) { /* non-fatal — don't block the action */ }
@@ -1764,12 +1779,21 @@ function doGet(e) {
     }
   }
 
-  // ── SET SESSION TOKEN — writes token + TokenExpiry (30-min window) to USERS sheet
-  // [SEC] TokenExpiry is now server-enforced. Every subsequent write action
-  // checks this column and slides it forward by 30 min (see _verifySession).
+  // ── SET SESSION TOKEN — writes token + TokenExpiry to USERS sheet
+  // [SEC] TokenExpiry is server-enforced. Every subsequent write action checks
+  // this column and slides it forward (see _verifySession) by whatever window
+  // was granted here — 30 min normally, or 24h if rememberMe was checked at
+  // login. The granted window itself is stored in the SessionTTL column so
+  // _verifySession's sliding renewal uses the SAME duration every time, rather
+  // than silently capping a "remember me" session back down to 30 min.
   else if (action === "setSessionToken") {
     const userId = sanitize(e.parameter.userId, 30);
     const token  = sanitize(e.parameter.token,  64);
+    // [FIX-24H] rememberMe wasn't previously read at all — every login got a
+    // 30-min server session regardless of the "Remember me for 24 hours"
+    // checkbox, so audit logs showed SESSION_EXPIRED at 30 min even when the
+    // box was checked.
+    const rememberMe = sanitize(e.parameter.rememberMe, 5) === "1";
     if (!userId || !token) {
       result = { status: "error", message: "Missing userId or token" };
     } else {
@@ -1782,22 +1806,31 @@ function doGet(e) {
       // Ensure TokenExpiry column exists
       let expiryCol = headers.indexOf("TokenExpiry");
       if (expiryCol === -1) { expiryCol = headers.length + (tokenCol === headers.length ? 1 : 0); sheet.getRange(1, expiryCol + 1).setValue("TokenExpiry"); }
+      // Ensure SessionTTL column exists — stores the granted sliding-window
+      // length (ms) so _verifySession renews by the same amount each time.
+      let ttlCol = headers.indexOf("SessionTTL");
+      if (ttlCol === -1) {
+        ttlCol = Math.max(tokenCol, expiryCol) + 1;
+        sheet.getRange(1, ttlCol + 1).setValue("SessionTTL");
+      }
       let found = false;
       // [FIX] Store TokenExpiry as Unix ms number — NOT a formatted date string.
       // Sheets auto-converts date strings to UTC Date objects on read-back,
       // making IST tokens appear 5.5h expired instantly.
-      const expiryTime = Date.now() + 30 * 60 * 1000;
+      const sessionTtlMs  = rememberMe ? 24 * 60 * 60 * 1000 : 30 * 60 * 1000;
+      const expiryTime    = Date.now() + sessionTtlMs;
       const expiryDisplay = Utilities.formatDate(new Date(expiryTime), "GMT+5:30", "dd-MM-yyyy HH:mm:ss"); // audit log only
       for (let i = 1; i < data.length; i++) {
         if (String(data[i][0]) === userId) {
           sheet.getRange(i + 1, tokenCol + 1).setValue(token);
           sheet.getRange(i + 1, expiryCol + 1).setValue(expiryTime); // plain number
+          sheet.getRange(i + 1, ttlCol + 1).setValue(sessionTtlMs);  // plain number, ms
           SpreadsheetApp.flush();
           found = true; break;
         }
       }
       if (found) {
-        logAction(userId, "SESSION_TOKEN_SET", "UserId: " + userId + " | Expiry: " + expiryDisplay, "Session token + expiry stored after login", sanitize(e.parameter.deviceInfo||"",200), { severity:"INFO", result:"SUCCESS" });
+        logAction(userId, "SESSION_TOKEN_SET", "UserId: " + userId + " | Expiry: " + expiryDisplay + " | RememberMe: " + (rememberMe ? "24h" : "30min"), "Session token + expiry stored after login", sanitize(e.parameter.deviceInfo||"",200), { severity:"INFO", result:"SUCCESS" });
       } else {
         logAction(userId, "SESSION_TOKEN_SET_FAILED", "UserId: " + userId + " — user not found", "", "", { severity:"WARN", result:"FAILURE" });
       }
@@ -1806,6 +1839,7 @@ function doGet(e) {
       result = found ? { status: "ok" } : { status: "error", message: "User not found" };
     }
   }
+
 
   // ── CHECK SESSION TOKEN + EXPIRY
   else if (action === "checkSession") {
@@ -3213,7 +3247,7 @@ function doGet(e) {
 
       // ── Column integrity check per sheet ──
       var expectedCols = {
-        "USERS":                 ["UserId","Name","Mobile","Role","Password","Email","Status","SessionToken","Village","Address","RegisteredAt","PhotoURL","MonthlyTarget","LastLogin","DOB","TokenExpiry","ContribStartDate","InactiveSince"],
+        "USERS":                 ["UserId","Name","Mobile","Role","Password","Email","Status","SessionToken","Village","Address","RegisteredAt","PhotoURL","MonthlyTarget","LastLogin","DOB","TokenExpiry","ContribStartDate","InactiveSince","SessionTTL"],
         "CONTRIBUTION_REQUESTS": ["ReqId","UserId","Amount","PaymentMode","ForMonth","Year","Note","UtrRef","Status","RequestedAt","SlipURL","RejectionNote"],
         "BROADCAST":             ["BcId","Type","Priority","Title","Message","Time","AdminName"],
         "CONTRIBUTIONS":         ["Id","UserId","Amount","PaymentDate","ForMonth","Year","TypeId","OccasionId","Note","ReceiptID","PaymentMode"],
@@ -5252,21 +5286,61 @@ function rejectUser(params) {
   }
 }
  
+// ── Shared onboarding content block — inserted into both the approval email
+//    and the admin-added email, so every new user (whichever flow created
+//    them) sees the same explanation of what the app offers and why.
+//    Keep this as the single place to edit the wording — do not duplicate
+//    the bullet lists inline in each email builder.
+function _emWelcomeInfoBlock() {
+  return `
+    <div style="font-weight:700;color:${_EM.ink};font-size:13px;margin-bottom:8px;">Yeh app hai kya</div>
+    <ul style="color:${_EM.sub};font-size:12.5px;line-height:1.9;margin:0 0 20px;padding-left:18px;">
+      <li>Ghar ke saare contributions ka digital record hai</li>
+      <li>Kisne kitna diya, kab diya — sab track hota hai</li>
+      <li>Kisi se poochna nahi padega, khud check kar sakta hai kabhi bhi</li>
+    </ul>
+
+    <div style="font-weight:700;color:${_EM.ink};font-size:13px;margin-bottom:8px;">Yaha kya kar sakta hai</div>
+    <ul style="color:#334155;font-size:12.5px;line-height:2;margin:0 0 20px;padding-left:18px;">
+      <li>Apna contribution history dekh sakta hai, kahi bhi aur kabhi bhi</li>
+      <li>Naya payment submit kar sakta hai, nhi toh group me receipt send kar sakta hai</li>
+      <li>Current year ka receipt download kar sakta hai</li>
+      <li>Complete receipt (ab tak ka pura statement) download kar sakta hai</li>
+      <li>Goals ka live progress track kar sakta hai</li>
+      <li>Events aur announcements dekh sakta hai</li>
+    </ul>
+
+    <div style="font-weight:700;color:${_EM.ink};font-size:13px;margin-bottom:8px;">Reminder ka system (every month)</div>
+    <div style="border-left:3px solid ${_EM.brand};background:${_EM.panel};padding:4px 16px;margin:0 0 20px;">
+      <ul style="color:#334155;font-size:12.5px;line-height:2;margin:10px 0;padding-left:16px;">
+        <li><strong style="color:${_EM.ink};">25 tareek</strong> — reminder mail, agar contribution abhi tak submit nahi huwa ho</li>
+        <li><strong style="color:${_EM.ink};">30 tareek</strong> — contribution ho chuka ho toh complete summary mail</li>
+        <li><strong style="color:${_EM.ink};">30 tareek</strong> — nahi huwa ho toh last/final reminder mail</li>
+      </ul>
+    </div>
+
+    <div style="font-weight:700;color:${_EM.ink};font-size:13px;margin-bottom:8px;">Safety</div>
+    <ul style="color:${_EM.sub};font-size:12.5px;line-height:1.9;margin:0 0 4px;padding-left:18px;">
+      <li>Har mail hamesha isi official Gmail ID se aayega — kisi aur address se aaye toh verify/ignore kare</li>
+      <li>Password sirf usko hi pata hai — admin sahit koi bhi ise dekh nahi sakta, encrypted form me store hota hai</li>
+    </ul>`;
+}
+
 function _buildApprovalEmail(user) {
   const body = `
   ${_emHeader("✓ REGISTRATION APPROVED", "#22c55e")}
-  <tr><td style="padding:26px 32px;">
-    <p style="color:${_EM.ink};font-size:15px;font-weight:700;margin:0 0 8px;">${CFG.tagline}, <span style="color:${_EM.brand};">${user.Name}</span>!</p>
-    <p style="color:${_EM.sub};font-size:13px;line-height:1.8;margin:0 0 18px;">Your registration request for <strong>${CFG.name}</strong> has been <strong style="color:#16a34a;">approved</strong> by the admin. You can now login to access your account.</p>
-    <div style="background:${_EM.panel};border-radius:10px;padding:16px 20px;margin:0 0 18px;">
-      <div style="color:${_EM.ink};font-size:12.5px;font-weight:700;margin-bottom:10px;">Your Login Details</div>
+  <tr><td style="padding:26px 32px 8px;">
+    <p style="color:${_EM.ink};font-size:14px;margin:0 0 14px;">Namaste <strong style="color:${_EM.brand};">${user.Name}</strong> ji,</p>
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.8;margin:0 0 18px;">Aapki registration request approve ho gaya hai. Ab aap login kar sakta hai.</p>
+    <div style="background:${_EM.panel};border-radius:10px;padding:16px 20px;margin:0 0 20px;">
+      <div style="color:${_EM.ink};font-size:12.5px;font-weight:700;margin-bottom:10px;">Login Details</div>
       <div style="color:${_EM.sub};font-size:13px;margin-bottom:6px;"><strong style="color:${_EM.ink};">Login ID (Mobile):</strong> ${user.Mobile}</div>
-      <div style="color:${_EM.sub};font-size:13px;"><strong style="color:${_EM.ink};">Password:</strong> The password you set during registration</div>
+      <div style="color:${_EM.sub};font-size:13px;"><strong style="color:${_EM.ink};">Password:</strong> Aapne registration ke time jo set kiya tha</div>
     </div>
-    <p style="color:${_EM.sub};font-size:13px;line-height:1.7;margin:0;">You can now view your donation history, download receipts, and more. Welcome to the ${CFG.name} family!</p>
+    ${_emWelcomeInfoBlock()}
   </td></tr>
-  ${_emButton("Open Website", CFG.websiteUrl)}
-  ${_emFooter()}`;
+  ${_emButton("Open App", CFG.websiteUrl)}
+  ${_emFooter("Koi sawaal ho toh app ke Feedback / Contact section se seedha message kar sakta hai.")}`;
   return _emShell(560, body);
 }
  
@@ -5275,30 +5349,23 @@ function _buildApprovalEmail(user) {
 function _buildAdminAddedEmail(user) {
   const body = `
   ${_emHeader("✓ ACCOUNT CREATED", "#22c55e")}
-  <tr><td style="padding:26px 32px;">
-    <p style="color:${_EM.ink};font-size:15px;font-weight:700;margin:0 0 8px;">${CFG.tagline}, <span style="color:${_EM.brand};">${user.Name}</span>!</p>
-    <p style="color:${_EM.sub};font-size:13px;line-height:1.8;margin:0 0 18px;">
-      Welcome to <strong>${CFG.name}</strong>! Your account has been created by the admin
-      and is <strong style="color:#16a34a;">active immediately</strong>.
-      You can login right away using the details below.
-    </p>
-    <div style="background:${_EM.panel};border-radius:10px;padding:16px 20px;margin:0 0 18px;">
-      <div style="color:${_EM.ink};font-size:12.5px;font-weight:700;margin-bottom:10px;">Your Login Details</div>
+  <tr><td style="padding:26px 32px 8px;">
+    <p style="color:${_EM.ink};font-size:14px;margin:0 0 14px;">Namaste <strong style="color:${_EM.brand};">${user.Name}</strong> ji,</p>
+    <p style="color:${_EM.sub};font-size:13px;line-height:1.8;margin:0 0 18px;">Aapka account admin ne bana diya hai — abhi se active hai, neeche diye gaye details se login kar sakta hai.</p>
+    <div style="background:${_EM.panel};border-radius:10px;padding:16px 20px;margin:0 0 20px;">
+      <div style="color:${_EM.ink};font-size:12.5px;font-weight:700;margin-bottom:10px;">Login Details</div>
       <div style="color:${_EM.sub};font-size:13px;margin-bottom:6px;"><strong style="color:${_EM.ink};">Login ID (Mobile):</strong> ${user.Mobile}</div>
       <div style="color:${_EM.sub};font-size:13px;margin-bottom:6px;"><strong style="color:${_EM.ink};">Member ID:</strong> ${user.UserId}</div>
       <div style="color:${_EM.sub};font-size:13px;"><strong style="color:${_EM.ink};">Password:</strong> <span style="background:#eef2f2;border:1px solid #d6e2e0;border-radius:6px;padding:2px 10px;font-family:monospace;font-size:13px;font-weight:700;letter-spacing:0.5px;color:${_EM.brand};">JaiShreeRam</span></div>
       <div style="background:#fffbeb;border-radius:8px;padding:10px 14px;margin-top:12px;">
-        <div style="color:#854d0e;font-size:12px;font-weight:700;margin-bottom:4px;">⚠️ Important — First Login Instruction</div>
-        <div style="color:#78500e;font-size:12px;line-height:1.7;">This is a <strong>temporary password</strong> set by the admin. For your account's security, you will be asked to <strong>set a new password immediately after your first login</strong>. Please keep your new password safe and do not share it with anyone.</div>
+        <div style="color:#854d0e;font-size:12px;font-weight:700;margin-bottom:4px;">⚠ First login par yeh zaroor kare</div>
+        <div style="color:#78500e;font-size:12px;line-height:1.7;">Yeh ek temporary password hai. Pehli baar login karne ke baad turant naya password set karna hoga — us naye password ko kisi ke saath share na kare.</div>
       </div>
     </div>
-    <p style="color:${_EM.sub};font-size:13px;line-height:1.7;margin:0;">
-      You can view your donation history, download receipts, and more.
-      Welcome to the ${CFG.name} family!
-    </p>
+    ${_emWelcomeInfoBlock()}
   </td></tr>
-  ${_emButton("Open Website", CFG.websiteUrl)}
-  ${_emFooter()}`;
+  ${_emButton("Open App", CFG.websiteUrl)}
+  ${_emFooter("Koi sawaal ho toh app ke Feedback / Contact section se seedha message kar sakta hai.")}`;
   return _emShell(560, body);
 }
 
