@@ -1862,34 +1862,108 @@
             <span style="font-size:11px;font-weight:400;color:#999;margin-left:8px;">Who paid · Who hasn't</span>
           </h3>
 
-          <!-- Filter Row -->
-          <div class="filter-row" style="flex-wrap:wrap;gap:10px;margin-bottom:16px;">
-            <div>
-              <label style="font-size:11px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Type</label>
-              <select id="tr_type"
-                style="padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-family:Poppins,sans-serif;font-size:13px;min-width:160px;">
+          <style>
+            .tr-toolbar { display:flex; flex-wrap:wrap; align-items:flex-end; gap:20px; background:transparent; border:none; border-bottom:1px solid #eef1f4; border-radius:0; padding:2px 2px 16px; margin-bottom:20px; }
+            .tr-toolbar .tr-field { display:flex; flex-direction:column; gap:5px; }
+            .tr-toolbar label { font-size:10.5px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:.03em; }
+            .tr-toolbar select { padding:7px 12px; border:1px solid #e2e8f0; border-radius:7px; font-family:Poppins,sans-serif; font-size:13px; background:#fff; height:34px; color:#334155; }
+            .tr-toolbar .tr-hide-chk { display:flex; align-items:center; gap:6px; font-size:12px; color:#64748b; cursor:pointer; white-space:nowrap; padding-bottom:7px; margin-left:auto; }
+            .tr-focus-bar { display:flex; align-items:center; flex-wrap:wrap; gap:10px; background:#fff; border:1px dashed #d7dce3; border-radius:10px; padding:10px 14px; margin-bottom:16px; }
+            .tr-focus-bar label { font-size:12px; font-weight:600; color:#555; white-space:nowrap; }
+            .tr-focus-bar select { padding:7px 12px; border:1px solid #ddd; border-radius:8px; font-family:Poppins,sans-serif; font-size:13px; background:#fff; height:34px; }
+            .tr-legend-chip { display:inline-flex; align-items:center; gap:5px; background:#f8fafc; border:1px solid #eef2f6; border-radius:20px; padding:4px 12px; font-size:11px; color:#64748b; font-weight:500; }
+            /* Year-overview + shortfall badges — single line on wider screens, shrink to fit */
+            #tr_year_summary { flex-wrap:wrap; gap:10px; }
+            #tr_year_summary > div { padding:12px 14px; }
+            #tr_target_badges { display:flex; }
+            @media (min-width:641px) {
+              #tr_year_summary { flex-wrap:nowrap; overflow-x:auto; }
+              #tr_year_summary > div, #tr_target_badges { flex:1 1 0; min-width:0; white-space:nowrap; }
+              #tr_year_summary > div { padding:12px 14px; }
+            }
+            @media (max-width:640px) {
+              .tr-toolbar { padding:12px; gap:10px; }
+              .tr-toolbar .tr-field { flex:1 1 100%; }
+              .tr-toolbar select { width:100%; }
+              .tr-toolbar .tr-hide-chk { padding-bottom:0; margin-left:0; flex:1 1 100%; justify-content:flex-start; }
+              .tr-focus-bar { flex-direction:column; align-items:stretch; }
+              .tr-focus-bar select { width:100%; }
+              .tr-legend-chip { font-size:10.5px; padding:3px 10px; }
+              #tr_grid_table { font-size:10.5px; }
+              #tr_summary { gap:8px; }
+              #tr_summary > div { flex:1 1 auto; min-width:100px; padding:10px 12px; }
+              /* 2-per-row CSS Grid on mobile — grid auto-stretches every box in a row to
+                 equal height (fixes the Inactive box being shorter than the Shortfall box) */
+              #tr_year_summary { display:grid !important; grid-template-columns:1fr 1fr; gap:8px; }
+              #tr_year_summary > div, #tr_target_badges { flex:none; width:auto; min-width:0; padding:10px 10px; white-space:normal; }
+              #tr_target_badges { display:flex; }
+              #tr_target_badges > div { width:100%; display:flex; flex-direction:column; justify-content:center; }
+              #tr_year_summary > div div:first-child { font-size:1.1rem !important; }
+              #tr_year_summary > div div:not(:first-child), #tr_target_badges div div:not(:first-child) { font-size:10px !important; line-height:1.3; }
+            }
+          </style>
+
+          <!-- Grid filters — auto-applies on any change, no Apply button needed -->
+          <div class="tr-toolbar">
+            <div class="tr-field">
+              <label>Type</label>
+              <select id="tr_type" onchange="runTracker()">
                 <option value="">— All Types —</option>
               </select>
             </div>
-            <div>
-              <label style="font-size:11px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Month</label>
-              <select id="tr_month"
-                style="padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-family:Poppins,sans-serif;font-size:13px;min-width:130px;"></select>
+            <div class="tr-field">
+              <label>Year</label>
+              <select id="tr_year" onchange="runTracker()" style="min-width:90px;text-align:center;"></select>
             </div>
-            <div>
-              <label style="font-size:11px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Year</label>
-              <select id="tr_year"
-                style="padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-family:Poppins,sans-serif;font-size:13px;min-width:100px;"></select>
-            </div>
-            <div style="align-self:flex-end;">
-              <button onclick="runTracker()" style="padding:9px 20px;">
-                <i class="fa-solid fa-magnifying-glass"></i> Apply Filter
-              </button>
-            </div>
+            <label class="tr-hide-chk">
+              <input type="checkbox" id="tr_hide_inactive" onchange="runTracker()"/> Hide inactive members
+            </label>
           </div>
 
-          <!-- Summary Badges -->
-          <div id="tr_summary" style="display:none;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+          <!-- Year overview — always reflects the selected Year + Type, independent of Focus month -->
+          <div style="font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:.04em;text-transform:uppercase;margin:0 0 8px 2px;">
+            Year overview
+          </div>
+          <div id="tr_year_summary" style="display:none;gap:10px;margin-bottom:18px;">
+            <div
+              style="background:#F0FDFA;border:1px solid #bfdbfe;border-radius:10px;text-align:center;">
+              <div style="font-size:1.3rem;font-weight:700;color:#0F766E;" id="tr_total_members">0</div>
+              <div style="font-size:10.5px;color:#115E59;font-weight:600;">👥 Total Members</div>
+            </div>
+            <div
+              style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;text-align:center;">
+              <div style="font-size:1.3rem;font-weight:700;color:#dc2626;" id="tr_year_pending_months">0</div>
+              <div style="font-size:10.5px;color:#991b1b;font-weight:600;">📅 Pending Months</div>
+            </div>
+            <div
+              style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;text-align:center;">
+              <div style="font-size:1.3rem;font-weight:700;color:#475569;" id="tr_year_inactive_count">0</div>
+              <div style="font-size:10.5px;color:#334155;font-weight:600;">🔒 Inactive (Closed)</div>
+            </div>
+          </div>
+          <!-- Shortfall badge (target_badges) gets appended as a 4th flex item here by runTracker() -->
+          
+
+          <!-- Year-wise member × month grid -->
+          <div id="tr_grid_wrap" style="display:none;overflow-x:auto;border:1px solid #eef1f4;border-radius:10px;margin-bottom:10px;">
+            <table id="tr_grid_table" style="border-collapse:collapse;font-size:11.5px;width:100%;min-width:760px;table-layout:fixed;"></table>
+          </div>
+          <div id="tr_grid_legend" style="display:none;gap:8px;margin:0 0 22px;flex-wrap:wrap;">
+            <span class="tr-legend-chip"><b style="color:#16a34a;">✓</b> Paid</span>
+            <span class="tr-legend-chip"><b style="color:#dc2626;">✕</b> Pending</span>
+            <span class="tr-legend-chip"><b style="color:#94a3b8;">—</b> Before start date</span>
+            <span class="tr-legend-chip"><b style="color:#94a3b8;">·</b> Future month</span>
+            <span class="tr-legend-chip"><b style="color:#64748b;">◆</b> Closed (inactive)</span>
+          </div>
+
+          <!-- Focus month — drives the paid/pending lists + WhatsApp buttons below -->
+          <div class="tr-focus-bar">
+            <label><i class="fa-solid fa-list-check" style="color:#0F766E;margin-right:4px;"></i>List + WhatsApp send for</label>
+            <select id="tr_month" onchange="runTracker()"></select>
+          </div>
+
+          <!-- Selected-month summary -->
+          <div id="tr_summary" style="display:none;gap:12px;flex-wrap:wrap;margin-bottom:8px;">
             <div
               style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 20px;text-align:center;min-width:120px;">
               <div style="font-size:1.5rem;font-weight:700;color:#16a34a;" id="tr_paid_count">0</div>
@@ -1901,11 +1975,6 @@
               <div style="font-size:1.5rem;font-weight:700;color:#dc2626;" id="tr_pending_count">0</div>
               <div style="font-size:11px;color:#991b1b;font-weight:600;">❌ Pending</div>
               <div style="font-size:12px;color:#b91c1c;font-weight:600;" id="tr_pending_pct">0%</div>
-            </div>
-            <div
-              style="background:#F0FDFA;border:1px solid #bfdbfe;border-radius:10px;padding:12px 20px;text-align:center;min-width:120px;">
-              <div style="font-size:1.5rem;font-weight:700;color:#0F766E;" id="tr_total_members">0</div>
-              <div style="font-size:11px;color:#115E59;font-weight:600;">👥 Total Members</div>
             </div>
           </div>
           <!-- Progress bar -->
@@ -2482,7 +2551,11 @@
           <div style="background:#f8fafc;border-radius:10px;padding:16px 20px;border:1px solid #e2e8f0;">
             <div style="font-weight:700;color:#334155;font-size:13px;margin-bottom:12px;"><i
                 class="fa-solid fa-circle-question" style="color:#14B8A6;margin-right:6px;"></i>How It Works</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;font-size:12px;color:#475569;">
+            <style>
+              @media (max-width:900px) { .hiw-grid { grid-template-columns:1fr 1fr !important; } }
+              @media (max-width:560px) { .hiw-grid { grid-template-columns:1fr !important; } }
+            </style>
+            <div class="hiw-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;font-size:12px;color:#475569;">
               <div>
                 <div style="font-weight:600;color:#1e293b;margin-bottom:4px;">📧 Auto Receipt Email</div>
                 <ul style="margin:0;padding-left:16px;line-height:1.8;color:#64748b;">
@@ -3340,6 +3413,13 @@
           <div class="sp-field-group">
             <label class="sp-label">Date of Birth <span class="sp-optional">(birthday alerts)</span></label>
             <input id="u_dob" type="date" class="sp-input" />
+          </div>
+        </div>
+        <div class="sp-row2">
+          <div class="sp-field-group">
+            <label class="sp-label">Contribution Start Date <span class="sp-optional">(Tracker)</span></label>
+            <input id="u_contrib_start" type="date" class="sp-input" />
+            <div style="font-size:11px;color:#64748b;margin-top:4px;"><i class="fa-solid fa-circle-info" style="color:#0F766E;"></i> Leave blank — Tracker will start counting from this member's first recorded contribution.</div>
           </div>
         </div>
         <div class="sp-actions">

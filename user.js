@@ -1999,7 +1999,7 @@ existing updateUser action. No new Apps Script action needed.
       ldrEl.style.display = "flex";
     }
 
-    // ── Quick stats: This Month + Records ──
+    // ── Quick stats: This Month + Records + Pending ──
     const thisMonth = data.filter(c => String(c.Year) === String(curY) && c.ForMonth === curM).reduce((s, c) => s + Number(c.Amount || 0), 0);
     const noContrib = thisMonth === 0;
     const qs = document.getElementById("quickStats");
@@ -2018,7 +2018,64 @@ existing updateUser action. No new Apps Script action needed.
              <div class="hero-stat-l">🧾 Records</div>
              <div class="hero-stat-v">${data.length}</div>
            </div>`;
-      qs.innerHTML = monthCard + recordsCard;
+
+      // ── Pending months — same rules as the admin Tracker, scoped to just this member:
+      // effective start = ContribStartDate → first contribution → RegisteredAt (whichever
+      // is known), and frozen at InactiveSince if this member ever went inactive.
+      // Amount is intentionally NOT shown here — just the count, kept low-pressure.
+      const _uSess = _sess();
+      const myProfileForPending = users.find(u => String(u.UserId) === String(_uSess.userId)) || {};
+
+      function _u_parseDMY(v) {
+        if (!v) return null;
+        const mm = /^(\d{2})-(\d{2})-(\d{4})/.exec(String(v).trim());
+        if (!mm) return null;
+        const yy = Number(mm[3]), mo = Number(mm[2]) - 1;
+        if (isNaN(yy) || isNaN(mo) || mo < 0 || mo > 11) return null;
+        return { y: yy, m: mo };
+      }
+      const _u_ym = (y, m) => y * 12 + m;
+
+      let effStart = _u_parseDMY(myProfileForPending.ContribStartDate);
+      if (!effStart) {
+        let best = null;
+        data.forEach(c => {
+          const y = Number(c.Year), mi = months.indexOf(c.ForMonth);
+          if (isNaN(y) || mi === -1) return;
+          if (!best || y < best.y || (y === best.y && mi < best.m)) best = { y, m: mi };
+        });
+        effStart = best || _u_parseDMY(myProfileForPending.RegisteredAt);
+      }
+      let freeze = null;
+      if (String(myProfileForPending.Status || "").toLowerCase() === "inactive") {
+        freeze = _u_parseDMY(myProfileForPending.InactiveSince);
+      }
+
+      let pendingMonths = 0;
+      if (effStart) {
+        const paidSet = new Set(data.map(c => c.Year + "|" + c.ForMonth));
+        const curYM = _u_ym(curY, now.getMonth());
+        let y = effStart.y, m = effStart.m;
+        while (_u_ym(y, m) <= curYM) {
+          if (!freeze || _u_ym(y, m) <= _u_ym(freeze.y, freeze.m)) {
+            if (!paidSet.has(y + "|" + months[m])) pendingMonths++;
+          }
+          m++; if (m > 11) { m = 0; y++; }
+        }
+      }
+
+      const pendingCard = pendingMonths > 0
+        ? `<div class="hero-stat hero-stat--pending">
+             <div class="hero-stat-l">⏳ Pending</div>
+             <div class="hero-stat-v">${pendingMonths}</div>
+             <span class="hero-stat-hint">month${pendingMonths > 1 ? "s" : ""} pending</span>
+           </div>`
+        : `<div class="hero-stat hero-stat--allpaid">
+             <div class="hero-stat-l">✅ Status</div>
+             <div class="hero-stat-v">All Caught Up</div>
+           </div>`;
+
+      qs.innerHTML = monthCard + recordsCard + pendingCard;
     }
   }
 

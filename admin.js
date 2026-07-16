@@ -4375,7 +4375,14 @@
         <label class="_fl">Date of Birth
           <span style="color:#bbb;font-weight:400;font-size:10px;">— for birthday alerts on dashboard</span>
         </label>
-        <input class="_fi" type="date" id="eu_dob" value="${escapeHtml(_dobToInputVal(u.DOB || ''))}" style="margin-bottom:0;"/>
+        <input class="_fi" type="date" id="eu_dob" value="${escapeHtml(_dobToInputVal(u.DOB || ''))}"/>
+        <label class="_fl">Contribution Start Date
+          <span style="color:#bbb;font-weight:400;font-size:10px;">
+            — used by Tracker for late-joining members; leave blank to use their first contribution
+          </span>
+        </label>
+        <input class="_fi" type="date" id="eu_contrib_start" value="${escapeHtml(_dobToInputVal(u.ContribStartDate || ''))}" style="margin-bottom:0;"/>
+        ${String(u.InactiveSince||'').trim() ? `<div style="font-size:11px;color:#94a3b8;margin-top:6px;"><i class="fa-solid fa-circle-info"></i> Inactive since ${escapeHtml(u.InactiveSince)} — Tracker stopped counting pending for this member from that date.</div>` : ''}
       </div>
       <div class="_mft">
         <button class="_mbtn" style="background:#999;" onclick="closeModal();_adminPendingCroppedB64='';">Cancel</button>
@@ -4420,6 +4427,7 @@
               Status: document.getElementById("eu_status").value,
               MonthlyTarget: Number(document.getElementById("eu_monthly_target")?.value || 0),
               DOB: _inputValToDob(document.getElementById("eu_dob")?.value || ""),
+              ContribStartDate: _inputValToDob(document.getElementById("eu_contrib_start")?.value || ""),
               AdminName: s.name,
               base64: _adminPendingCroppedB64,
               fileName: "User_" + id + "_" + Date.now() + ".jpg",
@@ -4454,6 +4462,7 @@
           PhotoURL: photoURL,
           MonthlyTarget: Number(document.getElementById("eu_monthly_target")?.value || 0),
           DOB: _inputValToDob(document.getElementById("eu_dob")?.value || ""),
+          ContribStartDate: _inputValToDob(document.getElementById("eu_contrib_start")?.value || ""),
           AdminName: s.name,
         });
         toast(
@@ -6589,6 +6598,7 @@
         // [FIX-DOB] <input type="date"> always gives yyyy-MM-dd.
         // Convert to dd-MM-yyyy before sending — same as saveEditUser uses _inputValToDob.
         let dob = _inputValToDob((document.getElementById("u_dob")?.value || "").trim());
+        let contribStart = _inputValToDob((document.getElementById("u_contrib_start")?.value || "").trim());
         let res = await postData({
           action: "addUser",
           // [ID] UserId is now generated server-side (USER-NNNNN / ADMIN-NNNNN)
@@ -6599,6 +6609,7 @@
           Email:  email,
           Role:   role,
           DOB:    dob,
+          ContribStartDate: contribStart,
         });
         if (res.status === "error") toast("❌ " + res.message, "error");
         else {
@@ -6608,6 +6619,8 @@
           document.getElementById("u_email").value = "";
           const _dobEl = document.getElementById("u_dob");
           if (_dobEl) _dobEl.value = "";
+          const _csEl = document.getElementById("u_contrib_start");
+          if (_csEl) _csEl.value = "";
           smartRefresh("users");
         }
       } catch (err) {
@@ -8962,10 +8975,57 @@
     window._editRetryWalkIn = _editRetryWalkIn;
 
     /* ═══════════════════════════════════════════════════════
-       IMPROVEMENT #6 — CONTRIBUTION TRACKER
-       Shows paid vs pending members per type/month/year.
-       Walk-in donors are excluded from pending (anonymous).
+       CONTRIBUTION TRACKER — year-wise, user-wise grid
+       Shows every member (active + inactive) across all 12 months of
+       the selected year. Respects each member's ContribStartDate (or,
+       failing that, their first recorded contribution, or their
+       RegisteredAt date) so late joiners aren't shown pending for
+       months before they started. Inactive members freeze at their
+       InactiveSince date instead of accruing pending forever.
+       Walk-in donors are excluded (anonymous, not trackable per-user).
        ═══════════════════════════════════════════════════════ */
+
+    // dd-MM-yyyy (optionally with a time suffix) → {y, m} (m is 0-indexed) or null
+    function _trParseDMY(s) {
+      if (!s) return null;
+      const m = /^(\d{2})-(\d{2})-(\d{4})/.exec(String(s).trim());
+      if (!m) return null;
+      const y = Number(m[3]), mo = Number(m[2]) - 1;
+      if (isNaN(y) || isNaN(mo) || mo < 0 || mo > 11) return null;
+      return { y, m: mo };
+    }
+
+    // Effective month a member's pending-tracking should start from:
+    // 1) admin-set ContribStartDate, else
+    // 2) their earliest recorded (non walk-in) contribution, else
+    // 3) their RegisteredAt date, else
+    // 4) null — no restriction, always countable
+    function _trEffectiveStart(u) {
+      const cs = _trParseDMY(u.ContribStartDate);
+      if (cs) return cs;
+      const mine = data.filter(c =>
+        String(c.UserId) === String(u.UserId) && !String(c.UserId).startsWith("WALKIN_")
+      );
+      let best = null;
+      mine.forEach(c => {
+        const y = Number(c.Year), mi = MONTHS.indexOf(c.ForMonth);
+        if (isNaN(y) || mi === -1) return;
+        if (!best || y < best.y || (y === best.y && mi < best.m)) best = { y, m: mi };
+      });
+      if (best) return best;
+      const reg = _trParseDMY(u.RegisteredAt);
+      if (reg) return reg;
+      return null;
+    }
+
+    // Month a now-inactive member's pending tracking should freeze at, or null
+    function _trInactiveFreeze(u) {
+      if (String(u.Status || "").toLowerCase() !== "inactive") return null;
+      return _trParseDMY(u.InactiveSince);
+    }
+
+    function _trYM(y, m) { return y * 12 + m; }
+
     function initTrackerDropdowns() {
       const MOS = MONTHS; // PERF: reuse global
       const now = new Date();
@@ -8980,7 +9040,7 @@
         });
       }
 
-      // Month dropdown
+      // Month dropdown (focus month, for the paid/pending lists below the grid)
       const trMonth = document.getElementById("tr_month");
       if (trMonth && trMonth.options.length === 0) {
         MOS.forEach((m, i) => {
@@ -9005,111 +9065,219 @@
           trYear.appendChild(o);
         });
       }
+
+      runTracker();
     }
 
-    /* ═══ ENHANCED runTracker() WITH TARGET + SHORTFALL ═════════════
- Drop-in replacement for the existing runTracker() function.
- Find runTracker() in admin.html and replace the entire function
- body with this one.
- ═══════════════════════════════════════════════════════════════ */
+    // Prev/next-year arrow buttons next to the Year select
+    function trShiftYear(delta) {
+      const sel = document.getElementById("tr_year");
+      if (!sel) return;
+      const target = Number(sel.value) + delta;
+      let found = false;
+      for (let i = 0; i < sel.options.length; i++) {
+        if (Number(sel.options[i].value) === target) { sel.selectedIndex = i; found = true; break; }
+      }
+      if (!found) {
+        const o = document.createElement("option");
+        o.value = target; o.textContent = target;
+        sel.appendChild(o);
+        const opts = Array.from(sel.options).sort((a, b) => Number(b.value) - Number(a.value));
+        sel.innerHTML = "";
+        opts.forEach(op => sel.appendChild(op));
+        sel.value = target;
+      }
+      runTracker();
+    }
+
     function runTracker() {
       const trType = document.getElementById("tr_type");
       const trMonth = document.getElementById("tr_month");
       const trYear = document.getElementById("tr_year");
-      if (!trType || !trMonth || !trYear) return;
+      if (!trType || !trMonth || !trYear || !trYear.value) return;
 
       const selTypeId = trType.value;
       const selMonth = trMonth.value;
       const selYear = String(trYear.value);
+      const selYearNum = Number(selYear);
+      const hideInactive = document.getElementById("tr_hide_inactive")?.checked;
+      const focusMonthIdx = MONTHS.indexOf(selMonth);
 
-      // All active non-admin members
-      const members = users.filter(u =>
-        u.Role !== "Admin" &&
-        String(u.Status || "").toLowerCase() === "active"
+      const now = new Date();
+      const curYM = _trYM(now.getFullYear(), now.getMonth());
+
+      // All non-admin members — active AND inactive (Tracker shows both;
+      // inactive ones freeze at InactiveSince instead of being hidden)
+      let members = users.filter(u => u.Role !== "Admin");
+      if (hideInactive) members = members.filter(u => String(u.Status || "").toLowerCase() !== "inactive");
+
+      // Contributions for the whole selected year (type-filtered), excluding walk-ins
+      let yearContribs = data.filter(c =>
+        String(c.Year) === selYear && !String(c.UserId).startsWith("WALKIN_")
       );
+      if (selTypeId) yearContribs = yearContribs.filter(c => String(c.TypeId) === selTypeId);
 
-      // Contributions matching current filter
-      let contribs = data.filter(c =>
-        String(c.Year) === selYear &&
-        c.ForMonth === selMonth &&
-        !String(c.UserId).startsWith("WALKIN_")
-      );
-      if (selTypeId) contribs = contribs.filter(c => String(c.TypeId) === selTypeId);
+      let fullyPaidYtd = 0, yearPendingMonths = 0, yearShortfall = 0, inactiveClosedCount = 0;
+      const rows = [];
+      const focusPaidMembers = [], focusPendingMembers = [];
+      let focusPaidAmt = 0;
 
-      // Paid member IDs
-      const paidUserIds = new Set(contribs.map(c => String(c.UserId)));
+      members.forEach(u => {
+        const start = _trEffectiveStart(u);   // {y,m} or null
+        const freeze = _trInactiveFreeze(u);  // {y,m} or null
+        const isInactive = String(u.Status || "").toLowerCase() === "inactive";
+        if (isInactive) inactiveClosedCount++;
 
-      const paidMembers = members.filter(u => paidUserIds.has(String(u.UserId)));
-      const pendingMembers = members.filter(u => !paidUserIds.has(String(u.UserId)));
-      const paidAmt = contribs.reduce((s, c) => s + Number(c.Amount || 0), 0);
-      const pctComplete = members.length > 0
-        ? Math.round((paidMembers.length / members.length) * 100) : 0;
+        const myContribs = yearContribs.filter(c => String(c.UserId) === String(u.UserId));
+        const paidMonthsSet = new Set(myContribs.map(c => c.ForMonth));
 
-      // ── Target calculations
-      // Total expected = sum of MonthlyTarget for all members who have one set
-      const totalExpected = members.reduce((s, u) => s + Number(u.MonthlyTarget || 0), 0);
-      const totalShortfall = Math.max(0, totalExpected - paidAmt);
-      const hasAnyTarget = members.some(u => Number(u.MonthlyTarget || 0) > 0);
+        let userPendingCount = 0;
+        const cells = MONTHS.map((mName, mi) => {
+          const ym = _trYM(selYearNum, mi);
+          if (ym > curYM) return { state: "future" };
+          if (start && ym < _trYM(start.y, start.m)) return { state: "before" };
+          if (freeze && ym > _trYM(freeze.y, freeze.m)) return { state: "closed" };
+          const paid = paidMonthsSet.has(mName);
+          if (!paid) userPendingCount++;
+          return { state: paid ? "paid" : "pending" };
+        });
 
-      // ── Update existing badges
+        if (userPendingCount === 0) fullyPaidYtd++;
+        yearPendingMonths += userPendingCount;
+        yearShortfall += userPendingCount * Number(u.MonthlyTarget || 0);
+        rows.push({ user: u, cells, pendingCount: userPendingCount, isInactive, start });
+
+        // Focus-month lists (same start/freeze rules, just for one month)
+        if (focusMonthIdx !== -1) {
+          const ym = _trYM(selYearNum, focusMonthIdx);
+          const beforeStart = start && ym < _trYM(start.y, start.m);
+          const closed = freeze && ym > _trYM(freeze.y, freeze.m);
+          const future = ym > curYM;
+          if (!beforeStart && !closed && !future) {
+            if (paidMonthsSet.has(selMonth)) {
+              focusPaidAmt += myContribs.filter(c => c.ForMonth === selMonth).reduce((s, c) => s + Number(c.Amount || 0), 0);
+              focusPaidMembers.push(u);
+            } else {
+              focusPendingMembers.push(u);
+            }
+          }
+        }
+      });
+
+      const focusTotal = focusPaidMembers.length + focusPendingMembers.length;
+      const pctComplete = focusTotal > 0 ? Math.round((focusPaidMembers.length / focusTotal) * 100) : 0;
+
+      // ── Update badges
       document.getElementById("tr_summary").style.display = "flex";
-      document.getElementById("tr_paid_count").innerText = paidMembers.length;
-      document.getElementById("tr_paid_amt").innerText = "₹" + fmt(paidAmt);
-      document.getElementById("tr_pending_count").innerText = pendingMembers.length;
+      document.getElementById("tr_year_summary").style.display = "flex";
+      document.getElementById("tr_paid_count").innerText = focusPaidMembers.length;
+      document.getElementById("tr_paid_amt").innerText = "₹" + fmt(focusPaidAmt);
+      document.getElementById("tr_pending_count").innerText = focusPendingMembers.length;
       document.getElementById("tr_pending_pct").innerText = pctComplete + "% complete";
       document.getElementById("tr_total_members").innerText = members.length;
+      document.getElementById("tr_year_pending_months").innerText = yearPendingMonths;
+      document.getElementById("tr_year_inactive_count").innerText = inactiveClosedCount;
 
-      // ── Add / update target summary badges (only if any target is set)
+      // ── Year shortfall badge (only if any member has a MonthlyTarget set)
+      const hasAnyTarget = members.some(u => Number(u.MonthlyTarget || 0) > 0);
       let tgtBadgeWrap = document.getElementById("tr_target_badges");
       if (hasAnyTarget) {
         if (!tgtBadgeWrap) {
           tgtBadgeWrap = document.createElement("div");
           tgtBadgeWrap.id = "tr_target_badges";
-          tgtBadgeWrap.style.cssText = "display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;";
-          // Insert after tr_summary
-          const summary = document.getElementById("tr_summary");
-          if (summary && summary.parentNode) {
-            summary.parentNode.insertBefore(tgtBadgeWrap, summary.nextSibling);
-          }
+          tgtBadgeWrap.style.cssText = "display:flex;";
+          const summary = document.getElementById("tr_year_summary");
+          if (summary) summary.appendChild(tgtBadgeWrap);
         }
         tgtBadgeWrap.style.display = "flex";
-        tgtBadgeWrap.innerHTML =
-          `<div style="background:#F0FDFA;border:1px solid #bfdbfe;border-radius:10px;padding:12px 20px;text-align:center;min-width:120px;">
-        <div style="font-size:1.4rem;font-weight:700;color:#0F766E;">${APP.currency||"₹"}${fmt(totalExpected)}</div>
-        <div style="font-size:11px;color:#115E59;font-weight:600;">🎯 Expected Total</div>
-        <div style="font-size:11px;color:#3b82f6;">${members.filter(u => Number(u.MonthlyTarget || 0) > 0).length} members with target</div>
-      </div>` +
-          (totalShortfall > 0
-            ? `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 20px;text-align:center;min-width:120px;">
-            <div style="font-size:1.4rem;font-weight:700;color:#ea580c;">${APP.currency||"₹"}${fmt(totalShortfall)}</div>
-            <div style="font-size:11px;color:#c2410c;font-weight:600;">⚠ Total Shortfall</div>
-            <div style="font-size:11px;color:#ea580c;">vs expected this month</div>
-          </div>`
-            : `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 20px;text-align:center;min-width:120px;">
-            <div style="font-size:1.4rem;font-weight:700;color:#16a34a;">₹0</div>
-            <div style="font-size:11px;color:#166534;font-weight:600;">✅ No Shortfall</div>
-            <div style="font-size:11px;color:#22c55e;">Target met or exceeded</div>
-          </div>`
-          );
+        tgtBadgeWrap.innerHTML = yearShortfall > 0
+          ? `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;text-align:center;width:100%;">
+              <div style="font-size:1.3rem;font-weight:700;color:#ea580c;">${APP.currency||"₹"}${fmt(yearShortfall)}</div>
+              <div style="font-size:10.5px;color:#c2410c;font-weight:600;">⚠ Shortfall (${selYear})</div>
+              <div style="font-size:10px;color:#ea580c;">${yearPendingMonths} pending months</div>
+            </div>`
+          : `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;text-align:center;width:100%;">
+              <div style="font-size:1.3rem;font-weight:700;color:#16a34a;">₹0</div>
+              <div style="font-size:10.5px;color:#166534;font-weight:600;">✅ No Shortfall (${selYear})</div>
+              <div style="font-size:10px;color:#22c55e;">${fullyPaidYtd}/${members.length} fully paid ytd</div>
+            </div>`;
       } else if (tgtBadgeWrap) {
         tgtBadgeWrap.style.display = "none";
       }
 
       const pw = document.getElementById("tr_progress_wrap");
       if (pw) pw.style.display = "block";
+      let pbEl = document.getElementById("tr_progress_bar");
+      if (pbEl) {
+        pbEl.style.width = pctComplete + "%";
+        pbEl.style.background = pctComplete >= 100 ? "#16a34a" : pctComplete >= 60 ? "#0F766E" : "#dc2626";
+      }
 
-      // ── Render PAID list (with target comparison)
+      // ── Render the year × month grid — clean, uniform "spreadsheet" styling:
+      // every cell gets the same thin light border (not just a random few),
+      // fixed equal-width columns via <colgroup>, lighter font weights.
+      const cellIcon = {
+        paid:    '<span style="color:#16a34a;font-weight:600;">✓</span>',
+        pending: '<span style="color:#dc2626;font-weight:600;">✕</span>',
+        before:  '<span style="color:#cbd5e1;">—</span>',
+        future:  '<span style="color:#e5e9ef;">·</span>',
+        closed:  '<span style="color:#94a3b8;font-weight:600;">◆</span>'
+      };
+      const CELL_BORDER = "1px solid #eef1f4";
+      const STICKY_EDGE_SHADOW = "2px 0 0 rgba(15,23,42,0.05)"; // box-shadow, not border — avoids the double/overlapping line sticky cells get with border-collapse during horizontal scroll
+
+      let gridHtml = '<colgroup>' +
+        '<col style="width:18%;">' +
+        MONTHS.map(() => '<col style="width:5.5%;">').join("") +
+        '<col style="width:9%;">' +
+        '</colgroup>';
+
+      gridHtml += '<tr style="background:#f8fafc;">' +
+        `<th style="text-align:left;padding:9px 12px;font-weight:600;color:#334155;position:sticky;left:0;background:#f8fafc;border-bottom:${CELL_BORDER};box-shadow:${STICKY_EDGE_SHADOW};white-space:normal;">Member</th>` +
+        MONTHS.map(m => `<th style="text-align:center;padding:9px 2px;font-weight:600;color:#94a3b8;font-size:10px;letter-spacing:.02em;border-bottom:${CELL_BORDER};border-right:${CELL_BORDER};white-space:nowrap;">${m.slice(0, 3).toUpperCase()}</th>`).join("") +
+        `<th style="text-align:center;padding:9px 10px;font-weight:600;color:#334155;font-size:10.5px;border-bottom:${CELL_BORDER};white-space:nowrap;">Pending</th></tr>`;
+
+      rows.forEach((r, idx) => {
+        const u = r.user;
+        const rowBg = r.isInactive ? "#f8fafc" : (idx % 2 === 1 ? "#fbfcfd" : "#fff");
+        const isLast = idx === rows.length - 1;
+        const rowBorderBottom = isLast ? "none" : CELL_BORDER;
+        const inactiveBadge = r.isInactive
+          ? '<span style="font-size:9px;background:#f1f5f9;color:#64748b;padding:1px 6px;border-radius:8px;margin-left:4px;font-weight:500;">Inactive</span>' : "";
+        const startNote = r.start
+          ? `<div style="font-size:9.5px;color:#94a3b8;">from ${MONTHS[r.start.m].slice(0, 3)} ${r.start.y}</div>` : "";
+        const pendingBadge = r.pendingCount > 0
+          ? `<span style="background:#fef2f2;color:#dc2626;padding:2px 9px;border-radius:20px;font-weight:600;">${r.pendingCount}</span>`
+          : r.isInactive
+            ? `<span style="background:#f1f5f9;color:#64748b;padding:2px 9px;border-radius:20px;font-weight:600;">Closed</span>`
+            : `<span style="background:#f0fdf4;color:#16a34a;padding:2px 9px;border-radius:20px;font-weight:600;">✓</span>`;
+
+        gridHtml += `<tr style="background:${rowBg};">` +
+          `<td style="padding:9px 12px;position:sticky;left:0;background:${rowBg};border-bottom:${rowBorderBottom};box-shadow:${STICKY_EDGE_SHADOW};white-space:normal;overflow-wrap:break-word;">` +
+          `<div style="font-weight:600;color:${r.isInactive ? '#64748b' : '#1e293b'};font-size:12px;">${escapeHtml(u.Name || "—")}${inactiveBadge}</div>` +
+          startNote + `</td>` +
+          r.cells.map(c => `<td style="text-align:center;padding:8px 2px;border-bottom:${rowBorderBottom};border-right:${CELL_BORDER};">${cellIcon[c.state]}</td>`).join("") +
+          `<td style="text-align:center;padding:8px 10px;border-bottom:${rowBorderBottom};">${pendingBadge}</td></tr>`;
+      });
+
+      const gridTable = document.getElementById("tr_grid_table");
+      if (gridTable) gridTable.innerHTML = gridHtml;
+      const gridWrap = document.getElementById("tr_grid_wrap");
+      if (gridWrap) gridWrap.style.display = rows.length ? "block" : "none";
+      const gridLegend = document.getElementById("tr_grid_legend");
+      if (gridLegend) gridLegend.style.display = rows.length ? "flex" : "none";
+
+      // ── Render focus-month PAID list (with target comparison)
       const paidList = document.getElementById("tr_paid_list");
-      paidList.innerHTML = paidMembers.length === 0
+      paidList.innerHTML = focusPaidMembers.length === 0
         ? '<div style="padding:20px;text-align:center;color:#aaa;font-size:12px;"><i class="fa-solid fa-inbox" style="font-size:1.5rem;display:block;margin-bottom:6px;"></i>No paid members</div>'
-        : paidMembers.map(function (u, i) {
-          const userContribs = contribs.filter(c => String(c.UserId) === String(u.UserId));
+        : focusPaidMembers.map(function (u, i) {
+          const userContribs = yearContribs.filter(c => String(c.UserId) === String(u.UserId) && c.ForMonth === selMonth);
           const paid = userContribs.reduce((s, c) => s + Number(c.Amount || 0), 0);
           const target = Number(u.MonthlyTarget || 0);
           const metTarget = target > 0 && paid >= target;
           const underTarget = target > 0 && paid < target;
 
-          // Badge: show "₹paid / ₹target" if under target, else just "₹paid"
           const badgeText = underTarget
             ? `${APP.currency||"₹"}${fmt(paid)} / ${APP.currency||"₹"}${fmt(target)}`
             : `${APP.currency||"₹"}${fmt(paid)}`;
@@ -9117,8 +9285,6 @@
             ? "linear-gradient(135deg,#fff7ed,#fed7aa)"
             : "linear-gradient(135deg,#dcfce7,#bbf7d0)";
           const badgeColor = underTarget ? "#c2410c" : "#15803d";
-
-          // Small target-met tick
           const targetTick = metTarget
             ? `<span style="font-size:10px;color:#16a34a;margin-left:4px;" title="Target met">🎯</span>`
             : "";
@@ -9137,11 +9303,11 @@
         </div>`;
         }).join("");
 
-      // ── Render PENDING list (with shortfall)
+      // ── Render focus-month PENDING list (with shortfall)
       const pendingList = document.getElementById("tr_pending_list");
-      pendingList.innerHTML = pendingMembers.length === 0
-        ? '<div style="padding:20px;text-align:center;color:#aaa;font-size:12px;"><i class="fa-solid fa-party-horn" style="font-size:1.5rem;display:block;margin-bottom:6px;color:#22c55e;"></i>🎉 All members have paid!</div>'
-        : pendingMembers.map(function (u, i) {
+      pendingList.innerHTML = focusPendingMembers.length === 0
+        ? '<div style="padding:20px;text-align:center;color:#aaa;font-size:12px;"><i class="fa-solid fa-party-horn" style="font-size:1.5rem;display:block;margin-bottom:6px;color:#22c55e;"></i>🎉 All eligible members have paid!</div>'
+        : focusPendingMembers.map(function (u, i) {
           const target = Number(u.MonthlyTarget || 0);
           const shortfall = target > 0 ? target : 0;
 
@@ -9165,17 +9331,11 @@
 
       document.getElementById("tr_empty").style.display = "none";
 
-      // Progress bar — unchanged
-      let pbEl = document.getElementById("tr_progress_bar");
-      if (pbEl) {
-        pbEl.style.width = pctComplete + "%";
-        pbEl.style.background = pctComplete >= 100 ? "#16a34a" : pctComplete >= 60 ? "#0F766E" : "#dc2626";
-      }
-
-      // Store state for WhatsApp send functions — unchanged
+      // Store state for WhatsApp send functions (scoped to the focus month)
       window._trackerState = {
         selTypeId, selMonth, selYear,
-        paidMembers, pendingMembers, paidAmt, pctComplete
+        paidMembers: focusPaidMembers, pendingMembers: focusPendingMembers,
+        paidAmt: focusPaidAmt, pctComplete
       };
     }
 

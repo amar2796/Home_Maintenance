@@ -637,7 +637,7 @@ function getSheetData(name) {
       // This prevents "11-04-2026" being stored as Nov 4 (MM-DD auto-parse by Sheets).
       if ((h === "PaymentDate" || h === "CreatedAt" || h === "RegisteredAt") && r[i] instanceof Date) {
         o[h] = Utilities.formatDate(r[i], "GMT+5:30", "dd-MM-yyyy HH:mm:ss");
-      } else if (h === "DOB" && r[i] instanceof Date) {
+      } else if ((h === "DOB" || h === "ContribStartDate" || h === "InactiveSince") && r[i] instanceof Date) {
         o[h] = Utilities.formatDate(r[i], "GMT+5:30", "dd-MM-yyyy");
       } else {
         o[h] = r[i];
@@ -1103,12 +1103,13 @@ function _buildAdminSummaryPdf(data) {
 
 function _buildAdminSummaryPdfHtml(data) {
   function esc(s) { return _htmlEscape(String(s || "")); }
-  const thPaid   = "padding:6px 10px;border:1px solid #bbf7d0;text-align:left;background:#dcfce7;color:#166534;";
-  const thUnpaid = "padding:6px 10px;border:1px solid #fecaca;text-align:left;background:#fee2e2;color:#991b1b;";
-  const thWalkin = "padding:6px 10px;border:1px solid #fde68a;text-align:left;background:#fef3c7;color:#92400e;";
-  const tdPaid   = "padding:6px 10px;border:1px solid #bbf7d0;background:#f0fdf4;";
-  const tdUnpaid = "padding:6px 10px;border:1px solid #fecaca;background:#fef2f2;";
-  const tdWalkin = "padding:6px 10px;border:1px solid #fde68a;background:#fffbeb;";
+  const thPaid   = "padding:8px 14px;border:1px solid #bbf7d0;text-align:left;background:#dcfce7;color:#166534;";
+  const thUnpaid = "padding:8px 14px;border:1px solid #fecaca;text-align:left;background:#fee2e2;color:#991b1b;";
+  const thWalkin = "padding:8px 14px;border:1px solid #fde68a;text-align:left;background:#fef3c7;color:#92400e;";
+  const tdPaid   = "padding:8px 14px;border:1px solid #bbf7d0;background:#f0fdf4;";
+  const tdUnpaid = "padding:8px 14px;border:1px solid #fecaca;background:#fef2f2;";
+  const tdWalkin = "padding:8px 14px;border:1px solid #fde68a;background:#fffbeb;";
+  const numCol   = "width:28px;text-align:center;color:#94a3b8;font-weight:600;";
   const walkinList = data.walkinList || [];
 
   // ── Each section is skipped entirely (no heading, no table) when its list is empty —
@@ -1116,42 +1117,51 @@ function _buildAdminSummaryPdfHtml(data) {
   let sections = "";
 
   if (data.paidList.length > 0) {
-    const paidRows = data.paidList.map(m =>
-      "<tr><td style='" + tdPaid + "'>" + esc(m.name) + "</td>" +
+    const paidRows = data.paidList.map((m, i) =>
+      "<tr><td style='" + tdPaid + numCol + "'>" + (i + 1) + ".</td>" +
+      "<td style='" + tdPaid + "'>" + esc(m.name) + "</td>" +
       "<td style='" + tdPaid + "text-align:right;'>" + CFG.currencyText + " " + m.amount + "</td>" +
       "<td style='" + tdPaid + "text-align:center;'>" + (m.entries > 1 ? m.entries : "—") + "</td></tr>"
     ).join("");
-    sections += "<h3 style='color:#166534;'>✅ Paid</h3>" +
-      "<table style='border-collapse:collapse;width:100%;'>" +
-        "<tr><th style='" + thPaid + "'>Name</th><th style='" + thPaid + "text-align:right;'>Amount</th><th style='" + thPaid + "text-align:center;'>Entries</th></tr>" +
+    sections += "<h3 style='color:#166534;margin-bottom:10px;'>✅ Paid</h3>" +
+      "<table style='border-collapse:collapse;width:100%;margin-bottom:6px;'>" +
+        "<tr><th style='" + thPaid + numCol + "'>#</th><th style='" + thPaid + "'>Name</th><th style='" + thPaid + "text-align:right;'>Amount</th><th style='" + thPaid + "text-align:center;'>Entries</th></tr>" +
         paidRows +
       "</table>";
   }
 
   if (walkinList.length > 0) {
-    const walkinRows = walkinList.map(m =>
-      "<tr><td style='" + tdWalkin + "'>" + esc(m.name) + "</td>" +
+    const walkinRows = walkinList.map((m, i) =>
+      "<tr><td style='" + tdWalkin + numCol + "'>" + (i + 1) + ".</td>" +
+      "<td style='" + tdWalkin + "'>" + esc(m.name) + "</td>" +
       "<td style='" + tdWalkin + "text-align:right;'>" + CFG.currencyText + " " + m.amount + "</td></tr>"
     ).join("");
-    sections += "<h3 style='color:#92400e;margin-top:18px;'>🚶 Walk-in Contributions</h3>" +
-      "<table style='border-collapse:collapse;width:100%;'>" +
-        "<tr><th style='" + thWalkin + "'>Name</th><th style='" + thWalkin + "text-align:right;'>Amount</th></tr>" +
+    sections += "<h3 style='color:#92400e;margin-top:20px;margin-bottom:10px;'>🚶 Walk-in Contributions</h3>" +
+      "<table style='border-collapse:collapse;width:100%;margin-bottom:6px;'>" +
+        "<tr><th style='" + thWalkin + numCol + "'>#</th><th style='" + thWalkin + "'>Name</th><th style='" + thWalkin + "text-align:right;'>Amount</th></tr>" +
         walkinRows +
       "</table>";
   }
 
   if (data.unpaidList.length > 0) {
-    const unpaidRows = data.unpaidList.map(m =>
-      "<tr><td style='" + tdUnpaid + "font-weight:600;'>" + esc(m.name) + "</td></tr>"
+    const unpaidRows = data.unpaidList.map((m, i) =>
+      "<tr><td style='" + tdUnpaid + numCol + "'>" + (i + 1) + ".</td>" +
+      "<td style='" + tdUnpaid + "font-weight:600;'>" + esc(m.name) + "</td></tr>"
     ).join("");
-    sections += "<h3 style='color:#991b1b;margin-top:18px;'>⚠️ Not Yet Paid</h3>" +
-      "<table style='border-collapse:collapse;width:100%;'>" +
-        "<tr><th style='" + thUnpaid + "'>Name</th></tr>" +
+    sections += "<h3 style='color:#991b1b;margin-top:20px;margin-bottom:10px;'>⚠️ Not Yet Paid</h3>" +
+      "<table style='border-collapse:collapse;width:100%;margin-bottom:6px;'>" +
+        "<tr><th style='" + thUnpaid + numCol + "'>#</th><th style='" + thUnpaid + "'>Name</th></tr>" +
         unpaidRows +
       "</table>";
   }
 
-  return "<html><body style='font-family:Arial,sans-serif;color:#1e293b;font-size:13px;'>" +
+  // [NEW] System-generated footer note — printed at the bottom of the PDF page.
+  const footerNote =
+    "<p style='margin-top:28px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:10.5px;color:#94a3b8;text-align:center;'>" +
+      "This is a system-generated document from " + esc(CFG.name) + ". No signature is required." +
+    "</p>";
+
+  return "<html><body style='font-family:Arial,sans-serif;color:#1e293b;font-size:13px;padding:18px 22px;'>" +
     "<h2 style='margin-bottom:2px;'>" + esc(CFG.name) + "</h2>" +
     "<p style='color:#64748b;margin-top:0;'>" + esc(data.month) + " " + esc(data.year) + " — Contribution Summary</p>" +
     "<p><strong>Members collected:</strong> " + CFG.currencyText + " " + data.totalCollected +
@@ -1160,6 +1170,7 @@ function _buildAdminSummaryPdfHtml(data) {
     "<p>Paid: " + data.paidList.length + " &nbsp;|&nbsp; Not yet paid: " + data.unpaidList.length +
       " &nbsp;|&nbsp; Walk-in entries: " + walkinList.length + "</p>" +
     sections +
+    footerNote +
     "</body></html>";
 }
 
@@ -1209,35 +1220,54 @@ function _buildAdminSummaryPlainText(data) {
   return lines.join("\n");
 }
 
+// Numbered row for admin summary tables — dedicated to this feature so the shared
+// _emailRow() (used by receipts etc.) stays untouched. Adds a "#" column and real
+// left/right padding so content never sits flush against the table edge.
+function _adminSummaryRow(num, name, value, textColor) {
+  const c = textColor || "#1e293b";
+  const valueCell = (value !== undefined)
+    ? `<td style="padding:10px 14px;color:${c};font-size:13px;font-weight:700;text-align:right;border-bottom:1px solid rgba(0,0,0,0.06);">${_htmlEscape(value)}</td>`
+    : `<td style="padding:10px 14px;border-bottom:1px solid rgba(0,0,0,0.06);"></td>`;
+  return `<tr>
+    <td style="padding:10px 4px 10px 14px;color:${c};opacity:0.55;font-size:12px;font-weight:700;text-align:center;width:26px;border-bottom:1px solid rgba(0,0,0,0.06);">${num}.</td>
+    <td style="padding:10px 8px;color:${c};font-size:13px;font-weight:600;border-bottom:1px solid rgba(0,0,0,0.06);">${_htmlEscape(name)}</td>
+    ${valueCell}
+  </tr>`;
+}
+
 // ── HTML email body — Paid → Walk-in → Not-Paid, each section skipped entirely
-//    (no heading, no empty table) when its list has zero entries.
+//    (no heading, no empty table) when its list has zero entries. Every row is
+//    numbered, with real horizontal padding so text never touches the card edge.
 function _buildAdminSummaryEmail(data) {
-  function esc(s) { return _htmlEscape(String(s || "")); }
   const walkinList = data.walkinList || [];
 
   let sectionsHtml = "";
 
   if (data.paidList.length > 0) {
-    const paidRows = data.paidList.map(m =>
-      _emailRow(m.name, CFG.currencyText + " " + m.amount + (m.entries > 1 ? " (" + m.entries + " entries)" : ""))
+    const paidRows = data.paidList.map((m, i) =>
+      _adminSummaryRow(i + 1, m.name, CFG.currencyText + " " + m.amount + (m.entries > 1 ? " (" + m.entries + " entries)" : ""), "#166534")
     ).join("");
     sectionsHtml += `
-    <p style="color:#166534;font-size:13px;font-weight:600;margin:0 0 6px;">✅ Paid</p>
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;">${paidRows}</table>`;
+    <p style="color:#166534;font-size:13px;font-weight:600;margin:0 0 8px;">✅ Paid</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;overflow:hidden;">${paidRows}</table>`;
   }
 
   if (walkinList.length > 0) {
-    const walkinRows = walkinList.map(m => _emailRow(m.name, CFG.currencyText + " " + m.amount)).join("");
+    const walkinRows = walkinList.map((m, i) =>
+      _adminSummaryRow(i + 1, m.name, CFG.currencyText + " " + m.amount, "#92400e")
+    ).join("");
     sectionsHtml += `
-    <p style="color:#92400e;font-size:13px;font-weight:600;margin:18px 0 6px;">🚶 Walk-in Contributions</p>
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;">${walkinRows}</table>`;
+    <p style="color:#92400e;font-size:13px;font-weight:600;margin:20px 0 8px;">🚶 Walk-in Contributions</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;overflow:hidden;">${walkinRows}</table>`;
   }
 
   if (data.unpaidList.length > 0) {
-    const unpaidRows = data.unpaidList.map(m => "<li style='margin-bottom:6px;font-weight:600;color:#991b1b;'>" + esc(m.name) + "</li>").join("");
+    const unpaidRows = data.unpaidList.map((m, i) =>
+      _adminSummaryRow(i + 1, m.name, undefined, "#991b1b")
+    ).join("");
     sectionsHtml += `
-    <p style="color:#991b1b;font-size:13px;font-weight:700;margin:18px 0 6px;">⚠️ Not Yet Paid</p>
-    <ul style="margin:0;padding:12px 14px 12px 30px;font-size:13px;background:#fef2f2;border:1.5px solid #fecaca;border-radius:8px;line-height:1.8;">${unpaidRows}</ul>`;
+    <p style="color:#991b1b;font-size:13px;font-weight:700;margin:20px 0 8px;">⚠️ Not Yet Paid</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:8px;overflow:hidden;">${unpaidRows}</table>`;
   }
 
   const plainText = _buildAdminSummaryPlainText(data);
@@ -1261,12 +1291,11 @@ function _buildAdminSummaryEmail(data) {
       Ready-to-forward text:
       <!-- Attempts a real click-to-copy — works in mail clients that don't strip
            inline scripts. Gmail/Outlook web strip <script>/onclick, so this button
-
            silently does nothing there; the block below is always select-and-copy-able
            regardless, so nothing is lost if the button doesn't fire. -->
       <button type="button" onclick="try{var t=document.getElementById('${preId}').innerText;navigator.clipboard.writeText(t);this.innerText='Copied ✓';}catch(e){}" style="border:1px solid #c4b5fd;background:#f5f3ff;color:#5b21b6;font-size:11px;padding:3px 10px;border-radius:6px;cursor:pointer;margin-left:4px;">Copy</button>
     </p>
-    <pre id="${preId}" style="white-space:pre-wrap;font-family:'Courier New',monospace;font-size:11.5px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;color:#334155;margin:0;">${esc(plainText)}</pre>
+    <pre id="${preId}" style="white-space:pre-wrap;font-family:'Courier New',monospace;font-size:11.5px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;color:#334155;margin:0;">${_htmlEscape(plainText)}</pre>
 
     <p style="color:${_EM.sub};font-size:12px;margin:16px 0 0;">
       A PDF copy of this table is also attached — forward either to the group if needed.
@@ -2497,11 +2526,15 @@ function doGet(e) {
         let hashedPwd = hashPassword(DEFAULT_PASSWORD);
         // [ID] Generate role-aware sequential UserId — never trust frontend-supplied ID
         const newUserId = _genUserId(role);
-        // [FIX] Write ALL 16 columns in exact sheet order to prevent field misalignment.
+        // [FIX] Write ALL 18 columns in exact sheet order to prevent field misalignment.
         // Previously only 9 values were written, causing DOB to land in the Village column.
         // Column order: UserId,Name,Mobile,Role,Password,Email,Status,SessionToken,
-        //               Village,Address,RegisteredAt,PhotoURL,MonthlyTarget,LastLogin,DOB,TokenExpiry
+        //               Village,Address,RegisteredAt,PhotoURL,MonthlyTarget,LastLogin,DOB,TokenExpiry,
+        //               ContribStartDate,InactiveSince
+        // NOTE: ContribStartDate + InactiveSince must exist as headers (columns 17 & 18)
+        // in the USERS sheet — add them once manually if they aren't there yet.
         const _addDob = sanitize(e.parameter.DOB || "", 12);
+        const _addContribStart = sanitize(e.parameter.ContribStartDate || "", 12);
         addRow(SHEETS.USERS, [
           newUserId,                                          // UserId
           sanitize(e.parameter.Name,   100),                 // Name
@@ -2518,7 +2551,9 @@ function doGet(e) {
           0,                                                 // MonthlyTarget
           "",                                                // LastLogin
           _addDob,                                           // DOB
-          ""                                                 // TokenExpiry
+          "",                                                // TokenExpiry
+          _addContribStart,                                  // ContribStartDate — optional, admin-set
+          ""                                                 // InactiveSince — blank, user starts Active
         ]);
         logAction(sanitize(e.parameter.AdminName||"Admin",100), "Add User", "UserId: " + newUserId + " | Mobile: " + mobile + " | Name: " + sanitize(e.parameter.Name||"",100) + " | Role: " + role);
 
@@ -3178,7 +3213,7 @@ function doGet(e) {
 
       // ── Column integrity check per sheet ──
       var expectedCols = {
-        "USERS":                 ["UserId","Name","Mobile","Role","Password","Email","Status","SessionToken","Village","Address","RegisteredAt","PhotoURL","MonthlyTarget","LastLogin","DOB","TokenExpiry"],
+        "USERS":                 ["UserId","Name","Mobile","Role","Password","Email","Status","SessionToken","Village","Address","RegisteredAt","PhotoURL","MonthlyTarget","LastLogin","DOB","TokenExpiry","ContribStartDate","InactiveSince"],
         "CONTRIBUTION_REQUESTS": ["ReqId","UserId","Amount","PaymentMode","ForMonth","Year","Note","UtrRef","Status","RequestedAt","SlipURL","RejectionNote"],
         "BROADCAST":             ["BcId","Type","Priority","Title","Message","Time","AdminName"],
         "CONTRIBUTIONS":         ["Id","UserId","Amount","PaymentDate","ForMonth","Year","TypeId","OccasionId","Note","ReceiptID","PaymentMode"],
@@ -4016,22 +4051,42 @@ function updateUser(p) {
         const col = headers.indexOf(headerName);
         if (col !== -1 && value !== undefined) newRow[col] = value;
       }
+      const _newStatus = sanitize(p.Status, 20) || "Active";
+      const _oldStatus = String(data[i][headers.indexOf("Status")] || "Active");
       _setCol("Name",          sanitize(p.Name,    100));
       _setCol("Mobile",        sanitize(p.Mobile,  15));
       _setCol("Role",          sanitize(p.Role,    20));
       _setCol("Password",      newPwd);
       _setCol("Email",         sanitize(p.Email,   200));
-      _setCol("Status",        sanitize(p.Status,  20) || "Active");
+      _setCol("Status",        _newStatus);
       _setCol("PhotoURL",      sanitize(p.PhotoURL, 500) || "");
       if (p.Village       !== undefined) _setCol("Village",       sanitize(p.Village, 100));
       if (p.Address       !== undefined) _setCol("Address",       sanitize(p.Address, 300));
       if (p.MonthlyTarget !== undefined) _setCol("MonthlyTarget", Number(p.MonthlyTarget||0));
       if (p.DOB           !== undefined) _setCol("DOB",           sanitize(p.DOB || "", 12));
+      // [TRACKER] Contribution Start Date — optional, admin-set. Used by the Tracker
+      // to know from which month a late-joining member's pending should start counting.
+      if (p.ContribStartDate !== undefined) _setCol("ContribStartDate", sanitize(p.ContribStartDate || "", 12));
+      // [TRACKER] InactiveSince — auto-managed, not directly editable from the form.
+      // Active → Inactive: stamp today's date so Tracker freezes pending from here.
+      // Inactive → Active: clear it, member is back to normal pending tracking.
+      if (headers.indexOf("InactiveSince") !== -1) {
+        if (_oldStatus.toLowerCase() !== "inactive" && _newStatus.toLowerCase() === "inactive") {
+          _setCol("InactiveSince", Utilities.formatDate(new Date(), "GMT+5:30", "dd-MM-yyyy"));
+        } else if (_oldStatus.toLowerCase() === "inactive" && _newStatus.toLowerCase() !== "inactive") {
+          _setCol("InactiveSince", "");
+        }
+      }
       // Single batched write — 1 API call instead of ~10
       sheet.getRange(i + 1, 1, 1, newRow.length).setValues([newRow]);
       // Force DOB cell to plain text — prevents Sheets auto-converting "03-02-1998" to a Date object
       const _dobCol = headers.indexOf("DOB");
       if (_dobCol !== -1) sheet.getRange(i + 1, _dobCol + 1).setNumberFormat("@");
+      // Same plain-text guard for the two new Tracker date columns
+      const _csdCol = headers.indexOf("ContribStartDate");
+      if (_csdCol !== -1) sheet.getRange(i + 1, _csdCol + 1).setNumberFormat("@");
+      const _isCol = headers.indexOf("InactiveSince");
+      if (_isCol !== -1) sheet.getRange(i + 1, _isCol + 1).setNumberFormat("@");
       SpreadsheetApp.flush();
       found = true; break;
     }

@@ -2680,9 +2680,7 @@ body.dark-mode .ct-b-pend { background: #1a1200 !important; color: #5EEAD4 !impo
 
 /* ── Home page — viewing period bar ── */
 /* The bar uses a dark gradient already — just ensure text in it is readable */
-body.dark-mode #hm_period_label {
-  /* amber pill — fine as-is */
-}
+
 body.dark-mode #hm_live_clock { color: #64748b !important; }
 
 /* Home "at a glance" section label */
