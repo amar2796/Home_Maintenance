@@ -5684,7 +5684,7 @@ function _changePassword(p) {  // FIX #3: Moved to global scope (was accidentall
       }
       return { status: "error", message: "User not found." };
     } catch(err) {
-      logAction("System", "CHANGE_PASSWORD_ERROR", "UserId: " + sanitize((params||{}).userId||"",30), err.message, "", { severity:"ERROR", result:"FAILURE", error:err });
+      logAction("System", "CHANGE_PASSWORD_ERROR", "UserId: " + sanitize((p||{}).UserId||"",30), err.message, "", { severity:"ERROR", result:"FAILURE", error:err });
       return { status: "error", message: err.message };
     }
   }

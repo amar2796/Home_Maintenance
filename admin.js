@@ -1029,15 +1029,13 @@
       try {
         let s = JSON.parse(localStorage.getItem("session") || "null");
         if (!s) { _admCpMsg("Session expired."); if (btn) { btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-key"></i> Update Password'; } return; }
-        let myProfile = users.find(u => String(u.UserId) === String(s.userId));
-        if (!myProfile) { _admCpMsg("Profile not loaded. Please refresh."); if (btn) { btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-key"></i> Update Password'; } return; }
+        // [FIX] Removed a client-side "is current password right?" pre-check here.
+        // It compared against myProfile.Password, but getUsers() strips Password
+        // server-side for security — so that field is always empty and the check
+        // could never actually fire. The server's changePassword action already
+        // validates the old password correctly and returns a real error message
+        // via res.message below, so nothing is lost by removing the dead check.
         let currentHash = await sha256(currentVal);
-        let storedHash  = String(myProfile.Password || "").toLowerCase();
-        if (storedHash && storedHash.length === 64 && currentHash !== storedHash) {
-          _admCpMsg("Current password is incorrect.");
-          if (btn) { btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-key"></i> Update Password'; }
-          return;
-        }
         let newHash = await sha256(newVal);
         let res = await postData({ action: "changePassword", UserId: s.userId, OldPassword: currentHash, NewPassword: newHash });
         if (res && res.status === "success") {
