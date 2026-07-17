@@ -82,7 +82,7 @@
     display: none;
     position: relative;
     width: 100%;
-    background: linear-gradient(90deg, #115E59 0%, #0F766E 40%, #14B8A6 70%, #115E59 100%);
+    background: linear-gradient(90deg, #4c1a6e 0%, #6b21a8 40%, #7c3aed 70%, #4c1a6e 100%);
     background-size: 200% 100%;
     animation: bannerShimmer 6s linear infinite, fadeIn 0.5s ease;
     color: #fff;
@@ -430,14 +430,17 @@
     .nav-menu      { display: none !important; }
   }
   
-  /* HERO — Background_pic.jpg photo, with the animated gradient as a
-     graceful fallback layer if the photo fails to load */
+  /* HERO — pure CSS gradient/blob background, no image file to download.
+     Renders instantly (nothing to wait for), so the reveal delays that used
+     to hide the flash of an unloaded background image are no longer needed. */
   .hero {
-    /* background-image: url('Image/Background_pic.jpg'), linear-gradient(135deg, #0F172A 0%, #115E59 45%, #0F766E 75%, #F59E0B 100%); */
-    background-image: url('Image/Hero_Pic.svg');
-    background-repeat: no-repeat, no-repeat;
-    background-size: cover, 220% 220%;
-    background-position: center, 0% 20%;
+    background:
+      radial-gradient(circle at 20% 25%, rgba(45, 212, 191, 0.35) 0%, transparent 45%),
+      radial-gradient(circle at 82% 70%, rgba(245, 158, 11, 0.22) 0%, transparent 42%),
+      linear-gradient(135deg, #0F172A 0%, #115E59 45%, #0F766E 75%, #0d4f49 100%);
+    background-repeat: no-repeat;
+    background-size: 160% 160%, 160% 160%, cover;
+    background-position: 0% 20%, 100% 80%, center;
     width: 100%;
     aspect-ratio: 1440 / 560;
     height: auto;
@@ -446,13 +449,13 @@
     margin: 0;
     display: flex;
     align-items: center;
-    animation: heroPan 16s ease-in-out infinite alternate, fadeIn 1.2s ease-out 1.7s both;
+    animation: heroPan 16s ease-in-out infinite alternate, fadeIn 0.8s ease-out both;
     position: relative;
     overflow: hidden;
   }
   @keyframes heroPan {
-    0%   { background-position: center, 0% 20%; }
-    100% { background-position: center, 100% 80%; }
+    0%   { background-position: 0% 20%, 100% 80%, center; }
+    100% { background-position: 30% 45%, 68% 42%, center; }
   }
   /* Faint architectural blueprint grid — nods to Vishwakarma, the craftsman */
   .hero::before {
@@ -477,6 +480,7 @@
     position: absolute;
     inset: 0;
     background:
+      radial-gradient(circle at 50% 32%, rgba(255,255,255,0.14) 0%, transparent 40%),
       radial-gradient(circle at 22% 28%, rgba(255,255,255,0.16) 0%, transparent 38%),
       radial-gradient(circle at 82% 65%, rgba(147,197,253,0.22) 0%, transparent 42%),
       linear-gradient(0deg, rgba(15,23,42,0.45) 0%, transparent 45%);
@@ -485,8 +489,8 @@
     pointer-events: none;
   }
   @keyframes heroGlowDrift {
-    0%   { opacity: 0.85; transform: translateY(0); }
-    100% { opacity: 1;    transform: translateY(-2%); }
+    0%   { opacity: 0.85; transform: translateY(0) scale(1); }
+    100% { opacity: 1;    transform: translateY(-2%) scale(1.04); }
   }
   /* Decorative drafting-compass mark — Vishwakarma's tool, very low opacity */
   .hero-deco {
@@ -524,7 +528,7 @@
     text-shadow: 2px 4px 12px rgba(0, 0, 0, 0.65);
     text-align: left;
     white-space: nowrap;
-    animation: slideUp 1s ease-out 2s both;
+    animation: slideUp 0.9s ease-out 0.25s both;
   }
   .hero-box h1 span {
     display: block;
@@ -1344,7 +1348,7 @@
     }
     /* hero: aspect-ratio + vw font sizes handle all screen widths automatically */
     .hero {
-      background-size: 100% 100%;
+      background-size: 200% 200%, 200% 200%, cover;
     }
   
     /* ── Sections ── */

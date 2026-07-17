@@ -1024,13 +1024,14 @@ function _doSendAdminSummary(overrideMonth, overrideYear, withPdf) {
     }
   });
 
-  logAction("System", "Admin Monthly Summary Sent", month + " " + year + " — sent:" + sent + ", skipped:" + skipped + ", paid:" + data.paidList.length + ", unpaid:" + data.unpaidList.length);
+  logAction("System", "Admin Monthly Summary Sent", month + " " + year + " — sent:" + sent + ", skipped:" + skipped + ", paid:" + data.paidList.length + ", unpaid:" + data.unpaidList.length + ", expenses:" + data.expenseList.length);
   const quota = getEmailQuotaStatus();
   return {
     status: "ok", sent: sent, skipped: skipped,
     paidCount: data.paidList.length, unpaidCount: data.unpaidList.length,
-    walkinCount: data.walkinList.length,
-    totalCollected: data.grandTotal, quotaRemaining: quota.remaining
+    walkinCount: data.walkinList.length, expenseCount: data.expenseList.length,
+    totalCollected: data.grandTotal, expenseTotal: data.expenseTotal, netBalance: data.netBalance,
+    quotaRemaining: quota.remaining
   };
 }
 
@@ -1093,12 +1094,49 @@ function _buildAdminSummaryData(month, year) {
   });
   walkinList.sort((a, b) => b.amount - a.amount);
 
+  // ── Expenses this month — listed individually (not grouped by category),
+  // since each expense's Title is already a meaningful descriptor on its own
+  // (e.g. "Electricity Bill", "Priest Fee"), unlike walk-in donor names where
+  // grouping would risk merging two different people. Sorted highest-first,
+  // matching the convention used by every other list in this summary.
+  const expenses = getSheetData(SHEETS.EXPENSES);
+  const expenseList = [];
+  let expenseTotal = 0;
+  expenses.forEach(x => {
+    if (_normalizeMonth(x.ForMonth) !== month || String(x.Year) !== year) return;
+    const amt = Number(x.Amount || 0);
+    expenseTotal += amt;
+    let dateDisplay = "";
+    if (x.PaymentDate) {
+      const d = x.PaymentDate instanceof Date ? x.PaymentDate : new Date(x.PaymentDate);
+      if (!isNaN(d.getTime())) dateDisplay = Utilities.formatDate(d, "GMT+5:30", "dd MMM");
+    }
+    expenseList.push({ title: x.Title || "Expense", amount: amt, date: dateDisplay });
+  });
+  expenseList.sort((a, b) => b.amount - a.amount);
+
+  // ── All-time fund totals — a second, separate summary shown alongside the
+  // monthly one. Reuses the `contributions` and `expenses` arrays already
+  // loaded above (no extra sheet reads) but sums EVERY row regardless of
+  // month/year, giving the overall treasury picture rather than just this
+  // month's activity.
+  const allTimeCollected = contributions.reduce((sum, c) => sum + Number(c.Amount || 0), 0);
+  const allTimeExpenses  = expenses.reduce((sum, x) => sum + Number(x.Amount || 0), 0);
+  const allTimeNetBalance = allTimeCollected - allTimeExpenses;
+
+  const grandTotal = totalCollected + walkinTotal;
+
   return {
     month: month, year: year,
-    paidList: paidList, unpaidList: unpaidList, walkinList: walkinList,
+    paidList: paidList, unpaidList: unpaidList, walkinList: walkinList, expenseList: expenseList,
     totalCollected: totalCollected,       // from registered members only (unchanged meaning)
     walkinTotal: walkinTotal,
-    grandTotal: totalCollected + walkinTotal
+    grandTotal: grandTotal,               // total INCOME (members + walk-in) — unchanged meaning
+    expenseTotal: expenseTotal,
+    netBalance: grandTotal - expenseTotal, // income minus expenses for the month
+    allTimeCollected: allTimeCollected,
+    allTimeExpenses: allTimeExpenses,
+    allTimeNetBalance: allTimeNetBalance
   };
 }
 
@@ -1121,11 +1159,14 @@ function _buildAdminSummaryPdfHtml(data) {
   const thPaid   = "padding:8px 14px;border:1px solid #bbf7d0;text-align:left;background:#dcfce7;color:#166534;";
   const thUnpaid = "padding:8px 14px;border:1px solid #fecaca;text-align:left;background:#fee2e2;color:#991b1b;";
   const thWalkin = "padding:8px 14px;border:1px solid #fde68a;text-align:left;background:#fef3c7;color:#92400e;";
+  const thExpense= "padding:8px 14px;border:1px solid #cbd5e1;text-align:left;background:#f1f5f9;color:#334155;";
   const tdPaid   = "padding:8px 14px;border:1px solid #bbf7d0;background:#f0fdf4;";
   const tdUnpaid = "padding:8px 14px;border:1px solid #fecaca;background:#fef2f2;";
   const tdWalkin = "padding:8px 14px;border:1px solid #fde68a;background:#fffbeb;";
+  const tdExpense= "padding:8px 14px;border:1px solid #cbd5e1;background:#f8fafc;";
   const numCol   = "width:28px;text-align:center;color:#94a3b8;font-weight:600;";
-  const walkinList = data.walkinList || [];
+  const walkinList  = data.walkinList || [];
+  const expenseList = data.expenseList || [];
 
   // ── Each section is skipped entirely (no heading, no table) when its list is empty —
   // rather than printing a placeholder row like "— none —".
@@ -1170,6 +1211,38 @@ function _buildAdminSummaryPdfHtml(data) {
       "</table>";
   }
 
+  // [NEW] Expenses — listed individually (Title + Date + Amount), neutral slate
+  // tint so it reads as "money out" rather than a green/red income signal.
+  // Total Expenses / Net Balance sit right below this table, not in the top
+  // summary line, per request — this section is fully self-contained.
+  if (expenseList.length > 0) {
+    const expenseRows = expenseList.map((x, i) =>
+      "<tr><td style='" + tdExpense + numCol + "'>" + (i + 1) + ".</td>" +
+      "<td style='" + tdExpense + "'>" + esc(x.title) + "</td>" +
+      "<td style='" + tdExpense + "'>" + esc(x.date || "—") + "</td>" +
+      "<td style='" + tdExpense + "text-align:right;'>" + CFG.currencyText + " " + x.amount + "</td></tr>"
+    ).join("");
+    sections += "<h3 style='color:#334155;margin-top:20px;margin-bottom:10px;'>💸 Expenses This Month</h3>" +
+      "<table style='border-collapse:collapse;width:100%;margin-bottom:8px;'>" +
+        "<tr><th style='" + thExpense + numCol + "'>#</th><th style='" + thExpense + "'>Title</th><th style='" + thExpense + "'>Date</th><th style='" + thExpense + "text-align:right;'>Amount</th></tr>" +
+        expenseRows +
+      "</table>" +
+      "<p style='margin:0 0 4px;'><strong>Total Expenses:</strong> " + CFG.currencyText + " " + (data.expenseTotal||0) + "</p>" +
+      "<p style='margin:0;font-size:14px;'><strong>Net Balance: " + CFG.currencyText + " " + (data.netBalance != null ? data.netBalance : data.grandTotal) + "</strong> <span style='color:#94a3b8;font-weight:400;font-size:11.5px;'>(collected − expenses)</span></p>";
+  }
+
+  // [NEW] All-time fund summary — a SEPARATE block from the monthly figures
+  // above, showing overall treasury totals since inception rather than just
+  // this month. Distinct indigo tint so it doesn't blend with the monthly
+  // slate-colored expense box right above it.
+  const allTimeBlock =
+    "<div style='margin-top:22px;padding:14px 16px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;'>" +
+      "<h3 style='color:#3730a3;margin:0 0 10px;font-size:14px;'>🏦 Overall Fund Summary (All-Time)</h3>" +
+      "<p style='margin:0 0 4px;'><strong>Total Collection (all-time):</strong> " + CFG.currencyText + " " + (data.allTimeCollected||0) + "</p>" +
+      "<p style='margin:0 0 4px;'><strong>Total Expenses (all-time):</strong> " + CFG.currencyText + " " + (data.allTimeExpenses||0) + "</p>" +
+      "<p style='margin:0;font-size:15px;'><strong>Current Net Balance: " + CFG.currencyText + " " + (data.allTimeNetBalance != null ? data.allTimeNetBalance : (data.allTimeCollected||0)) + "</strong></p>" +
+    "</div>";
+
   // [NEW] System-generated footer note — printed at the bottom of the PDF page.
   const footerNote =
     "<p style='margin-top:28px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:10.5px;color:#94a3b8;text-align:center;'>" +
@@ -1185,6 +1258,7 @@ function _buildAdminSummaryPdfHtml(data) {
     "<p>Paid: " + data.paidList.length + " &nbsp;|&nbsp; Not yet paid: " + data.unpaidList.length +
       " &nbsp;|&nbsp; Walk-in entries: " + walkinList.length + "</p>" +
     sections +
+    allTimeBlock +
     footerNote +
     "</body></html>";
 }
@@ -1194,7 +1268,8 @@ function _buildAdminSummaryPdfHtml(data) {
 //    so a pre-formatted block the admin can manually select is the reliable fallback —
 //    it's also shown even when the PDF attaches fine, since forwarding text is often faster.
 function _buildAdminSummaryPlainText(data) {
-  const walkinList = data.walkinList || [];
+  const walkinList  = data.walkinList || [];
+  const expenseList = data.expenseList || [];
   const lines = [];
   lines.push(CFG.symbol + " " + CFG.name);
   lines.push("📍 " + CFG.location);
@@ -1230,6 +1305,30 @@ function _buildAdminSummaryPlainText(data) {
   lines.push("💰 Members Collected: " + CFG.currencyText + " " + data.totalCollected);
   lines.push("💰 Walk-in Collected: " + CFG.currencyText + " " + (data.walkinTotal||0));
   lines.push("💰 Grand Total: " + CFG.currencyText + " " + (data.grandTotal != null ? data.grandTotal : data.totalCollected));
+
+  // [NEW] Expenses — its own Total Expenses / Net Balance lines live here,
+  // right after the expense list, rather than mixed into the income summary
+  // block above (per request: only near the expense section, lower down).
+  if (expenseList.length > 0) {
+    lines.push("");
+    lines.push("💸 EXPENSES (" + expenseList.length + ")");
+    expenseList.forEach((x, i) => {
+      lines.push((i + 1) + ". " + x.title + (x.date ? " (" + x.date + ")" : "") + " — " + CFG.currencyText + " " + x.amount);
+    });
+    lines.push("");
+    lines.push("💸 Total Expenses: " + CFG.currencyText + " " + (data.expenseTotal||0));
+    lines.push("📊 Net Balance: " + CFG.currencyText + " " + (data.netBalance != null ? data.netBalance : data.grandTotal) + " (collected − expenses)");
+  }
+
+  // [NEW] All-time fund summary — separate block, shown after the monthly
+  // figures above, giving the overall treasury total rather than just this
+  // month's activity.
+  lines.push("");
+  lines.push("🏦 OVERALL FUND SUMMARY (ALL-TIME)");
+  lines.push("Total Collection (all-time): " + CFG.currencyText + " " + (data.allTimeCollected||0));
+  lines.push("Total Expenses (all-time): " + CFG.currencyText + " " + (data.allTimeExpenses||0));
+  lines.push("Current Net Balance: " + CFG.currencyText + " " + (data.allTimeNetBalance != null ? data.allTimeNetBalance : (data.allTimeCollected||0)));
+
   lines.push("━━━━━━━━━━━━━━━━━━━━");
   lines.push(CFG.tagline);
   return lines.join("\n");
@@ -1254,7 +1353,8 @@ function _adminSummaryRow(num, name, value, textColor) {
 //    (no heading, no empty table) when its list has zero entries. Every row is
 //    numbered, with real horizontal padding so text never touches the card edge.
 function _buildAdminSummaryEmail(data) {
-  const walkinList = data.walkinList || [];
+  const walkinList  = data.walkinList || [];
+  const expenseList = data.expenseList || [];
 
   let sectionsHtml = "";
 
@@ -1285,8 +1385,39 @@ function _buildAdminSummaryEmail(data) {
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:8px;overflow:hidden;">${unpaidRows}</table>`;
   }
 
+  // [NEW] Expenses — neutral slate tint (money OUT, distinct from paid/walkin's
+  // green/amber and unpaid's red). Total Expenses / Net Balance sit directly
+  // below this table only — not mixed into the top income summary above,
+  // per request.
+  if (expenseList.length > 0) {
+    const expenseRows = expenseList.map((x, i) =>
+      _adminSummaryRow(i + 1, x.title + (x.date ? " · " + x.date : ""), CFG.currencyText + " " + x.amount, "#334155")
+    ).join("");
+    sectionsHtml += `
+    <p style="color:#334155;font-size:13px;font-weight:600;margin:20px 0 8px;">💸 Expenses This Month</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;overflow:hidden;">${expenseRows}</table>
+    <p style="color:${_EM.ink};font-size:13px;margin:10px 0 2px;">
+      Total Expenses: ${CFG.currencyText} ${data.expenseTotal||0}
+    </p>
+    <p style="color:${_EM.ink};font-size:14px;font-weight:600;margin:0;">
+      Net Balance: ${CFG.currencyText} ${data.netBalance != null ? data.netBalance : data.grandTotal}
+      <span style="color:${_EM.sub};font-weight:400;font-size:11.5px;">(collected − expenses)</span>
+    </p>`;
+  }
+
   const plainText = _buildAdminSummaryPlainText(data);
   const preId = "admsum_copy_text";
+
+  // [NEW] All-time fund summary — separate indigo-tinted block, shown after
+  // all the monthly sections above, giving overall treasury totals rather
+  // than just this month's activity.
+  const allTimeHtml = `
+    <div style="margin-top:22px;padding:14px 16px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;">
+      <p style="color:#3730a3;font-size:13px;font-weight:700;margin:0 0 8px;">🏦 Overall Fund Summary (All-Time)</p>
+      <p style="color:${_EM.ink};font-size:13px;margin:0 0 4px;">Total Collection (all-time): ${CFG.currencyText} ${data.allTimeCollected||0}</p>
+      <p style="color:${_EM.ink};font-size:13px;margin:0 0 4px;">Total Expenses (all-time): ${CFG.currencyText} ${data.allTimeExpenses||0}</p>
+      <p style="color:${_EM.ink};font-size:14.5px;font-weight:700;margin:0;">Current Net Balance: ${CFG.currencyText} ${data.allTimeNetBalance != null ? data.allTimeNetBalance : (data.allTimeCollected||0)}</p>
+    </div>`;
 
   const body = `
   ${_emHeader("ADMIN MONTHLY SUMMARY")}
@@ -1301,6 +1432,7 @@ function _buildAdminSummaryEmail(data) {
       Grand total: ${CFG.currencyText} ${data.grandTotal != null ? data.grandTotal : data.totalCollected}
     </p>
     ${sectionsHtml}
+    ${allTimeHtml}
 
     <p style="color:${_EM.sub};font-size:12px;margin:18px 0 6px;">
       Ready-to-forward text:
@@ -5552,7 +5684,7 @@ function _changePassword(p) {  // FIX #3: Moved to global scope (was accidentall
       }
       return { status: "error", message: "User not found." };
     } catch(err) {
-      logAction("System", "CHANGE_PASSWORD_ERROR", "UserId: " + sanitize((params||{}).userId||"",30), err.message, "", { severity:"ERROR", result:"FAILURE", error:err });
+      logAction("System", "CHANGE_PASSWORD_ERROR", "UserId: " + sanitize((p||{}).UserId||"",30), err.message, "", { severity:"ERROR", result:"FAILURE", error:err });
       return { status: "error", message: err.message };
     }
   }

@@ -1029,15 +1029,13 @@
       try {
         let s = JSON.parse(localStorage.getItem("session") || "null");
         if (!s) { _admCpMsg("Session expired."); if (btn) { btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-key"></i> Update Password'; } return; }
-        let myProfile = users.find(u => String(u.UserId) === String(s.userId));
-        if (!myProfile) { _admCpMsg("Profile not loaded. Please refresh."); if (btn) { btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-key"></i> Update Password'; } return; }
+        // [FIX] Removed a client-side "is current password right?" pre-check here.
+        // It compared against myProfile.Password, but getUsers() strips Password
+        // server-side for security — so that field is always empty and the check
+        // could never actually fire. The server's changePassword action already
+        // validates the old password correctly and returns a real error message
+        // via res.message below, so nothing is lost by removing the dead check.
         let currentHash = await sha256(currentVal);
-        let storedHash  = String(myProfile.Password || "").toLowerCase();
-        if (storedHash && storedHash.length === 64 && currentHash !== storedHash) {
-          _admCpMsg("Current password is incorrect.");
-          if (btn) { btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-key"></i> Update Password'; }
-          return;
-        }
         let newHash = await sha256(newVal);
         let res = await postData({ action: "changePassword", UserId: s.userId, OldPassword: currentHash, NewPassword: newHash });
         if (res && res.status === "success") {
@@ -2586,7 +2584,7 @@
 
         return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9;">' +
           '<div style="width:8px;height:8px;border-radius:50%;background:' + dotCol + ';flex-shrink:0;"></div>' +
-          '<div style="width:28px;height:28px;border-radius:50%;background:' + bgCol + ';display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:' + txtCol + ';flex-shrink:0;">' + initials + '</div>' +
+          _avatarHtml(u, 28) +
           '<div style="flex:1;min-width:0;">' +
             '<div style="font-size:12px;font-weight:600;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(u.Name||"—") + '</div>' +
             '<div style="font-size:10px;color:#94a3b8;">' + subLine + '</div>' +
@@ -2594,6 +2592,7 @@
           '<span style="font-size:11px;font-weight:700;color:' + (paid ? "#27ae60" : "#e74c3c") + ';">' + (paid ? "₹" + fmt(myAmt) : "—") + '</span>' +
         '</div>';
       }).join("");
+      if (window._lazyLoadDriveImgs) window._lazyLoadDriveImgs(el);
     }
 
     function _hmRenderWalkinList(walkIns) {
@@ -3605,7 +3604,7 @@
             : "";
           return `<tr style="cursor:default;">
         <td>${n}</td>
-        <td><b>${escapeHtml(name)}</b>${walkInBadge}</td>
+        <td><div style="display:flex;align-items:center;gap:8px;">${_avatarHtml(isWalkIn ? null : users.find((u) => String(u.UserId) === String(c.UserId)), 24)}<b>${escapeHtml(name)}</b>${walkInBadge}</div></td>
         <td class="amt-green">₹ ${fmt(c.Amount)}</td>
         <td>${escapeHtml(c.ForMonth || "—")}</td>
         <td>${escapeHtml(String(c.Year || "—"))}</td>
@@ -3626,6 +3625,7 @@
       </tr>`;
         })
         .join("");
+      if (window._lazyLoadDriveImgs) window._lazyLoadDriveImgs(document.getElementById("tb"));
       _renderPagination("contrib_pagination", totalPages, page, function(p){ _renderContribPage(p); });
     }
 
@@ -6327,6 +6327,31 @@
         if (m) return "https://drive.google.com/thumbnail?id=" + m[1] + "&sz=w400";
       }
       return url;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       SHARED MEMBER AVATAR HELPER (new)
+       Used anywhere a member's name/detail is shown (Home status list,
+       Dashboard table/cards/month-grid, Tracker grid, Requests table)
+       so every avatar looks the same and shares ONE photo cache.
+       Does NOT touch the Users-page avatar code — that already has its
+       own working implementation and is left exactly as-is.
+       Real photos are lazy-loaded via the EXISTING window._lazyLoadDriveImgs()
+       + window._adminPhotoB64Cache mechanism, so a given member's photo is
+       downloaded from Drive at most once per session no matter how many of
+       these sections show it — every other section reads it from cache.
+       ═══════════════════════════════════════════════════════════ */
+    var _AVATAR_FALLBACK_SVG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Ccircle cx='16' cy='16' r='16' fill='%230F766E'/%3E%3Ctext x='16' y='21' text-anchor='middle' fill='white' font-size='14' font-family='Arial'%3E%26%23128100%3B%3C/text%3E%3C/svg%3E";
+    function _avatarHtml(u, size) {
+      size = size || 26;
+      var sizeStyle = 'width:' + size + 'px;height:' + size + 'px;border-radius:50%;object-fit:cover;background:#eee;flex-shrink:0;border:1.5px solid #e2e8f0;';
+      if (!u || !u.PhotoURL) {
+        return '<img src="' + _AVATAR_FALLBACK_SVG + '" style="' + sizeStyle + '" alt=""/>';
+      }
+      var thumb = _driveImgSrc(u.PhotoURL);
+      return '<img data-rawphoto="' + escapeHtml(u.PhotoURL) + '" data-drivesrc="' + escapeHtml(thumb) + '" ' +
+        'src="' + _AVATAR_FALLBACK_SVG + '" style="' + sizeStyle + '" ' +
+        'onerror="this.onerror=null;this.src=\'' + _AVATAR_FALLBACK_SVG + '\';" alt=""/>';
     }
 
     /* ── Parse ReceiptURLs from expense object (JSON array or legacy single URL) ── */
@@ -9278,14 +9303,17 @@
 
         gridHtml += `<tr style="background:${rowBg};">` +
           `<td style="padding:9px 12px;position:sticky;left:0;background:${rowBg};border-bottom:${rowBorderBottom};box-shadow:${STICKY_EDGE_SHADOW};white-space:normal;overflow-wrap:break-word;">` +
-          `<div style="font-weight:600;color:${r.isInactive ? '#64748b' : '#1e293b'};font-size:12px;">${escapeHtml(u.Name || "—")}${inactiveBadge}</div>` +
+          `<div style="display:flex;align-items:center;gap:6px;font-weight:600;color:${r.isInactive ? '#64748b' : '#1e293b'};font-size:12px;">${_avatarHtml(u,18)}<span>${escapeHtml(u.Name || "—")}${inactiveBadge}</span></div>` +
           startNote + `</td>` +
           r.cells.map(c => `<td style="text-align:center;padding:8px 2px;border-bottom:${rowBorderBottom};border-right:${CELL_BORDER};">${cellIcon[c.state]}</td>`).join("") +
           `<td style="text-align:center;padding:8px 10px;border-bottom:${rowBorderBottom};">${pendingBadge}</td></tr>`;
       });
 
       const gridTable = document.getElementById("tr_grid_table");
-      if (gridTable) gridTable.innerHTML = gridHtml;
+      if (gridTable) {
+        gridTable.innerHTML = gridHtml;
+        if (window._lazyLoadDriveImgs) window._lazyLoadDriveImgs(gridTable);
+      }
       const gridWrap = document.getElementById("tr_grid_wrap");
       if (gridWrap) gridWrap.style.display = rows.length ? "block" : "none";
       const gridLegend = document.getElementById("tr_grid_legend");
@@ -9316,6 +9344,7 @@
           return `<div class="tr-member-row" style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-bottom:1px solid #f0fdf4;font-size:12.5px;gap:8px;min-height:48px;">
           <div style="display:flex;align-items:center;gap:10px;min-width:0;">
             <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#dcfce7,#bbf7d0);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#16a34a;flex-shrink:0;">${i + 1}</div>
+            ${_avatarHtml(u, 28)}
             <div style="min-width:0;">
               <div style="font-weight:600;color:#166534;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                 ${escapeHtml(u.Name || "—")}${targetTick}
@@ -9344,6 +9373,7 @@
           return `<div class="tr-member-row" style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-bottom:1px solid #fef2f2;font-size:12.5px;gap:8px;min-height:48px;">
           <div style="display:flex;align-items:center;gap:10px;min-width:0;">
             <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#fee2e2,#fecaca);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#dc2626;flex-shrink:0;">${i + 1}</div>
+            ${_avatarHtml(u, 28)}
             <div style="min-width:0;">
               <div style="font-weight:600;color:#991b1b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(u.Name || "—")}</div>
               <div style="color:#94a3b8;font-size:10.5px;">${escapeHtml(u.Mobile || "")}</div>
@@ -9354,6 +9384,11 @@
         }).join("");
 
       document.getElementById("tr_empty").style.display = "none";
+
+      if (window._lazyLoadDriveImgs) {
+        window._lazyLoadDriveImgs(paidList);
+        window._lazyLoadDriveImgs(pendingList);
+      }
 
       // Store state for WhatsApp send functions (scoped to the focus month)
       window._trackerState = {
@@ -10239,7 +10274,7 @@
           : '<span style="font-size:11px;color:#94a3b8;">' + st + '</span>';
         return '<tr>'
           + '<td>' + (i + 1) + '</td>'
-          + '<td><strong>' + name + '</strong><br><span style="font-size:11px;color:#94a3b8;">' + mobile + '</span></td>'
+          + '<td><div style="display:flex;align-items:center;gap:8px;">' + _avatarHtml(u,26) + '<div><strong>' + name + '</strong><br><span style="font-size:11px;color:#94a3b8;">' + mobile + '</span></div></div></td>'
           + '<td><strong style="color:#15803d;">' + (APP.currency||'₹') + fmt(r.Amount) + '</strong></td>'
           + '<td>' + escapeHtml(r.ForMonth || "") + ' ' + escapeHtml(String(r.Year || "")) + '</td>'
           + '<td>' + escapeHtml(r.PaymentMode || "UPI") + '</td>'
@@ -10250,6 +10285,7 @@
           + '<td style="white-space:nowrap;">' + actBtns + '</td>'
           + '</tr>';
       }).join("");
+      if (window._lazyLoadDriveImgs) window._lazyLoadDriveImgs(tbody);
       _buildPagination("req_pagination", page, total, "_gotoReqPage");
     }
 
@@ -12168,6 +12204,7 @@
             const c = row._data;
             const isWalkIn = String(c.UserId).startsWith("WALKIN_");
             const name  = dash_getDisplayName(c.UserId, c.Note);
+            const _rowUser = isWalkIn ? null : dash_users.find(x => String(x.UserId) === String(c.UserId));
             const tName = dash_types.find(x => String(x.TypeId) === String(c.TypeId))?.TypeName || "Contribution";
             const oName = dash_occasions.find(x => String(x.OccasionId) === String(c.OccasionId))?.OccasionName || "—";
             const rid   = (c.ReceiptID || "").replace(new RegExp("^" + (APP.legacyReceiptPrefix||"TRX") + "-"), (APP.receiptPrefix||"REC") + "-");
@@ -12178,7 +12215,7 @@
             return `<tr class="clickable-row" style="cursor:pointer;" onclick="viewDashboardEntry('${_drid}')">
               <td>${escapeHtml(_ct_fmtDate(c.PaymentDate))}</td>
               <td><span style="background:#F0FDFA;color:#115E59;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;font-family:monospace;">${escapeHtml(rid||"—")}</span></td>
-              <td><b>${escapeHtml(name)}</b></td>
+              <td><div style="display:flex;align-items:center;gap:6px;">${_avatarHtml(_rowUser,20)}<b>${escapeHtml(name)}</b></div></td>
               <td>${escapeHtml(tName)}</td>
               <td>${escapeHtml(oName)}</td>
               <td>${escapeHtml(c.ForMonth||"—")}</td>
@@ -12196,7 +12233,7 @@
             return `<tr class="ct-pend">
               <td style="color:#94a3b8;">—</td>
               <td>—</td>
-              <td><b style="color:#c2410c;">${escapeHtml(u.Name||"")}</b></td>
+              <td><div style="display:flex;align-items:center;gap:6px;">${_avatarHtml(u,20)}<b style="color:#c2410c;">${escapeHtml(u.Name||"")}</b></div></td>
               <td>Monthly</td>
               <td>—</td>
               <td>${escapeHtml(row._month ? _cap(row._month) : "—")} ${row._year||""}</td>
@@ -12211,6 +12248,7 @@
           }
         }).join("");
       }
+      if (window._lazyLoadDriveImgs) window._lazyLoadDriveImgs(tbody);
 
       // pagination
       const pgEl = document.getElementById("ct_pagination");
@@ -12248,16 +12286,17 @@
       if (!sorted.length) { el.innerHTML = '<div style="color:#aaa;padding:20px;text-align:center;">No member contributions match filters.</div>'; return; }
       el.innerHTML = sorted.map(uid => {
         const name    = dash_getDisplayName(uid, noteMap[uid]);
-        const initials = name.split(" ").map(w=>w[0]||"").join("").slice(0,2).toUpperCase();
+        const uObj    = dash_users.find(x => String(x.UserId) === String(uid));
         const streak  = _ct_streak(uid);
         return `<div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:13px 14px;">
-          <div style="width:36px;height:36px;border-radius:50%;background:#fef3c7;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#92400e;margin-bottom:7px;">${initials}</div>
+          <div style="margin-bottom:7px;">${_avatarHtml(uObj, 36)}</div>
           <div style="font-size:12px;font-weight:600;color:#1e293b;margin-bottom:2px;">${escapeHtml(name)}</div>
           <div style="font-size:16px;font-weight:700;color:#15803d;">${APP.currency||"₹"}${fmt(map[uid])}</div>
           <div style="font-size:10px;color:#94a3b8;margin-top:2px;">12-month streak</div>
           <div class="ct-streak" style="margin-top:5px;">${streak}</div>
         </div>`;
       }).join("");
+      if (window._lazyLoadDriveImgs) window._lazyLoadDriveImgs(el);
     }
 
     /* ── MONTH GRID VIEW ── */
@@ -12287,10 +12326,11 @@
           }
           return `<td style="text-align:center;"><span style="color:#e2e8f0;font-size:12px;">—</span></td>`;
         }).join("");
-        return `<tr><td style="font-weight:600;font-size:11px;">${escapeHtml(u.Name||"")}</td>${cells}<td style="font-weight:700;color:#15803d;font-size:11px;">${APP.currency||"₹"}${fmt(total)}</td></tr>`;
+        return `<tr><td style="font-weight:600;font-size:11px;"><div style="display:flex;align-items:center;gap:6px;">${_avatarHtml(u,18)}<span>${escapeHtml(u.Name||"")}</span></div></td>${cells}<td style="font-weight:700;color:#15803d;font-size:11px;">${APP.currency||"₹"}${fmt(total)}</td></tr>`;
       }).join("");
 
       tbl.innerHTML = hdr + `<tbody>${rows}</tbody>`;
+      if (window._lazyLoadDriveImgs) window._lazyLoadDriveImgs(tbl);
     }
 
     /* Hook into existing dash_renderAll so both trackers auto-refresh with dashboard */
