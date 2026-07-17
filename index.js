@@ -507,11 +507,51 @@ var _trLoaded = false;
         var btn = document.querySelector('.feedback-submit-btn');
         if (btn) btn.classList.add('loading');
 
-        // Send feedback via postData to backend (stored as audit/feedback log)
-        const feedbackNote = `FEEDBACK | Name: ${name} | Mobile: ${mobile} | Address: ${
-          address || "—"
-        } | Message: ${message}`;
-        // Try to send (best-effort, non-blocking)
+        function _fbShowThanks() {
+          // Mark fields as OK
+          _fbClearError('fb_name'); _fbClearError('fb_mobile'); _fbClearError('fb_message');
+
+          // Show thank you message
+          const thanksEl = document.getElementById("feedbackThanks");
+          thanksEl.style.display = "block";
+          thanksEl.scrollIntoView({ behavior: "smooth", block: "center" });
+
+          // Auto-hide after 6 seconds and clear form
+          setTimeout(() => {
+            thanksEl.style.opacity = "0";
+            thanksEl.style.transition = "opacity 0.5s ease";
+            setTimeout(() => {
+              thanksEl.style.display = "none";
+              thanksEl.style.opacity = "";
+              thanksEl.style.transition = "";
+              document.getElementById("fb_name").value = "";
+              document.getElementById("fb_mobile").value = "";
+              document.getElementById("fb_address").value = "";
+              document.getElementById("fb_message").value = "";
+              _fbClearAll();
+            }, 500);
+          }, 6000);
+        }
+
+        function _fbShowError(msg) {
+          var box = document.getElementById("fbSubmitError");
+          if (!box) {
+            box = document.createElement("div");
+            box.id = "fbSubmitError";
+            box.style.cssText = "margin-top:14px;padding:12px 16px;border-radius:10px;" +
+              "background:rgba(231,76,60,0.08);border:1.5px solid rgba(231,76,60,0.35);" +
+              "color:#c0392b;font-size:0.85rem;line-height:1.5;text-align:center;";
+            var formBox = document.getElementById("feedbackFormBox");
+            if (formBox) formBox.appendChild(box);
+          }
+          box.textContent = msg || "Something went wrong sending your feedback. Please check your connection and try again.";
+          box.style.display = "block";
+        }
+
+        // Send feedback via postData to backend (stored as audit/feedback log).
+        // The thank-you state (and form clear) now only fires once the backend
+        // actually confirms — previously it showed unconditionally even if the
+        // request failed, silently swallowed via .catch(() => {}).
         if (typeof postData === "function") {
           postData({
             action: "submitFeedback",
@@ -521,35 +561,23 @@ var _trLoaded = false;
             Message: message,
             Status: "Pending",
             SubmittedAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
-          }).catch(() => {}); // best-effort
+          }).then(function(res) {
+            if (btn) btn.classList.remove('loading');
+            if (res && res.status === "error") {
+              _fbShowError(res.message || undefined);
+            } else {
+              _fbShowThanks();
+            }
+          }).catch(function() {
+            if (btn) btn.classList.remove('loading');
+            _fbShowError();
+          });
+        } else {
+          // No backend function available on this page — can't confirm delivery,
+          // so don't claim success.
+          if (btn) btn.classList.remove('loading');
+          _fbShowError("Feedback couldn't be sent right now. Please try again shortly.");
         }
-
-        // Remove loading state
-        if (btn) btn.classList.remove('loading');
-
-        // Mark fields as OK
-        _fbClearError('fb_name'); _fbClearError('fb_mobile'); _fbClearError('fb_message');
-
-        // Show thank you message
-        const thanksEl = document.getElementById("feedbackThanks");
-        thanksEl.style.display = "block";
-        thanksEl.scrollIntoView({ behavior: "smooth", block: "center" });
-
-        // Auto-hide after 6 seconds and clear form
-        setTimeout(() => {
-          thanksEl.style.opacity = "0";
-          thanksEl.style.transition = "opacity 0.5s ease";
-          setTimeout(() => {
-            thanksEl.style.display = "none";
-            thanksEl.style.opacity = "";
-            thanksEl.style.transition = "";
-            document.getElementById("fb_name").value = "";
-            document.getElementById("fb_mobile").value = "";
-            document.getElementById("fb_address").value = "";
-            document.getElementById("fb_message").value = "";
-            _fbClearAll();
-          }, 500);
-        }, 6000);
       }
 
 /* ── Payment Modal ── */

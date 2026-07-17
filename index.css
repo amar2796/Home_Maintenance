@@ -82,7 +82,7 @@
     display: none;
     position: relative;
     width: 100%;
-    background: linear-gradient(90deg, #115E59 0%, #0F766E 40%, #14B8A6 70%, #115E59 100%);
+    background: linear-gradient(90deg, #4c1a6e 0%, #6b21a8 40%, #7c3aed 70%, #4c1a6e 100%);
     background-size: 200% 100%;
     animation: bannerShimmer 6s linear infinite, fadeIn 0.5s ease;
     color: #fff;

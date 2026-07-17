@@ -169,6 +169,10 @@ body.dark-mode { background: #0F172A; color: #CBD5E1; }
 body.dark-mode .section,
 body.dark-mode .hf-faq-section,
 body.dark-mode .feedback-section { background: #0F172A; }
+/* #about sets its own background via an ID selector in index.css, which beats
+   a plain class selector regardless of load order — needs its own ID-level
+   override here or it stays stuck on its light background in dark mode. */
+body.dark-mode #about { background: #0F172A; }
 body.dark-mode .section h2,
 body.dark-mode .hf-faq-section h2,
 body.dark-mode .hf-contacts-section h2 { color: #F1F5F9; }

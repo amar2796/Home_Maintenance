@@ -25,6 +25,16 @@
     <link rel="stylesheet" href="home-features.css">
   </head>
   <body>
+    <!-- HOME FEATURES: apply saved dark-mode preference immediately, before first paint (avoids a light-mode flash on reload) -->
+    <script>
+      (function () {
+        try {
+          if (window.localStorage.getItem('hf_dark_mode') === '1') {
+            document.body.classList.add('dark-mode');
+          }
+        } catch (e) {}
+      })();
+    </script>
     <!-- ══ SITE TOP: banner + header stacked in one fixed wrapper ══ -->
     <div id="siteTop">
 
@@ -267,7 +277,7 @@
             <i class="fa-solid fa-location-dot"></i>
             <span id="mapHeaderText">…</span>
           </div>
-          <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d849.8414927304128!2d82.2058416695775!3d26.316155998562984!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x399a79fe680ff1d7%3A0x6161b25ff92ace37!2sVishwakarma%20House!5e1!3m2!1sen!2sin!4v1783874146777!5m2!1sen!2sin" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+          <iframe id="mapEmbedFrame" src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d849.8414927304128!2d82.2058416695775!3d26.316155998562984!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x399a79fe680ff1d7%3A0x6161b25ff92ace37!2sVishwakarma%20House!5e1!3m2!1sen!2sin!4v1783874146777!5m2!1sen!2sin" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
         </div>
 
         <!-- RIGHT: Feedback Form -->
@@ -324,7 +334,12 @@
       //  CONSTANTS INIT — populates every hardcoded text from APP
       //  To switch temple: edit constants.js (and appscript CFG) only.
       // ══════════════════════════════════════════════════════════════
-      (function() {
+      document.addEventListener('DOMContentLoaded', function() {
+        // Runs after DOMContentLoaded because several targets below (e.g. the
+        // pay-modal's #payDeclName / #payCommittee / #donateSupportName) are
+        // defined further down in the HTML, after this <script> tag. Running
+        // immediately (as this used to) meant getElementById returned null
+        // for those and they were silently skipped — always stuck showing "…".
         if (typeof APP === 'undefined') return;
         var name      = APP.name      || 'Home';
         var loc       = APP.location  || '';
@@ -410,7 +425,7 @@
         // Footer full line
         var pf = document.getElementById('pageFooter');
         if (pf) pf.innerHTML = '&copy; ' + new Date().getFullYear() + ' ' + shortName + ' | Built with <span>&#10084;&#65039;</span><span class="footer-tagline" id="footerTagline">॥ ' + tagline + ' ॥ — Serving the community with faith &amp; devotion</span>';
-      })();
+      });
     </script>
     <script src="config.js"></script>
     <script src="app.js"></script>
