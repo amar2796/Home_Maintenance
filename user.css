@@ -462,14 +462,14 @@ body {
 }
 
 .qa-ghost {
-  background: var(--white);
-  color: var(--ink-mid);
-  border: 1.5px solid var(--bg2);
+  background: var(--accent-2);
+  color: #fff;
+  border: none;
+  box-shadow: 0 4px 14px var(--accent-2-dim);
 }
 
 .qa-ghost:hover {
-  border-color: var(--gold);
-  color: var(--gold);
+  background: #d97706;
 }
 
 /* ─── SECTION LABEL ─── */
@@ -1021,7 +1021,6 @@ button, .qa-btn, .pg-btn, .hdr-drop-item, .menu-item,
 
 /* Dark ripple for ghost/light buttons and dropdown items */
 .btn-ghost .btn-ripple,
-.qa-ghost .btn-ripple,
 .pg-btn .btn-ripple,
 .hdr-drop-item .btn-ripple,
 .bs-close .btn-ripple {
@@ -1078,8 +1077,7 @@ button.btn-danger.btn-clicked{ animation: btnPulseRingRed 0.5s ease-out; }
   flex-shrink: 0;
 }
 /* Spinner for ghost/light buttons */
-.btn-ghost .btn-loading-spinner,
-.qa-ghost .btn-loading-spinner {
+.btn-ghost .btn-loading-spinner {
   border-color: rgba(100,116,139,0.35);
   border-top-color: var(--gold);
 }
@@ -2245,17 +2243,7 @@ body.user-dark .inl-sel {
   border-color: #2d3748 !important;
 }
 
-/* ── Quick action ghost buttons in dark ── */
-body.user-dark .qa-ghost {
-  background: rgba(255,255,255,0.04) !important;
-  border-color: rgba(15, 118, 110,0.22) !important;
-  color: #cbd5e1 !important;
-}
-body.user-dark .qa-ghost:hover {
-  background: rgba(15, 118, 110,0.08) !important;
-  border-color: var(--gold) !important;
-  color: var(--gold) !important;
-}
+/* qa-ghost (Complete Report) is now a solid brand-amber button — same in light & dark, no override needed */
 body.user-dark .qa-dark {
   background: #1e293b !important;
 }
@@ -4940,7 +4928,6 @@ body.user-dark .ulo-progress-wrap {
 /* ── Dark mode general text/bg fixes ── */
 body.user-dark .sec-lbl { color: #4b5563 !important; }
 body.user-dark .hero { background: linear-gradient(135deg, #0F172A 0%, #1E1B4B 50%, #0F172A 100%) !important; }
-body.user-dark .qa-btn.qa-ghost { background: #111 !important; color: #94a3b8 !important; border-color: rgba(15, 118, 110,0.15) !important; }
 body.user-dark .acc-body { background: #0a0a0a !important; }
 body.user-dark .f-grp input,
 body.user-dark .f-grp select {
