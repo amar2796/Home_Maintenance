@@ -3471,10 +3471,32 @@
     }
     function loadUsers() {
       const _luEl = document.getElementById("user");
-      if (_luEl) _luEl.innerHTML = users
-        .filter((u) => u.Role !== "Admin" && String(u.Status || "").toLowerCase() === "active")
-        .map((u) => `<option value="${u.UserId}">${u.Name}</option>`)
-        .join("");
+      if (_luEl) {
+        _luEl.innerHTML = users
+          .filter((u) => u.Role !== "Admin" && String(u.Status || "").toLowerCase() === "active")
+          .map((u) => `<option value="${u.UserId}">${u.Name}</option>`)
+          .join("");
+        if (typeof _updateContribMemberPreview === "function") _updateContribMemberPreview(_luEl.value);
+      }
+    }
+
+    /* ── Contribution form: avatar preview shown under the Member dropdown ──
+       Native <select><option> can't render images, so instead we show a
+       small "who is selected" strip below the dropdown once a member is
+       picked. Called on dropdown change, and from _editRetryContrib() when
+       the user is set programmatically (onchange doesn't fire in that case). */
+    function _updateContribMemberPreview(userId) {
+      var el = document.getElementById("sp-contrib-member-preview");
+      if (!el) return;
+      var u = (typeof users !== "undefined" ? users : []).find(function(x) { return String(x.UserId) === String(userId); });
+      if (!userId || !u) { el.style.display = "none"; el.innerHTML = ""; return; }
+      el.style.display = "flex";
+      el.innerHTML = _avatarHtml(u, 30) +
+        '<div style="min-width:0;">' +
+          '<div style="font-size:12.5px;font-weight:600;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(u.Name||"") + '</div>' +
+          '<div style="font-size:10.5px;color:#94a3b8;">' + escapeHtml(u.Mobile||"") + '</div>' +
+        '</div>';
+      if (window._lazyLoadDriveImgs) window._lazyLoadDriveImgs(el);
     }
     function loadTypes() {
       const _ltEl = document.getElementById("type");
@@ -5889,6 +5911,7 @@
       if (typeof window._contribReset === "function") window._contribReset();
       const _s = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined && val !== null) el.value = val; };
       _s("user", payload.UserId);
+      if (typeof _updateContribMemberPreview === "function") _updateContribMemberPreview(payload.UserId);
       _s("amount", payload.Amount);
       _s("month", payload.ForMonth);
       _s("contribYear", payload.Year);
