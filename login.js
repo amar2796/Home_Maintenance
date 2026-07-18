@@ -72,7 +72,17 @@ async function sha256(str){
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
 }
 
-// ── JSONP getData/postData (login.html has its own copy — no app.js dependency)
+// ── getData/postData (login.html has its own copy — no app.js dependency)
+// NOTE: Both getData() and postData() are JSONP calls implemented via a
+// dynamically-created <script src="..."> tag — this is a GET request under
+// the hood in both cases, regardless of the "postData" name. There is no
+// real HTTP POST anywhere in this file. Every field passed to postData(),
+// including OTPs and password hashes, is serialized into the URL query
+// string via URLSearchParams. This is a known constraint of talking to a
+// Google Apps Script backend via JSONP (works around Apps Script's CORS
+// limitations for true cross-origin POST), but it does mean sensitive
+// values can end up in browser history and any server/proxy access logs
+// — do not assume anything sent through postData() stays out of the URL.
 let _cbId=0;
 function getData(action){
   return new Promise((resolve,reject)=>{
@@ -465,7 +475,9 @@ async function fpVerifyAndReset(){
   setMsg('resetMsg3','','');
   try {
     const hashedNew = await sha256(newPass);
-    // Security: send via POST body — OTP and hash never in URL
+    // NOTE: postData() is JSONP-over-GET (see the note near its definition
+    // above) — the OTP and hashed new password ARE included in this request's
+    // URL, not sent as a POST body. This comment previously claimed otherwise.
     const res = await postData({action:'resetPassword', UserId: _fp.userId, otp, NewPassword: hashedNew});
     if(res && res.status==='success'){
       clearInterval(_fpResendInterval);
@@ -527,7 +539,7 @@ function clearFieldErrors(){
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  INIT — load temple timings + version after page ready
+//  INIT — version footer + lockout-state reflection after page ready
 // ══════════════════════════════════════════════════════════════════
 window.addEventListener("load",function(){
   // Show version
@@ -535,16 +547,27 @@ window.addEventListener("load",function(){
     const vf=document.getElementById("versionFooter");
     if(vf)vf.textContent="v"+APP.version+" · "+(APP.name||"");
   }
-  // Load temple timings from chatbot config (non-blocking)
+  // Reflect any existing lockout state immediately, instead of waiting for
+  // the user to click Login once and get bounced by _loginGuard().
   try{
-    getData("getChatbotConfig").then(function(cfg){
-      if(!cfg)return;
-      const timings=cfg.timings_en||"";
-      const bar=document.getElementById("timingsBar");
-      const txt=document.getElementById("timingsText");
-      if(bar&&txt&&timings){txt.textContent=timings;bar.style.display="block";}
-    }).catch(function(){});
+    const _srl=parseInt(sessionStorage.getItem("_server_rl_lock")||"0",10);
+    if(_srl&&Date.now()<_srl){
+      const mins=Math.ceil((_srl-Date.now())/60000);
+      setMsg("loginMsg","🔒 Too many failed attempts. Wait "+mins+" min"+(mins>1?"s":"")+" before retrying.","error");
+      const btn=document.getElementById("loginBtn");if(btn)btn.disabled=true;
+      setTimeout(()=>{sessionStorage.removeItem("_server_rl_lock");const b=document.getElementById("loginBtn");if(b)b.disabled=false;setMsg("loginMsg","","");},_srl-Date.now()+500);
+    }else if(_LR.isLocked()){
+      const mins=Math.ceil(_LR.remainingMs()/60000);
+      setMsg("loginMsg","🔒 Too many attempts. Wait "+mins+" min"+(mins>1?"s":"")+" before retrying.","error");
+      const btn=document.getElementById("loginBtn");if(btn)btn.disabled=true;
+      setTimeout(()=>{if(!_LR.isLocked()){const b=document.getElementById("loginBtn");if(b)b.disabled=false;setMsg("loginMsg","","");}},_LR.remainingMs()+500);
+    }
   }catch(e){}
+  // NOTE: previously also fetched getChatbotConfig() here to populate a
+  // #timingsBar/#timingsText element — neither exists in login.html, so
+  // that call was firing on every page load for a UI that can never appear.
+  // Removed. If you want a timings bar on the login page, add the markup
+  // back and this fetch can be restored.
 });
 
 // ══════════════════════════════════════════════════════════════════
@@ -648,9 +671,15 @@ function openRegisterModal(){
   document.getElementById('regHeader1').style.display='';
   document.getElementById('regHeader2').style.display='none';
   document.getElementById('registerModal').style.display='flex';
-  // Cap DOB picker at today — no future birthdates
+  // Cap DOB picker at today — no future birthdates.
+  // Uses local date components rather than toISOString() (which is UTC and
+  // would be a day behind for IST users in the ~5.5hr window after midnight IST).
   const dobEl=document.getElementById('reg_dob');
-  if(dobEl) dobEl.max=new Date().toISOString().slice(0,10);
+  if(dobEl){
+    const _today=new Date();
+    const _y=_today.getFullYear(), _m=String(_today.getMonth()+1).padStart(2,'0'), _d=String(_today.getDate()).padStart(2,'0');
+    dobEl.max=_y+'-'+_m+'-'+_d;
+  }
   // Disable submit until all fields are valid
   const btn=document.getElementById('regSendOtpBtn');
   if(btn){btn.disabled=true;btn.style.opacity='0.55';}
