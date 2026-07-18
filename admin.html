@@ -3149,7 +3149,14 @@
         <div class="sp-steps" id="sp-contrib-steps"></div>
         <div class="sp-field-group">
           <label class="sp-label">Member <span class="sp-required">*</span></label>
-          <select id="user" onchange="_suggestLastAmount(this.value);_updateContribMemberPreview(this.value)" class="sp-input"></select>
+          <div id="user_cmbWrap" style="position:relative;">
+            <div id="user_cmbBtn" class="sp-input" onclick="_cmbToggle('user')" tabindex="0" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;">
+              <span id="user_cmbBtnLabel" style="color:#94a3b8;">-- Select Member --</span>
+              <i class="fa-solid fa-chevron-down" style="font-size:12px;color:#94a3b8;"></i>
+            </div>
+            <div id="user_cmbList" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:50;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);max-height:260px;overflow-y:auto;"></div>
+          </div>
+          <select id="user" onchange="_suggestLastAmount(this.value);_updateContribMemberPreview(this.value)" class="sp-input" style="display:none;"></select>
           <div id="sp-contrib-member-preview" style="display:none;align-items:center;gap:8px;margin-top:8px;padding:7px 10px;background:#f8fafc;border:1px solid #eef2f6;border-radius:8px;"></div>
         </div>
         <div class="sp-row2">
@@ -3879,6 +3886,7 @@
       if (prev)  prev.style.display = 'none';
       var mPrev = document.getElementById('sp-contrib-member-preview');
       if (mPrev) { mPrev.style.display = 'none'; mPrev.innerHTML = ''; }
+      if (typeof _cmbSyncLabel === 'function') _cmbSyncLabel('user');
       // Clear transient values
       var _g = function(id) { return document.getElementById(id); };
       if (_g('amount'))  _g('amount').value = '';

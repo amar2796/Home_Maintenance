@@ -133,7 +133,7 @@
     function _rebuildBkUserDropdown() {
       var bkUser = document.getElementById("bk_user");
       if (bkUser && typeof users !== "undefined") {
-        bkUser.innerHTML = users
+        bkUser.innerHTML = '<option value="">-- Select Member --</option>' + users
           .filter(function(u) {
             return u.Role !== "Admin" && String(u.Status || "").toLowerCase() === "active";
           })
@@ -141,6 +141,8 @@
             return '<option value="' + u.UserId + '">' + escapeHtml(u.Name) + '</option>';
           })
           .join("");
+        if (typeof _cmbSyncLabel === "function") _cmbSyncLabel("bk_user");
+        if (typeof _updateBkMemberPreview === "function") _updateBkMemberPreview("");
       }
     }
 
@@ -3472,13 +3474,72 @@
     function loadUsers() {
       const _luEl = document.getElementById("user");
       if (_luEl) {
-        _luEl.innerHTML = users
+        _luEl.innerHTML = '<option value="">-- Select Member --</option>' + users
           .filter((u) => u.Role !== "Admin" && String(u.Status || "").toLowerCase() === "active")
           .map((u) => `<option value="${u.UserId}">${u.Name}</option>`)
           .join("");
         if (typeof _updateContribMemberPreview === "function") _updateContribMemberPreview(_luEl.value);
+        if (typeof _cmbSyncLabel === "function") _cmbSyncLabel('user');
       }
     }
+
+    /* ── Reusable avatar dropdown for ANY member-picker <select> ──
+       Works on top of any real <select> whose id is passed in as `selId`.
+       Expects matching wrapper elements named {selId}_cmbWrap / _cmbBtn /
+       _cmbBtnLabel / _cmbList right next to the real (hidden) select.
+       The real select stays fully functional — every selection here just
+       sets its value and fires its normal "change" event, so whatever
+       logic already listens to that select (inline onchange or
+       addEventListener) keeps working exactly as before, untouched. */
+    function _cmbSyncLabel(selId) {
+      var sel = document.getElementById(selId);
+      var lbl = document.getElementById(selId + "_cmbBtnLabel");
+      if (!sel || !lbl) return;
+      var opt = sel.options[sel.selectedIndex];
+      var hasValue = opt && opt.value !== "";
+      lbl.textContent = opt ? opt.textContent : "-- Select Member --";
+      lbl.style.color = hasValue ? "#1e293b" : "#94a3b8";
+    }
+    function _cmbToggle(selId) {
+      var list = document.getElementById(selId + "_cmbList");
+      if (!list) return;
+      var opening = list.style.display === "none" || !list.style.display;
+      // Close any other open avatar-dropdown lists first
+      document.querySelectorAll('[id$="_cmbList"]').forEach(function(l) { if (l !== list) l.style.display = "none"; });
+      if (opening) { _cmbBuildList(selId); list.style.display = "block"; }
+      else { list.style.display = "none"; }
+    }
+    function _cmbBuildList(selId) {
+      var list = document.getElementById(selId + "_cmbList");
+      var sel = document.getElementById(selId);
+      if (!list || !sel) return;
+      var opts = Array.prototype.slice.call(sel.options).filter(function(o) { return o.value !== ""; });
+      list.innerHTML = opts.map(function(o) {
+        var u = (typeof users !== "undefined" ? users : []).find(function(x) { return String(x.UserId) === String(o.value); });
+        var isSel = String(sel.value) === String(o.value);
+        return '<div class="_cmbItem" onclick="_cmbSelect(\'' + selId + '\',\'' + o.value + '\')" style="display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;' + (isSel ? "background:#eff6ff;" : "") + '" onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'' + (isSel ? "#eff6ff" : "transparent") + '\'">' +
+          _avatarHtml(u, 26) +
+          '<span style="font-size:13px;color:#334155;">' + escapeHtml(o.textContent) + '</span>' +
+          '</div>';
+      }).join("");
+      if (window._lazyLoadDriveImgs) window._lazyLoadDriveImgs(list);
+    }
+    function _cmbSelect(selId, uid) {
+      var sel = document.getElementById(selId);
+      if (!sel) return;
+      sel.value = uid;
+      _cmbSyncLabel(selId);
+      var list = document.getElementById(selId + "_cmbList");
+      if (list) list.style.display = "none";
+      sel.dispatchEvent(new Event("change"));
+    }
+    document.addEventListener("click", function(e) {
+      document.querySelectorAll('[id$="_cmbWrap"]').forEach(function(wrap) {
+        var selId = wrap.id.replace(/_cmbWrap$/, "");
+        var list = document.getElementById(selId + "_cmbList");
+        if (list && list.style.display !== "none" && !wrap.contains(e.target)) list.style.display = "none";
+      });
+    });
 
     /* ── Contribution form: avatar preview shown under the Member dropdown ──
        Native <select><option> can't render images, so instead we show a
@@ -3487,6 +3548,21 @@
        the user is set programmatically (onchange doesn't fire in that case). */
     function _updateContribMemberPreview(userId) {
       var el = document.getElementById("sp-contrib-member-preview");
+      if (!el) return;
+      var u = (typeof users !== "undefined" ? users : []).find(function(x) { return String(x.UserId) === String(userId); });
+      if (!userId || !u) { el.style.display = "none"; el.innerHTML = ""; return; }
+      el.style.display = "flex";
+      el.innerHTML = _avatarHtml(u, 30) +
+        '<div style="min-width:0;">' +
+          '<div style="font-size:12.5px;font-weight:600;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(u.Name||"") + '</div>' +
+          '<div style="font-size:10.5px;color:#94a3b8;">' + escapeHtml(u.Mobile||"") + '</div>' +
+        '</div>';
+      if (window._lazyLoadDriveImgs) window._lazyLoadDriveImgs(el);
+    }
+
+    /* ── Same preview box, for the Bulk Insert Member dropdown ── */
+    function _updateBkMemberPreview(userId) {
+      var el = document.getElementById("bk-member-preview");
       if (!el) return;
       var u = (typeof users !== "undefined" ? users : []).find(function(x) { return String(x.UserId) === String(userId); });
       if (!userId || !u) { el.style.display = "none"; el.innerHTML = ""; return; }
@@ -4765,7 +4841,7 @@
 
     function openBulkInsert() {
       if (!checkSession()) return;
-      let userOpts = users
+      let userOpts = '<option value="">-- Select Member --</option>' + users
         .filter((u) => u.Role !== "Admin" && String(u.Status || "").toLowerCase() === "active")
         .map(
           (u) => `<option value="${u.UserId}">${escapeHtml(u.Name)}</option>`
@@ -4803,7 +4879,17 @@
       panelBody.innerHTML = `
         <div class="sp-steps" id="sp-bulk-steps"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
-          <div><label class="_fl">Member <span style="color:#e74c3c">*</span></label><select class="_fi" id="bk_user">${userOpts}</select></div>
+          <div><label class="_fl">Member <span style="color:#e74c3c">*</span></label>
+            <div id="bk_user_cmbWrap" style="position:relative;">
+              <div id="bk_user_cmbBtn" class="_fi" onclick="_cmbToggle('bk_user')" tabindex="0" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;margin-bottom:0;">
+                <span id="bk_user_cmbBtnLabel" style="color:#94a3b8;">-- Select Member --</span>
+                <i class="fa-solid fa-chevron-down" style="font-size:12px;color:#94a3b8;"></i>
+              </div>
+              <div id="bk_user_cmbList" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:50;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);max-height:240px;overflow-y:auto;"></div>
+            </div>
+            <select class="_fi" id="bk_user" onchange="_updateBkMemberPreview(this.value)" style="display:none;">${userOpts}</select>
+            <div id="bk-member-preview" style="display:none;align-items:center;gap:8px;margin-top:8px;padding:7px 10px;background:#f8fafc;border:1px solid #eef2f6;border-radius:8px;"></div>
+          </div>
           <div><label class="_fl">Year <span style="color:#e74c3c">*</span></label><select class="_fi" id="bk_year">${yearOpts}</select></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
@@ -4843,6 +4929,8 @@
 
       spOpen("bulk");
       spRenderSteps("sp-bulk-steps", 1);
+      if (typeof _cmbSyncLabel === "function") _cmbSyncLabel("bk_user");
+      if (typeof _updateBkMemberPreview === "function") _updateBkMemberPreview("");
       // Add one empty row to start
       bkAddRow("", "");
     }
@@ -5482,7 +5570,14 @@
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
             <div>
               <label class="_fl">Member</label>
-              <select class="_fi" id="prev_user" style="margin-bottom:0;">${userOptsP}</select>
+              <div id="prev_user_cmbWrap" style="position:relative;">
+                <div id="prev_user_cmbBtn" class="_fi" onclick="_cmbToggle('prev_user')" tabindex="0" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;margin-bottom:0;">
+                  <span id="prev_user_cmbBtnLabel" style="color:#1e293b;">-- Select Member --</span>
+                  <i class="fa-solid fa-chevron-down" style="font-size:12px;color:#94a3b8;"></i>
+                </div>
+                <div id="prev_user_cmbList" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:50;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);max-height:220px;overflow-y:auto;"></div>
+              </div>
+              <select class="_fi" id="prev_user" style="display:none;">${userOptsP}</select>
             </div>
             <div>
               <label class="_fl">Amount (₹)</label>
@@ -5533,7 +5628,14 @@
           <div class="sp-row2">
             <div class="sp-field-group">
               <label class="sp-label">Member</label>
-              <select class="sp-input" id="prev_user">${userOptsP}</select>
+              <div id="prev_user_cmbWrap" style="position:relative;">
+                <div id="prev_user_cmbBtn" class="sp-input" onclick="_cmbToggle('prev_user')" tabindex="0" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;">
+                  <span id="prev_user_cmbBtnLabel" style="color:#1e293b;">-- Select Member --</span>
+                  <i class="fa-solid fa-chevron-down" style="font-size:12px;color:#94a3b8;"></i>
+                </div>
+                <div id="prev_user_cmbList" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:50;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);max-height:240px;overflow-y:auto;"></div>
+              </div>
+              <select class="sp-input" id="prev_user" style="display:none;">${userOptsP}</select>
             </div>
             <div class="sp-field-group">
               <label class="sp-label">Amount (₹)</label>
@@ -5636,6 +5738,7 @@
         if (el) el.addEventListener("change", _updatePrevSummary);
         if (el && el.tagName==="INPUT") el.addEventListener("input", _updatePrevSummary);
       });
+      if (typeof _cmbSyncLabel === "function") _cmbSyncLabel("prev_user");
     }
 
     var _contribSubmitInFlight = false; // guard: prevents double-submit
@@ -5912,6 +6015,7 @@
       const _s = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined && val !== null) el.value = val; };
       _s("user", payload.UserId);
       if (typeof _updateContribMemberPreview === "function") _updateContribMemberPreview(payload.UserId);
+      if (typeof _cmbSyncLabel === "function") _cmbSyncLabel('user');
       _s("amount", payload.Amount);
       _s("month", payload.ForMonth);
       _s("contribYear", payload.Year);
