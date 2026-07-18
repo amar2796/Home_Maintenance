@@ -611,12 +611,6 @@
     box-shadow: 0 8px 24px rgba(245, 158, 11, 0.35);
   }
   .hero-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(245, 158, 11, 0.5); }
-  .hero-btn-ghost {
-    background: rgba(255, 255, 255, 0.08);
-    color: #fff;
-    border: 1.5px solid rgba(255, 255, 255, 0.55);
-  }
-  .hero-btn-ghost:hover { background: rgba(255, 255, 255, 0.18); border-color: #fff; transform: translateY(-2px); }
   .hero-scroll-cue {
     position: absolute;
     bottom: 4%;
@@ -1446,15 +1440,45 @@
       font-size: 1.2rem;
       padding: 6px 10px;
     }
-    /* hero: aspect-ratio + vw font sizes handle all screen widths automatically */
+    /* The desktop hero uses a wide 1440:560 banner ratio, which on a narrow
+       phone leaves barely enough room for the kicker, heading, subtitle and
+       CTA — everything ends up crammed against the scroll cue. Mobile gets
+       its own taller, viewport-based height instead so the stacked content
+       has room to breathe. */
     .hero {
+      aspect-ratio: unset;
+      height: 74vh;
+      min-height: 460px;
+      max-height: 620px;
       background-size: 200% 200%, 200% 200%, cover;
     }
-    /* On narrow phones the hero is quite short (aspect-ratio locked) — the
-       illustration would crowd the headline/CTAs, so it steps aside here
-       and the hero stays text-focused, matching how most mobile heroes
-       simplify rather than shrink everything proportionally. */
-    .hero-illustration { display: none; }
+    /* Now that mobile has real breathing room (see .hero above), bring the
+       hand-drawn house illustration back instead of hiding it — it just
+       moves to the top of the hero, centered, so it sits clear of the
+       text block anchored at the bottom. */
+    .hero-illustration {
+      display: block;
+      top: 9%;
+      right: auto;
+      left: 50%;
+      transform: translateX(-50%);
+      width: clamp(110px, 34vw, 190px);
+      animation: heroIllustrationFloatMobile 8s ease-in-out infinite alternate;
+    }
+    .hero-box {
+      bottom: 16%;
+      left: 7%;
+      right: 7%;
+      gap: 12px;
+    }
+    .hero-scroll-cue {
+      bottom: 6%;
+    }
+  
+    @keyframes heroIllustrationFloatMobile {
+      0%   { transform: translateX(-50%) translateY(0)   rotate(-1.5deg); }
+      100% { transform: translateX(-50%) translateY(-3%) rotate(1.5deg); }
+    }
   
     /* ── Sections ── */
     .section {
@@ -1515,6 +1539,10 @@
     .header-logo { width: 30px; height: 30px; }
     .header-brand-text .brand-main { font-size: 0.8rem; }
     .nav-menu { top: 50px; }
+
+    .hero { height: 68vh; min-height: 420px; max-height: 540px; }
+    .hero-box { bottom: 14%; }
+    .hero-illustration { top: 7%; width: clamp(95px, 30vw, 160px); }
   
     .section { padding: 30px 14px; }
     .section h2 { font-size: 1.45rem; }
