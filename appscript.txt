@@ -2388,10 +2388,19 @@ function doGet(e) {
           if (String(data[i][idCol]) === photoId) {
             try {
               const url = String(data[i][urlCol] || "");
+              // [FIX] Gallery photos are uploaded via _uploadToFolder(), which returns
+              // "https://drive.google.com/thumbnail?id=...&sz=w400" — NOT the lh3.
+              // googleusercontent.com/d/... format. Only the lh3 format was handled
+              // here before, so fileId was never extracted and the Drive file was
+              // never trashed, even though the sheet row was deleted. Added the
+              // thumbnail?id= branch (same pattern already used in deleteUser).
+              let fileId = "";
               if (url.includes("lh3.googleusercontent.com/d/")) {
-                const fileId = url.split("/d/")[1].split("?")[0].trim();
-                if (fileId && fileId.length > 10) DriveApp.getFileById(fileId).setTrashed(true);
+                fileId = url.split("/d/")[1].split("?")[0].trim();
+              } else if (url.includes("drive.google.com/thumbnail?id=")) {
+                fileId = url.split("id=")[1].split("&")[0].trim();
               }
+              if (fileId && fileId.length > 10) DriveApp.getFileById(fileId).setTrashed(true);
             } catch(driveErr) { /* non-fatal */ }
             sheet.deleteRow(i + 1);
             logAction(sanitize(e.parameter.AdminName, 100) || "Admin", "deleteGalleryPhoto", "PhotoId: " + photoId);
