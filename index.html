@@ -131,6 +131,10 @@
     </div>
 
     <div class="hero" id="hero">
+      <div class="hero-particles" aria-hidden="true">
+        <span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span>
+      </div>
       <svg class="hero-illustration" viewBox="0 0 300 340" fill="none" aria-hidden="true" focusable="false">
         <!-- Roof -->
         <path class="hi-draw hi-1" d="M50,180 L150,90 L250,180" stroke="rgba(255,255,255,0.28)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="270" stroke-dashoffset="270"/>
@@ -141,14 +145,22 @@
         <!-- Spire -->
         <path class="hi-draw hi-4" d="M150,90 L150,54" stroke="rgba(252,211,77,0.55)" stroke-width="2" stroke-linecap="round" stroke-dasharray="40" stroke-dashoffset="40"/>
         <circle class="hi-draw hi-5" cx="150" cy="45" r="7" stroke="rgba(252,211,77,0.55)" stroke-width="2" stroke-dasharray="44" stroke-dashoffset="44"/>
+        <!-- Sparkle that twinkles once the spire finishes drawing -->
+        <g class="hi-sparkle" transform="translate(150,45)" aria-hidden="true">
+          <path d="M0,-9 L0,9 M-9,0 L9,0" stroke="#FCD34D" stroke-width="1.4" stroke-linecap="round"/>
+        </g>
         <!-- Dimension line -->
         <path class="hi-draw hi-6" d="M50,322 L250,322 M50,315 L50,329 M250,315 L250,329" stroke="rgba(255,255,255,0.22)" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="230" stroke-dashoffset="230"/>
         <!-- Drafting compass rosette -->
-        <circle class="hi-draw hi-7" cx="256" cy="66" r="15" stroke="rgba(252,211,77,0.4)" stroke-width="1.5" stroke-dasharray="95" stroke-dashoffset="95"/>
+        <g transform="translate(256,66)">
+          <circle class="hi-draw hi-7" cx="0" cy="0" r="15" stroke="rgba(252,211,77,0.4)" stroke-width="1.5" stroke-dasharray="95" stroke-dashoffset="95"/>
+          <line class="hi-compass-needle" x1="0" y1="0" x2="0" y2="-12" stroke="rgba(252,211,77,0.65)" stroke-width="1.5" stroke-linecap="round"/>
+        </g>
       </svg>
       <div class="hero-box">
         <span class="hero-kicker"><i class="fa-solid fa-hands-praying" aria-hidden="true"></i>Welcome to</span>
         <h1 id="heroHeading">The Vishwakarma Home</h1>
+        <span class="hero-underline" aria-hidden="true"></span>
         <p class="hero-sub" id="heroSub">Every contribution, tracked together</p>
         <div class="hero-cta-row">
           <a href="#" class="hero-btn hero-btn-primary" onclick="openPayModal();return false;">
