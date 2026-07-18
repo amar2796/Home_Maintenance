@@ -1538,20 +1538,26 @@
         photos.forEach(function (p) {
           var card = document.createElement("div");
           card.className = "glry-card";
-          card.dataset.caption = (p.Caption || "").toLowerCase();
-          card.dataset.tags = (p.Tags || "").toLowerCase();
-          const tagsHtml = p.Tags
-            ? p.Tags.split(",").map(t => t.trim()).filter(Boolean)
+          // [FIX] Coerce to String() — a non-string Caption/Tags (e.g. a numeric-looking
+          // caption stored as a Number by Sheets) previously threw on .toLowerCase(),
+          // which aborted the whole render loop. String() makes this bulletproof
+          // regardless of what the server sends.
+          var _caption = String(p.Caption || "");
+          var _tags = String(p.Tags || "");
+          card.dataset.caption = _caption.toLowerCase();
+          card.dataset.tags = _tags.toLowerCase();
+          const tagsHtml = _tags
+            ? _tags.split(",").map(t => t.trim()).filter(Boolean)
               .map(t => '<span style="background:#fef3c7;color:#92400e;border-radius:20px;padding:1px 8px;font-size:10px;font-weight:600;white-space:nowrap;">' + escapeHtml(t) + '</span>')
               .join(" ")
             : "";
           // [FIX-1] Use data-drivesrc + data-rawphoto so _lazyLoadDriveImgs()
           // fetches via base64 proxy — avoids NS_BINDING_ABORTED on Drive URLs
           card.innerHTML =
-            '<img data-drivesrc="' + escapeHtml(p.PhotoURL) + '" data-rawphoto="' + escapeHtml(p.PhotoURL) + '" alt="' + escapeHtml(p.Caption || "") + '" loading="lazy" src="" style="background:#f1f5f9;">' +
+            '<img data-drivesrc="' + escapeHtml(p.PhotoURL) + '" data-rawphoto="' + escapeHtml(p.PhotoURL) + '" alt="' + escapeHtml(_caption) + '" loading="lazy" src="" style="background:#f1f5f9;">' +
             '<div style="padding:8px 10px 10px;">' +
             '<div style="font-size:12px;font-weight:600;color:#444;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
-            escapeHtml(p.Caption || "—") +
+            escapeHtml(_caption || "—") +
             '</div>' +
             (tagsHtml ? '<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px;">' + tagsHtml + '</div>' : '') +
             '<div style="font-size:11px;color:#bbb;margin-top:3px;">' + escapeHtml(p.AddedAt) + '</div>' +
@@ -1565,7 +1571,14 @@
         // [FIX-1] Trigger lazy Drive image loader after all cards are in DOM
         if (typeof window._lazyLoadDriveImgs === "function") window._lazyLoadDriveImgs(grid);
       } catch (err) {
-        grid.innerHTML = "<p style='color:#e74c3c;font-size:13px;'>Error loading gallery.</p>";
+        // [FIX] Previously swallowed silently — impossible to tell whether this was
+        // a network error, a 20s timeout, or something else. Now logged + shown so
+        // the real cause is visible, plus a retry button instead of a dead end.
+        console.error("[loadGalleryAdmin] getGallery failed:", err);
+        grid.innerHTML =
+          "<p style='color:#e74c3c;font-size:13px;'>Error loading gallery" +
+          (err && err.message ? ": " + escapeHtml(err.message) : "") +
+          " &nbsp;<button onclick='loadGalleryAdmin()' style='background:#0F766E;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer;'>Retry</button></p>";
       }
     }
 

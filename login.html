@@ -22,11 +22,11 @@
 
     <!-- Cream header -->
     <div class="card-header">
-      <div class="header-icon-wrap" id="hdrIconWrap">
+      <a href="index.html" class="header-icon-wrap" id="hdrIconWrap" aria-label="Go to home page">
         <img src="Image/logo.PNG" alt="Home Logo" class="header-icon-img"
           onerror="this.style.display='none';document.getElementById('hdrIcon').style.display='inline';">
         <i id="hdrIcon" class="fa-solid fa-house-user" style="display:none;color:#0F766E;font-size:1.6rem;filter:drop-shadow(0 0 6px rgba(15, 118, 110,0.4));"></i>
-      </div>
+      </a>
       <h2>Household Login</h2>
       <span class="card-subtitle" id="loginSubtitle"></span>
     </div>
@@ -207,10 +207,10 @@
     <!-- Step 1 header: fill details -->
     <div class="modal-header" id="regHeader1">
       <button class="close-btn" onclick="closeRegisterModal()">×</button>
-      <div class="modal-icon">
-        <img src="" alt="Mandir" style="width:38px;height:38px;border-radius:50%;display:block;" onerror="this.style.display='none';document.getElementById('regIconFallback').style.display='flex';">
+      <a href="index.html" class="modal-icon modal-icon-link" aria-label="Go to home page">
+        <img src="Image/logo.PNG" alt="Home Logo" class="header-icon-img" style="width:38px;height:38px;object-fit:cover;border-radius:50%;display:block;" onerror="this.style.display='none';document.getElementById('regIconFallback').style.display='flex';">
         <i id="regIconFallback" class="fa-solid fa-user-plus" style="display:none;color:#0F766E;font-size:1.2rem;"></i>
-      </div>
+      </a>
       <h2>Create Account</h2>
       <span class="card-subtitle">Fill your details — takes less than 2 minutes</span>
     </div>

@@ -2354,13 +2354,18 @@ function doGet(e) {
           result = data.slice(1)
             .filter(r => String(r[headers.indexOf("Status")] || "Active") !== "Deleted")
             .map(r => ({
-              PhotoId:  r[headers.indexOf("ImageId")]  || "",
-              Caption:  r[headers.indexOf("Title")]    || "",
-              PhotoURL: r[headers.indexOf("PhotoURL")] || "",
+              // [FIX] Wrap every field in String() — Sheets auto-types cells, so a
+              // caption/tag that looks numeric (e.g. "2024") or a date comes back
+              // as a Number/Date object instead of text. Client code calls string
+              // methods (toLowerCase, split, etc.) on these, which throws if they
+              // aren't real strings — that was the "Error loading gallery" cause.
+              PhotoId:  String(r[headers.indexOf("ImageId")]  || ""),
+              Caption:  String(r[headers.indexOf("Title")]    || ""),
+              PhotoURL: String(r[headers.indexOf("PhotoURL")] || ""),
               Priority: r[headers.indexOf("Priority")] || "",
-              Status:   r[headers.indexOf("Status")]   || "",
-              AddedAt:  r[headers.indexOf("CreatedAt")]|| "",
-              Tags:     r[headers.indexOf("Tags")]     || ""
+              Status:   String(r[headers.indexOf("Status")]   || ""),
+              AddedAt:  String(r[headers.indexOf("CreatedAt")]|| ""),
+              Tags:     String(r[headers.indexOf("Tags")]     || "")
             }))
             .sort((a, b) => (Number(a.Priority)||999) - (Number(b.Priority)||999));
         }
@@ -2383,10 +2388,19 @@ function doGet(e) {
           if (String(data[i][idCol]) === photoId) {
             try {
               const url = String(data[i][urlCol] || "");
+              // [FIX] Gallery photos are uploaded via _uploadToFolder(), which returns
+              // "https://drive.google.com/thumbnail?id=...&sz=w400" — NOT the lh3.
+              // googleusercontent.com/d/... format. Only the lh3 format was handled
+              // here before, so fileId was never extracted and the Drive file was
+              // never trashed, even though the sheet row was deleted. Added the
+              // thumbnail?id= branch (same pattern already used in deleteUser).
+              let fileId = "";
               if (url.includes("lh3.googleusercontent.com/d/")) {
-                const fileId = url.split("/d/")[1].split("?")[0].trim();
-                if (fileId && fileId.length > 10) DriveApp.getFileById(fileId).setTrashed(true);
+                fileId = url.split("/d/")[1].split("?")[0].trim();
+              } else if (url.includes("drive.google.com/thumbnail?id=")) {
+                fileId = url.split("id=")[1].split("&")[0].trim();
               }
+              if (fileId && fileId.length > 10) DriveApp.getFileById(fileId).setTrashed(true);
             } catch(driveErr) { /* non-fatal */ }
             sheet.deleteRow(i + 1);
             logAction(sanitize(e.parameter.AdminName, 100) || "Admin", "deleteGalleryPhoto", "PhotoId: " + photoId);

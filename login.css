@@ -17,7 +17,13 @@
        .card{background:#fff;border-radius:20px;width:100%;max-width:420px;box-shadow:0 8px 32px rgba(17, 94, 89,0.10);animation:slideUp .5s ease-out;position:relative;overflow:hidden;}
        .card-header{background:#fffbf5;border-bottom:1px solid #99F6E4;padding:28px 32px 22px;text-align:center;}
        .login-logo{width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid #99F6E4;flex-shrink:0;background:#115E59;}
-       .header-icon-wrap{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;}
+       .header-icon-wrap{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;cursor:pointer;transition:transform .2s ease;}
+       .header-icon-wrap:hover,.header-icon-wrap:focus-visible{transform:scale(1.06);}
+       /* .modal-icon-link: scoped to the register modal's logo only, so the
+          other (non-clickable) modal-icon circles elsewhere keep their
+          default cursor and don't look interactive. */
+       .modal-icon-link{cursor:pointer;text-decoration:none;transition:transform .2s ease;}
+       .modal-icon-link:hover,.modal-icon-link:focus-visible{transform:scale(1.06);}
        .header-icon-img{width:100%;height:100%;object-fit:contain;border-radius:50%;}
        .card h2{margin:0 0 4px;color:#115E59;font-size:1.5rem;font-weight:700;}
        .card-subtitle{font-size:.8rem;color:#64748b;display:block;}
