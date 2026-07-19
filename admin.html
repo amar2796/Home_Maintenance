@@ -1101,13 +1101,17 @@
         </div><!-- end #dash_panel_expense -->
 
         <!-- Custom Calendar Popup (dashboard date picker) -->
-        <div id="dash_calPop" style="display:none;position:fixed;background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.18);z-index:77777;padding:16px;min-width:260px;font-family:Poppins,sans-serif;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-            <button onclick="dash_calNav(-1)" style="background:none;border:none;color:#334155;font-size:18px;cursor:pointer;box-shadow:none;padding:4px 8px;transform:none!important;">&#8592;</button>
-            <span id="dash_calTitle" style="font-weight:700;font-size:14px;color:#334155;"></span>
-            <button onclick="dash_calNav(1)" style="background:none;border:none;color:#334155;font-size:18px;cursor:pointer;box-shadow:none;padding:4px 8px;transform:none!important;">&#8594;</button>
+        <div id="dash_calPop" style="display:none;position:fixed;background:#fff;border:1px solid #eef1f4;border-radius:14px;box-shadow:0 12px 32px rgba(15,23,42,0.14);z-index:77777;padding:14px 16px 16px;min-width:264px;font-family:Poppins,sans-serif;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <button onclick="dash_calNav(-1)" class="dc-nav-btn" style="background:#F0FDFA;border:1px solid #ccfbf1;color:#0F766E;font-size:13px;cursor:pointer;box-shadow:none;width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;transform:none!important;transition:background .15s;">&#8592;</button>
+            <span id="dash_calTitle" style="font-weight:700;font-size:13.5px;color:#1e293b;letter-spacing:.01em;"></span>
+            <button onclick="dash_calNav(1)" class="dc-nav-btn" style="background:#F0FDFA;border:1px solid #ccfbf1;color:#0F766E;font-size:13px;cursor:pointer;box-shadow:none;width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;transform:none!important;transition:background .15s;">&#8594;</button>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;" id="dash_calGrid"></div>
+          <style>
+            .dc-nav-btn:hover { background:#0F766E!important; color:#fff!important; }
+            .dc-day:not(.dc-empty):not(.dc-sel):not(.dc-today):hover { background:#f1f5f9!important; }
+          </style>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:2px;" id="dash_calGrid"></div>
         </div>
       </div>
 
@@ -1933,7 +1937,7 @@
             <div
               style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;text-align:center;">
               <div style="font-size:1.3rem;font-weight:700;color:#dc2626;" id="tr_year_pending_months">0</div>
-              <div style="font-size:10.5px;color:#991b1b;font-weight:600;">📅 Pending Months</div>
+              <div style="font-size:10.5px;color:#991b1b;font-weight:600;">📅 Pending Months (this year)</div>
             </div>
             <div
               style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;text-align:center;">
@@ -3119,6 +3123,22 @@
   <script src="app.js"></script>
   <script src="admin.js"></script>
 
+  <!-- Reusable single-date calendar (Add/Edit User → DOB, Contribution Start Date)
+       Deliberately placed here, outside any .page wrapper — those are hidden via
+       .page.active toggling, and this popup needs to work from modals (Add/Edit User)
+       that can open on top of any page, not just the Dashboard. -->
+  <div id="fld_calPop" style="display:none;position:fixed;background:#fff;border:1px solid #eef1f4;border-radius:14px;box-shadow:0 12px 32px rgba(15,23,42,0.14);z-index:9999999;padding:14px 16px 16px;min-width:240px;font-family:Poppins,sans-serif;">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;">
+      <select id="fld_calMonthSel" onchange="fld_calChangeMY()" style="flex:1.3;padding:6px 6px;border:1px solid #e2e8f0;border-radius:8px;font-family:Poppins,sans-serif;font-size:12.5px;color:#1e293b;height:30px;"></select>
+      <select id="fld_calYearSel" onchange="fld_calChangeMY()" style="flex:1;padding:6px 6px;border:1px solid #e2e8f0;border-radius:8px;font-family:Poppins,sans-serif;font-size:12.5px;color:#1e293b;height:30px;"></select>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:2px;" id="fld_calGrid"></div>
+    <div style="display:flex;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:0.5px solid #eef1f4;">
+      <button type="button" onclick="fld_clearDate()" style="background:none;border:none;color:#94a3b8;font-size:11.5px;font-weight:600;cursor:pointer;box-shadow:none;padding:2px 4px;transform:none!important;">Clear</button>
+      <button type="button" onclick="fld_todayDate()" style="background:none;border:none;color:#0F766E;font-size:11.5px;font-weight:600;cursor:pointer;box-shadow:none;padding:2px 4px;transform:none!important;">Today</button>
+    </div>
+  </div>
+
   <!-- ═══ SLIDE PANELS OVERLAY ═══ -->
   <div class="sp-overlay" id="spOverlay" onclick="spBackdropClick()"></div>
 
@@ -3420,13 +3440,13 @@
           </div>
           <div class="sp-field-group">
             <label class="sp-label">Date of Birth <span class="sp-optional">(birthday alerts)</span></label>
-            <input id="u_dob" type="date" class="sp-input" />
+            <input id="u_dob" type="text" class="sp-input" readonly placeholder="dd-mm-yyyy — tap to select" style="cursor:pointer;" onclick="fld_openCal('u_dob',1900,new Date().getFullYear())" />
           </div>
         </div>
         <div class="sp-row2">
           <div class="sp-field-group">
             <label class="sp-label">Contribution Start Date <span class="sp-optional">(Tracker)</span></label>
-            <input id="u_contrib_start" type="date" class="sp-input" />
+            <input id="u_contrib_start" type="text" class="sp-input" readonly placeholder="dd-mm-yyyy — tap to select" style="cursor:pointer;" onclick="fld_openCal('u_contrib_start',_getProjectStartYear(),new Date().getFullYear()+1)" />
             <div style="font-size:11px;color:#64748b;margin-top:4px;"><i class="fa-solid fa-circle-info" style="color:#0F766E;"></i> Leave blank — Tracker will start counting from this member's first recorded contribution.</div>
           </div>
         </div>
