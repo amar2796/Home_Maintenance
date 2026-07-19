@@ -1997,7 +1997,7 @@
 
     /* PERF: shared year-options builder — replaces repeated inline loops */
     function _buildYearOpts(selectedYear, minYear, maxYear) {
-      minYear = minYear || 2023;
+      minYear = minYear || _getProjectStartYear();
       maxYear = maxYear || (new Date().getFullYear() + 1);
       selectedYear = selectedYear || new Date().getFullYear();
       var opts = '';
@@ -2005,6 +2005,36 @@
         opts += '<option value="' + y + '"' + (y === Number(selectedYear) ? ' selected' : '') + '>' + y + '</option>';
       }
       return opts;
+    }
+
+    /* ── Single source of truth for "project start year" (points 2/3/4) ──────
+       Every year dropdown in the app should call this instead of hardcoding
+       a start year. Priority:
+         1) earliest year found in YEAR_CONFIG (yearConfig / dash_yearConfig)
+         2) else earliest year found in recorded contributions/expenses
+         3) else _PROJECT_START_YEAR_FLOOR — a last-resort fallback that should
+            almost never be hit once #1/#2 have any rows.
+       If this org/project is ever handed to someone else, or reused for a
+       different group, nothing here needs editing — it self-adjusts from
+       whatever data already exists. The only manual override, if ever
+       needed, is the floor constant below.
+    ─────────────────────────────────────────────────────────────────────── */
+    var _PROJECT_START_YEAR_FLOOR = 2023;
+    function _getProjectStartYear() {
+      var years = [];
+      function addFrom(arr, field) {
+        if (Array.isArray(arr)) arr.forEach(function (r) {
+          var y = Number(r && r[field]);
+          if (!isNaN(y) && y > 2000) years.push(y);
+        });
+      }
+      addFrom(typeof yearConfig !== "undefined" ? yearConfig : null, "Year");
+      addFrom(typeof dash_yearConfig !== "undefined" ? dash_yearConfig : null, "Year");
+      addFrom(typeof data !== "undefined" ? data : null, "Year");
+      addFrom(typeof dash_contributions !== "undefined" ? dash_contributions : null, "Year");
+      addFrom(typeof expenses !== "undefined" ? expenses : null, "Year");
+      addFrom(typeof dash_expenses !== "undefined" ? dash_expenses : null, "Year");
+      return years.length ? Math.min.apply(null, years) : _PROJECT_START_YEAR_FLOOR;
     }
 
     function loadYearSummary() {
@@ -2284,12 +2314,12 @@
         });
       }
 
-      // Build year options from data + span 2023 to current year
+      // Build year options from data + span project start to current year
       var years = new Set();
       data.forEach(function(c) { var y = Number(c.Year); if (!isNaN(y) && y > 2000) years.add(y); });
       expenses.forEach(function(e) { var y = Number(e.Year); if (!isNaN(y) && y > 2000) years.add(y); });
       var cur = new Date().getFullYear();
-      for (var y = 2023; y <= cur; y++) years.add(y);
+      for (var y = _getProjectStartYear(); y <= cur; y++) years.add(y);
       var sortedYears = Array.from(years).sort(function(a,b){ return b-a; });
 
       // Populate visible year dropdown
@@ -3021,7 +3051,7 @@
           let y = Number(c.Year);
           if (!isNaN(y) && y > 2000) years.add(y);
         });
-        for (let y = 2023; y <= curYear; y++) years.add(y);
+        for (let y = _getProjectStartYear(); y <= curYear; y++) years.add(y);
         Array.from(years)
           .sort((a, b) => b - a)
           .forEach((y) => {
@@ -3452,8 +3482,8 @@
         if (!isNaN(y) && y > 2000) years.add(y);
       });
       let cur = new Date().getFullYear();
-      // Always include from 2023 (collection start year) to next year
-      for (let y = 2023; y <= cur + 1; y++) years.add(y);
+      // Always include from project start year to next year
+      for (let y = _getProjectStartYear(); y <= cur + 1; y++) years.add(y);
 
       const sortedYears = Array.from(years).sort((a, b) => b - a);
 
@@ -4022,7 +4052,7 @@
         if (!isNaN(y) && y > 2000) years.add(y);
       });
       let cur = new Date().getFullYear();
-      for (let y = 2023; y <= cur + 1; y++) years.add(y);
+      for (let y = _getProjectStartYear(); y <= cur + 1; y++) years.add(y);
       let yOpts =
         `<option value="">All Years</option>` +
         Array.from(years)
@@ -4493,13 +4523,14 @@
         <label class="_fl">Date of Birth
           <span style="color:#bbb;font-weight:400;font-size:10px;">— for birthday alerts on dashboard</span>
         </label>
-        <input class="_fi" type="date" id="eu_dob" value="${escapeHtml(_dobToInputVal(u.DOB || ''))}"/>
+        <input class="_fi" type="text" id="eu_dob" readonly placeholder="dd-mm-yyyy — tap to select" style="cursor:pointer;" value="${escapeHtml(u.DOB || '')}" onclick="fld_openCal('eu_dob',1900,new Date().getFullYear())"/>
         <label class="_fl">Contribution Start Date
           <span style="color:#bbb;font-weight:400;font-size:10px;">
             — used by Tracker for late-joining members; leave blank to use their first contribution
           </span>
         </label>
-        <input class="_fi" type="date" id="eu_contrib_start" value="${escapeHtml(_dobToInputVal(u.ContribStartDate || ''))}" style="margin-bottom:0;"/>
+        <!-- min-year computed live at click time via _getProjectStartYear() -->
+        <input class="_fi" type="text" id="eu_contrib_start" readonly placeholder="dd-mm-yyyy — tap to select" style="cursor:pointer;margin-bottom:0;" value="${escapeHtml(u.ContribStartDate || '')}" onclick="fld_openCal('eu_contrib_start',_getProjectStartYear(),new Date().getFullYear()+1)"/>
         ${String(u.InactiveSince||'').trim() ? `<div style="font-size:11px;color:#94a3b8;margin-top:6px;"><i class="fa-solid fa-circle-info"></i> Inactive since ${escapeHtml(u.InactiveSince)} — Tracker stopped counting pending for this member from that date.</div>` : ''}
       </div>
       <div class="_mft">
@@ -5562,7 +5593,7 @@
       const monthOpts = MONTHS.map(m => `<option value="${m}"${m===forMonth?" selected":""}>${m}</option>`).join("");
       const curY = new Date().getFullYear();
       let yearOptsP = "";
-      for (let y = curY+1; y >= 2023; y--) {
+      for (let y = curY+1; y >= _getProjectStartYear(); y--) {
         let yLbl = y === curY ? y + " (Current)" : y < curY ? y + " (Old Entry)" : y + " (Advance)";
         yearOptsP += `<option value="${y}"${y===Number(year)?" selected":""}>${yLbl}</option>`;
       }
@@ -6109,7 +6140,7 @@
       const monthOpts = MONTHS.map(m => `<option value="${m}"${m===forMonth?" selected":""}>${m}</option>`).join("");
       const curY = new Date().getFullYear();
       let yearOptsP = "";
-      for (let y = curY+1; y >= 2023; y--) {
+      for (let y = curY+1; y >= _getProjectStartYear(); y--) {
         let yLbl = y === curY ? y + " (Current)" : y < curY ? y + " (Old Entry)" : y + " (Advance)";
         yearOptsP += `<option value="${y}"${y===Number(year)?" selected":""}>${yLbl}</option>`;
       }
@@ -6296,7 +6327,7 @@
       const monthOpts = MONTHS.map(m => `<option value="${m}"${m===p.ForMonth?" selected":""}>${m}</option>`).join("");
       const curY = new Date().getFullYear();
       let yearOptsP = "";
-      for (let y = curY+1; y >= 2023; y--) {
+      for (let y = curY+1; y >= _getProjectStartYear(); y--) {
         let yLbl = y === curY ? y + " (Current)" : y < curY ? y + " (Old Entry)" : y + " (Advance)";
         yearOptsP += `<option value="${y}"${y===Number(p.Year)?" selected":""}>${yLbl}</option>`;
       }
@@ -8624,7 +8655,7 @@
       const months = MONTHS; // PERF: reuse global
       const curY = new Date().getFullYear();
       let yearOpts = "";
-      for (let y = curY + 1; y >= 2023; y--) {
+      for (let y = curY + 1; y >= _getProjectStartYear(); y--) {
         let yLbl = y === curY ? y + " (Current)" : y < curY ? y + " (Old Entry)" : y + " (Advance)";
         yearOpts += `<option value="${y}"${y === curY ? " selected" : ""}>${yLbl}</option>`;
       }
@@ -8725,7 +8756,7 @@
       const monthOptsWI = `<option value="">— All / General —</option>` + MOS2.map(m=>`<option value="${m}"${m===month?" selected":""}>${m}</option>`).join("");
       const curY2 = new Date().getFullYear();
       let yearOptsWI = "";
-      for (let y=curY2+1;y>=2023;y--) { let yLbl2=y===curY2?y+" (Current)":y<curY2?y+" (Old Entry)":y+" (Advance)"; yearOptsWI+=`<option value="${y}"${y===Number(year)?" selected":""}>${yLbl2}</option>`; }
+      for (let y=curY2+1;y>=_getProjectStartYear();y--) { let yLbl2=y===curY2?y+" (Current)":y<curY2?y+" (Old Entry)":y+" (Advance)"; yearOptsWI+=`<option value="${y}"${y===Number(year)?" selected":""}>${yLbl2}</option>`; }
       const typeOptsWI = types.map(t=>`<option value="${t.TypeId}"${String(t.TypeId)===typeId?" selected":""}>${escapeHtml(t.TypeName)}</option>`).join("");
       const occasionOptsWI = `<option value="">— None —</option>`+occasions.map(o=>`<option value="${o.OccasionId}"${String(o.OccasionId)===occasionId?" selected":""}>${escapeHtml(o.OccasionName)}</option>`).join("");
       const typeNameWI = types.find(t=>String(t.TypeId)===typeId)?.TypeName || "Contribution";
@@ -9174,14 +9205,14 @@
        Walk-in donors are excluded (anonymous, not trackable per-user).
        ═══════════════════════════════════════════════════════ */
 
-    // dd-MM-yyyy (optionally with a time suffix) → {y, m} (m is 0-indexed) or null
+    // dd-MM-yyyy (optionally with a time suffix) → {y, m, d} (m is 0-indexed) or null
     function _trParseDMY(s) {
       if (!s) return null;
       const m = /^(\d{2})-(\d{2})-(\d{4})/.exec(String(s).trim());
       if (!m) return null;
-      const y = Number(m[3]), mo = Number(m[2]) - 1;
+      const y = Number(m[3]), mo = Number(m[2]) - 1, d = Number(m[1]);
       if (isNaN(y) || isNaN(mo) || mo < 0 || mo > 11) return null;
-      return { y, m: mo };
+      return { y, m: mo, d };
     }
 
     // Effective month a member's pending-tracking should start from:
@@ -9215,6 +9246,34 @@
 
     function _trYM(y, m) { return y * 12 + m; }
 
+    // Lifetime pending count for one member — from their effective start month
+    // through the current real month, across ALL years (not just whichever year
+    // is selected in the Year dropdown). Same start/freeze rules as the year grid;
+    // just not bounded to one year. Honors the Type filter, same as the grid.
+    function _trLifetimePendingCount(u, selTypeId) {
+      const start = _trEffectiveStart(u);
+      if (!start) return 0; // no reference point to count from
+      const freeze = _trInactiveFreeze(u);
+      const now = new Date();
+      const curYM = _trYM(now.getFullYear(), now.getMonth());
+      const startYM = _trYM(start.y, start.m);
+      const endYM = freeze ? Math.min(curYM, _trYM(freeze.y, freeze.m)) : curYM;
+      if (endYM < startYM) return 0;
+
+      const myAll = data.filter(c =>
+        String(c.UserId) === String(u.UserId) &&
+        !String(c.UserId).startsWith("WALKIN_") &&
+        (!selTypeId || String(c.TypeId) === selTypeId)
+      );
+      const paidSet = new Set(myAll.map(c => _trYM(Number(c.Year), MONTHS.indexOf(c.ForMonth))));
+
+      let pending = 0;
+      for (let ym = startYM; ym <= endYM; ym++) {
+        if (!paidSet.has(ym)) pending++;
+      }
+      return pending;
+    }
+
     function initTrackerDropdowns() {
       const MOS = MONTHS; // PERF: reuse global
       const now = new Date();
@@ -9246,7 +9305,7 @@
         let years = new Set();
         data.forEach(c => { let y = Number(c.Year); if (!isNaN(y) && y > 2000) years.add(y); });
         let cur = now.getFullYear();
-        for (let y = 2023; y <= cur; y++) years.add(y);
+        for (let y = _getProjectStartYear(); y <= cur; y++) years.add(y);
         Array.from(years).sort((a, b) => b - a).forEach(y => {
           let o = document.createElement("option");
           o.value = y; o.textContent = y;
@@ -9334,7 +9393,8 @@
         if (userPendingCount === 0) fullyPaidYtd++;
         yearPendingMonths += userPendingCount;
         yearShortfall += userPendingCount * Number(u.MonthlyTarget || 0);
-        rows.push({ user: u, cells, pendingCount: userPendingCount, isInactive, start });
+        const lifetimePending = _trLifetimePendingCount(u, selTypeId);
+        rows.push({ user: u, cells, pendingCount: userPendingCount, lifetimePending, isInactive, start });
 
         // Focus-month lists (same start/freeze rules, just for one month)
         if (focusMonthIdx !== -1) {
@@ -9424,7 +9484,7 @@
       gridHtml += '<tr style="background:#f8fafc;">' +
         `<th style="text-align:left;padding:9px 12px;font-weight:600;color:#334155;position:sticky;left:0;background:#f8fafc;border-bottom:${CELL_BORDER};box-shadow:${STICKY_EDGE_SHADOW};white-space:normal;">Member</th>` +
         MONTHS.map(m => `<th style="text-align:center;padding:9px 2px;font-weight:600;color:#94a3b8;font-size:10px;letter-spacing:.02em;border-bottom:${CELL_BORDER};border-right:${CELL_BORDER};white-space:nowrap;">${m.slice(0, 3).toUpperCase()}</th>`).join("") +
-        `<th style="text-align:center;padding:9px 10px;font-weight:600;color:#334155;font-size:10.5px;border-bottom:${CELL_BORDER};white-space:nowrap;">Pending</th></tr>`;
+        `<th style="text-align:center;padding:9px 10px;font-weight:600;color:#334155;font-size:10.5px;border-bottom:${CELL_BORDER};white-space:nowrap;" title="Total pending months since this member's start date, across all years — not just ${selYear}">Total Pending</th></tr>`;
 
       rows.forEach((r, idx) => {
         const u = r.user;
@@ -9435,8 +9495,8 @@
           ? '<span style="font-size:9px;background:#f1f5f9;color:#64748b;padding:1px 6px;border-radius:8px;margin-left:4px;font-weight:500;">Inactive</span>' : "";
         const startNote = r.start
           ? `<div style="font-size:9.5px;color:#94a3b8;">from ${MONTHS[r.start.m].slice(0, 3)} ${r.start.y}</div>` : "";
-        const pendingBadge = r.pendingCount > 0
-          ? `<span style="background:#fef2f2;color:#dc2626;padding:2px 9px;border-radius:20px;font-weight:600;">${r.pendingCount}</span>`
+        const pendingBadge = r.lifetimePending > 0
+          ? `<span style="background:#fef2f2;color:#dc2626;padding:2px 9px;border-radius:20px;font-weight:600;" title="Pending since ${r.start ? MONTHS[r.start.m].slice(0,3)+' '+r.start.y : 'start'} — all years, through today">${r.lifetimePending}</span>`
           : r.isInactive
             ? `<span style="background:#f1f5f9;color:#64748b;padding:2px 9px;border-radius:20px;font-weight:600;">Closed</span>`
             : `<span style="background:#f0fdf4;color:#16a34a;padding:2px 9px;border-radius:20px;font-weight:600;">✓</span>`;
@@ -11189,6 +11249,8 @@
         (window.dash_contributions || data || []).forEach(function(c) {
           var y = Number(c.Year); if (y > 2000) years.add(y);
         });
+        var _cur = new Date().getFullYear();
+        for (var _y = _getProjectStartYear(); _y <= _cur + 1; _y++) years.add(_y);
         var sorted = Array.from(years).sort(function(a,b){ return b - a; });
         yrSel.innerHTML = '<option value="">All Years</option>' +
           sorted.map(function(y){ return '<option value="' + y + '">' + y + '</option>'; }).join("");
@@ -11435,7 +11497,7 @@
       const years = new Set();
       dash_contributions.forEach(c => { const y = Number(c.Year); if (y > 2000) years.add(y); });
       dash_expenses.forEach(e => { const y = Number(e.Year); if (y > 2000) years.add(y); });
-      for (let y = 2023; y <= yr; y++) years.add(y);
+      for (let y = _getProjectStartYear(); y <= yr; y++) years.add(y);
       sel.innerHTML = Array.from(years).sort((a,b) => b-a)
         .map(y => `<option value="${y}"${y === yr ? " selected" : ""}>${y}</option>`).join("");
       dash_selectedYear = yr;
@@ -11895,6 +11957,8 @@
       if (!sel) return;
       const years = new Set();
       dash_expenses.forEach(e => { const y = Number(e.Year); if (y > 2000) years.add(y); });
+      const cur = new Date().getFullYear();
+      for (let y = _getProjectStartYear(); y <= cur + 1; y++) years.add(y);
       const sorted = [...years].sort((a,b) => b-a);
       sel.innerHTML = '<option value="">All Years</option>' +
         sorted.map(y => `<option value="${y}"${y === dash_selectedYear ? " selected" : ""}>${y}</option>`).join("");
@@ -12072,6 +12136,8 @@
       if (!sel) return;
       const years = new Set();
       dash_contributions.forEach(c => { const y = Number(c.Year); if (y > 2000) years.add(y); });
+      const cur = new Date().getFullYear();
+      for (let y = _getProjectStartYear(); y <= cur + 1; y++) years.add(y);
       const sorted = [...years].sort((a,b) => b-a);
       sel.innerHTML = '<option value="">All Years</option>' +
         sorted.map(y => `<option value="${y}"${y === dash_selectedYear ? " selected" : ""}>${y}</option>`).join("");
@@ -12488,8 +12554,12 @@
       const inp = document.getElementById(target === "start" ? "dash_startDate" : "dash_endDate");
       const rect = inp.getBoundingClientRect();
       pop.style.display = "block";
-      let top = rect.bottom + window.scrollY + 4;
-      let left = rect.left + window.scrollX;
+      // NOTE: pop is `position:fixed` — top/left must be viewport-relative only.
+      // Do NOT add window.scrollX/scrollY (that was double-counting scroll offset).
+      const popH = 320;
+      let top = rect.bottom + 4;
+      if (top + popH > window.innerHeight) top = Math.max(8, rect.top - popH - 4);
+      let left = rect.left;
       if (left + 270 > window.innerWidth) left = window.innerWidth - 276;
       pop.style.top = top + "px";
       pop.style.left = left + "px";
@@ -12514,17 +12584,24 @@
       const daysInMonth = new Date(_dash_calYear, _dash_calMonth+1, 0).getDate();
       const startVal = document.getElementById("dash_startDate")?.dataset.val || "";
       const endVal   = document.getElementById("dash_endDate")?.dataset.val || "";
+      // Range band: when both a start and end are picked, dates strictly between
+      // them get a soft teal-tint background so the selected span reads at a glance.
+      const rangeLo = startVal && endVal ? (startVal < endVal ? startVal : endVal) : "";
+      const rangeHi = startVal && endVal ? (startVal < endVal ? endVal : startVal) : "";
       const g = document.getElementById("dash_calGrid");
       if (!g) return;
-      const _calParts = ["Su","Mo","Tu","We","Th","Fr","Sa"].map(d => `<div style="text-align:center;font-size:10px;color:#aaa;font-weight:600;padding:4px 0;">${d}</div>`);
-      for (let i = 0; i < firstDay; i++) _calParts.push(`<div></div>`);
+      const _calParts = ["Su","Mo","Tu","We","Th","Fr","Sa"].map(d => `<div style="text-align:center;font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.03em;padding:4px 0 8px;">${d}</div>`);
+      for (let i = 0; i < firstDay; i++) _calParts.push(`<div class="dc-day dc-empty"></div>`);
       for (let d = 1; d <= daysInMonth; d++) {
         const dateStr = _dash_calYear + "-" + String(_dash_calMonth+1).padStart(2,"0") + "-" + String(d).padStart(2,"0");
         const isToday = d===today.getDate() && _dash_calMonth===today.getMonth() && _dash_calYear===today.getFullYear();
         const isSel   = dateStr===startVal || dateStr===endVal;
-        const bg = isSel ? "#334155" : isToday ? "#0F766E" : "transparent";
-        const co = (isSel || isToday) ? "#fff" : "#333";
-        _calParts.push(`<div onclick="dash_pickDate('${dateStr}')" style="text-align:center;font-size:12px;padding:5px 2px;border-radius:6px;cursor:pointer;background:${bg};color:${co};font-weight:${(isSel||isToday)?700:400};">${d}</div>`);
+        const inRange = rangeLo && dateStr > rangeLo && dateStr < rangeHi;
+        let cls = "dc-day", bg = "transparent", co = "#334155", fw = 400, extra = "";
+        if (inRange) { bg = "#F0FDFA"; co = "#0F766E"; }
+        if (isToday && !isSel) { extra = "box-shadow:inset 0 0 0 1.5px #0F766E;"; co = "#0F766E"; fw = 700; }
+        if (isSel) { cls += " dc-sel"; bg = "#0F766E"; co = "#fff"; fw = 700; }
+        _calParts.push(`<div class="${cls}" onclick="dash_pickDate('${dateStr}')" style="text-align:center;font-size:12px;line-height:28px;height:28px;width:28px;margin:0 auto;border-radius:9px;cursor:pointer;background:${bg};color:${co};font-weight:${fw};${extra}transition:background .12s;">${d}</div>`);
       }
       g.innerHTML = _calParts.join("");
     }
@@ -12536,6 +12613,119 @@
       const pop = document.getElementById("dash_calPop");
       if (pop) pop.style.display = "none";
       dash_applyFilter();
+    }
+
+    /* ── Reusable single-date calendar (Add/Edit User → DOB, ContribStartDate) ──
+       Field itself stores/display dd-MM-yyyy directly (the sheet's native format) —
+       no yyyy-mm-dd round-trip needed. _inputValToDob() already passes dd-MM-yyyy
+       straight through unchanged (its yyyy-mm-dd regex won't match), so save code
+       needs zero changes. ────────────────────────────────────────────────────── */
+    var _fld_calTargetId = "";
+    var _fld_calYear  = new Date().getFullYear();
+    var _fld_calMonth = new Date().getMonth();
+    var _fld_calMin   = 1900;
+    var _fld_calMax   = new Date().getFullYear() + 1;
+    var _fld_closeCalBound = null; // currently-attached outside-click listener, if any
+
+    function fld_openCal(inputId, minYear, maxYear) {
+      // Clear any listener left over from a previously-open field's calendar —
+      // otherwise switching fields (e.g. ContribStartDate → DOB) lets that stale
+      // listener see this same click as "clicked outside" and re-close the popup
+      // right after it opens.
+      if (_fld_closeCalBound) { document.removeEventListener("click", _fld_closeCalBound); _fld_closeCalBound = null; }
+      _fld_calTargetId = inputId;
+      _fld_calMin = minYear || 1900;
+      _fld_calMax = maxYear || (new Date().getFullYear() + 1);
+      const inp = document.getElementById(inputId);
+      const pop = document.getElementById("fld_calPop");
+      if (!inp || !pop) return;
+      const existing = _trParseDMY(inp.value || "");
+      const now = new Date();
+      if (existing) { _fld_calYear = existing.y; _fld_calMonth = existing.m; }
+      else { _fld_calYear = Math.min(Math.max(now.getFullYear(), _fld_calMin), _fld_calMax); _fld_calMonth = now.getMonth(); }
+      const rect = inp.getBoundingClientRect();
+      pop.style.display = "block";
+      // NOTE: pop is `position:fixed`, so its top/left are already relative to the
+      // viewport — do NOT add window.scrollX/scrollY here (that double-counts scroll
+      // and pushes the popup far past where the field actually is on longer/scrolled pages).
+      const popH = 300; // approx popup height incl. selects + grid + footer
+      let top = rect.bottom + 4;
+      if (top + popH > window.innerHeight) top = Math.max(8, rect.top - popH - 4); // flip above if no room below
+      let left = rect.left;
+      if (left + 250 > window.innerWidth) left = window.innerWidth - 256;
+      pop.style.top = top + "px";
+      pop.style.left = left + "px";
+      _fld_buildMYSelects();
+      fld_renderCal();
+      setTimeout(() => {
+        _fld_closeCalBound = _fld_closeCal;
+        document.addEventListener("click", _fld_closeCalBound, {once:true});
+      }, 10);
+    }
+    function _fld_closeCal(e) {
+      _fld_closeCalBound = null;
+      const pop = document.getElementById("fld_calPop");
+      if (pop && !pop.contains(e.target)) pop.style.display = "none";
+    }
+    function _fld_buildMYSelects() {
+      const mSel = document.getElementById("fld_calMonthSel");
+      const ySel = document.getElementById("fld_calYearSel");
+      if (mSel) mSel.innerHTML = MONTHS.map((m,i) => `<option value="${i}"${i===_fld_calMonth?" selected":""}>${m}</option>`).join("");
+      if (ySel) {
+        let opts = "";
+        for (let y = _fld_calMax; y >= _fld_calMin; y--) opts += `<option value="${y}"${y===_fld_calYear?" selected":""}>${y}</option>`;
+        ySel.innerHTML = opts;
+      }
+    }
+    function fld_calChangeMY() {
+      const mSel = document.getElementById("fld_calMonthSel");
+      const ySel = document.getElementById("fld_calYearSel");
+      if (mSel) _fld_calMonth = Number(mSel.value);
+      if (ySel) _fld_calYear  = Number(ySel.value);
+      fld_renderCal();
+    }
+    function fld_renderCal() {
+      const g = document.getElementById("fld_calGrid");
+      if (!g) return;
+      const today = new Date();
+      const firstDay = new Date(_fld_calYear, _fld_calMonth, 1).getDay();
+      const daysInMonth = new Date(_fld_calYear, _fld_calMonth+1, 0).getDate();
+      const inp = document.getElementById(_fld_calTargetId);
+      const existing = _trParseDMY(inp && inp.value || "");
+      const parts = ["Su","Mo","Tu","We","Th","Fr","Sa"].map(d => `<div style="text-align:center;font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.03em;padding:4px 0 8px;">${d}</div>`);
+      for (let i = 0; i < firstDay; i++) parts.push(`<div class="dc-day dc-empty"></div>`);
+      for (let d = 1; d <= daysInMonth; d++) {
+        const isToday = d===today.getDate() && _fld_calMonth===today.getMonth() && _fld_calYear===today.getFullYear();
+        const isSel   = existing && existing.y===_fld_calYear && existing.m===_fld_calMonth && d===existing.d;
+        let bg = "transparent", co = "#334155", fw = 400, extra = "";
+        if (isToday && !isSel) { extra = "box-shadow:inset 0 0 0 1.5px #0F766E;"; co = "#0F766E"; fw = 700; }
+        if (isSel) { bg = "#0F766E"; co = "#fff"; fw = 700; }
+        parts.push(`<div class="dc-day" onclick="fld_pickDate(${d})" style="text-align:center;font-size:12px;line-height:28px;height:28px;width:28px;margin:0 auto;border-radius:9px;cursor:pointer;background:${bg};color:${co};font-weight:${fw};${extra}transition:background .12s;">${d}</div>`);
+      }
+      g.innerHTML = parts.join("");
+    }
+    function fld_pickDate(day) {
+      const dd = String(day).padStart(2,"0");
+      const mm = String(_fld_calMonth+1).padStart(2,"0");
+      const display = dd + "-" + mm + "-" + _fld_calYear;
+      const el = document.getElementById(_fld_calTargetId);
+      if (el) el.value = display;
+      const pop = document.getElementById("fld_calPop");
+      if (pop) pop.style.display = "none";
+    }
+    function fld_clearDate() {
+      const el = document.getElementById(_fld_calTargetId);
+      if (el) el.value = "";
+      const pop = document.getElementById("fld_calPop");
+      if (pop) pop.style.display = "none";
+    }
+    function fld_todayDate() {
+      const now = new Date();
+      const display = String(now.getDate()).padStart(2,"0") + "-" + String(now.getMonth()+1).padStart(2,"0") + "-" + now.getFullYear();
+      const el = document.getElementById(_fld_calTargetId);
+      if (el) el.value = display;
+      const pop = document.getElementById("fld_calPop");
+      if (pop) pop.style.display = "none";
     }
 
 (function() {

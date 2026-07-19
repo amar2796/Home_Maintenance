@@ -818,7 +818,11 @@ function loadYearDropdown(){
   if(typeof data!=="undefined")data.forEach(c=>{let y=Number(c.Year);if(!isNaN(y)&&y>2000)years.add(y);});
   if(typeof expenses!=="undefined")expenses.forEach(e=>{let y=Number(e.Year);if(!isNaN(y)&&y>2000)years.add(y);});
   let curY=new Date().getFullYear();
-  for(let y=2023;y<=curY+1;y++) years.add(y);
+  // Uses the shared _getProjectStartYear() from admin.js when available (same source
+  // of truth as every admin dropdown); falls back to a fixed floor on pages that only
+  // load app.js standalone.
+  let startY = (typeof _getProjectStartYear === "function") ? _getProjectStartYear() : 2023;
+  for(let y=startY;y<=curY+1;y++) years.add(y);
   let sorted=Array.from(years).filter(y=>!isNaN(y)).sort((a,b)=>b-a);
   yearSelect.innerHTML=sorted.map(y=>`<option value="${y}"${y===curY?" selected":""}>${y}</option>`).join("");
   yearSelect.value=curY;
@@ -875,6 +879,11 @@ function openModal(html, maxWidth){
 function closeModal(){
   let m=document.getElementById("_uniModal");
   if(m){m.style.opacity="0";m.style.transition="opacity .2s";setTimeout(()=>{m.remove();document.body.style.overflow="";},200);}
+  // The DOB/ContribStartDate field calendar (fld_calPop) is deliberately placed
+  // outside the modal so it can render above it — but that means closing the
+  // modal doesn't automatically close a still-open calendar. Close it here.
+  let fcp=document.getElementById("fld_calPop");
+  if(fcp) fcp.style.display="none";
 }
 /* ═══ CONFIRM MODAL ═══ */
 // Usage: confirmModal("Delete this item?", () => { /* confirmed */ }, "Delete", "#e74c3c")

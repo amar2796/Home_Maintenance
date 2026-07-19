@@ -5018,3 +5018,39 @@ body.user-dark ._modal ._mbdy [style*="padding: 6px 20px"] {
 #userLoadingOverlay > .ulo-inner {
   z-index: 1 !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   PATCH v5 — Edit Profile (and all ._modal) desktop positioning fix
+   Bug: on desktop the modal overlay was not pinned to the viewport,
+   so it rendered lower down the page (following normal document flow
+   / scroll position) instead of staying centered on screen.
+   Mobile already renders correctly and is left untouched — this fix
+   only applies above the mobile breakpoint used elsewhere (860px).
+   ═══════════════════════════════════════════════════════════════════ */
+@media (min-width: 861px) {
+  ._modal {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow-y: auto !important;
+    padding: 40px 0 !important;
+    box-sizing: border-box !important;
+    z-index: 9000 !important;
+  }
+  ._modal > div {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    margin: auto !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+  }
+}
