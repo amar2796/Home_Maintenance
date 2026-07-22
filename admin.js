@@ -7801,35 +7801,28 @@
         toast("Please enter a title and message first.", "warn");
         return;
       }
-      const typeLabels = {
-        announcement: "📢 Announcement",
-        innovation: "💡 New Idea",
-        event: "🎉 Event / Festival",
-        maintenance: "🔧 Maintenance Update",
-      };
-      const prioLabels = {
-        low: "",
-        normal: "",
-        important: "⚠️ IMPORTANT — ",
-        urgent: "🚨 URGENT — ",
-      };
-      const preview = `${APP.symbol||"🕉️"} *${APP.name.toUpperCase()}*\n📍 ${APP.location}\n━━━━━━━━━━━━━━━━━━━━\n${prioLabels[priority]
-        }${typeLabels[type] || type
-        }\n\n*${title}*\n\n${message}\n━━━━━━━━━━━━━━━━━━━━\n_${new Date().toLocaleDateString(
-          APP.locale||"en-IN"
-        )}_`;
+      const typeIcon = { announcement: "📢", innovation: "💡", event: "🎉", maintenance: "🔧" };
+      const prioColor = { urgent: "#ef4444", important: "#0F766E", normal: "#94a3b8", low: "#cbd5e1" };
+      const prioBg = { urgent: "#fee2e2", important: "#F0FDFA", normal: "#f1f5f9", low: "#f8fafc" };
+      const preview = `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px 18px;border-left:4px solid ${prioColor[priority] || "#ccc"};">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="font-size:1.1rem;">${typeIcon[type] || "📢"}</span>
+          <span style="background:${prioBg[priority] || "#f1f5f9"};color:${prioColor[priority] || "#334155"};padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;">${priority.toUpperCase()}</span>
+        </div>
+        <div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:4px;">${escapeHtml(title || "(no title)")}</div>
+        <div style="font-size:13px;color:#555;line-height:1.5;">${escapeHtml(message || "(no message)")}</div>
+      </div>`;
       openModal(
         `<div class="_mhdr"><h3><i class="fa-solid fa-eye"></i> Broadcast Preview</h3><button class="_mcls" onclick="closeModal()">×</button></div>
           <div class="_mbdy">
-            <div style="background:#1e293b;color:#e2e8f0;padding:16px;border-radius:10px;font-family:monospace;font-size:13px;white-space:pre-wrap;line-height:1.7;">${escapeHtml(
-          preview
-        )}</div>
+            <p style="font-size:12px;color:#94a3b8;margin:0 0 12px;">This is how it will look on each member's dashboard and notification bell:</p>
+            ${preview}
           </div>
           <div class="_mft">
             <button class="_mbtn" style="background:#999;" onclick="closeModal()">Close</button>
-            <button class="_mbtn" style="background:#25d366;" onclick="closeModal();sendBroadcast()"><i class="fa-brands fa-whatsapp"></i> Send Now</button>
+            <button class="_mbtn" style="background:#0F766E;" onclick="closeModal();sendBroadcast()"><i class="fa-solid fa-paper-plane"></i> Send Now</button>
           </div>`,
-        "540px"
+        "480px"
       );
     }
 
@@ -7854,56 +7847,50 @@
         toast("Please enter a message.", "warn");
         return;
       }
-      const typeLabels = {
-        announcement: "📢 Announcement",
-        innovation: "💡 New Idea",
-        event: "🎉 Event / Festival",
-        maintenance: "🔧 Maintenance Update",
-      };
-      const prioLabels = {
-        low: "",
-        normal: "",
-        important: "⚠️ IMPORTANT — ",
-        urgent: "🚨 URGENT — ",
-      };
-      const msg = `${APP.symbol||"🕉️"} *${APP.name.toUpperCase()}*\n📍 ${APP.location}\n━━━━━━━━━━━━━━━━━━━━\n${prioLabels[priority]
-        }${typeLabels[type] || type
-        }\n\n*${title}*\n\n${message}\n━━━━━━━━━━━━━━━━━━━━\n_${new Date().toLocaleDateString(
-          APP.locale||"en-IN"
-        )}_`;
-      window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
       const session = JSON.parse(localStorage.getItem("session") || "{}");
       const adminName = session.name || "Admin";
-      // Add to session history
-      _bcHistory.unshift({
-        type,
-        priority,
-        title,
-        message,
-        time: new Date().toLocaleString(APP.locale||"en-IN"),
-        adminName,
-      });
-      renderBroadcastHistory();
+      const time = new Date().toLocaleString(APP.locale||"en-IN");
       // Store broadcast in backend sheet so all users can read it
       try {
-        await postData({
+        const res = await postData({
           action: "saveBroadcast",
           type,
           priority,
           title,
           message,
-          time: new Date().toLocaleString(APP.locale||"en-IN"),
+          time,
           AdminName: adminName,
         });
+        if (!res || res.status !== "success") {
+          toast((res && res.message) || "Could not send broadcast.", "warn");
+          return;
+        }
       } catch (e) {
+        toast("Could not send broadcast — check your connection.", "warn");
+        return;
       }
+      _loadBroadcastHistory(); // re-fetch so the new entry has its real BcId (needed for delete)
       titleEl.value = "";
       msgEl.value = "";
-      toast("✅ WhatsApp opened with broadcast message!");
+      toast("✅ Broadcast sent — now visible on member dashboards.");
     }
 
     // Loads existing broadcasts from the backend so history survives
     // reloads/re-logins, instead of only showing what was sent this session.
+    // Defensive formatter: the backend now formats Time itself, but this
+    // covers the gap until that's redeployed, and any other odd values —
+    // reformats ISO-looking strings, leaves already-good strings untouched.
+    function _formatBcTime(t) {
+      if (!t) return "";
+      const s = String(t);
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(s)) return s;
+      const d = new Date(s);
+      if (isNaN(d.getTime())) return s;
+      try {
+        return d.toLocaleString(APP.locale || "en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+      } catch (e) { return s; }
+    }
+
     async function _loadBroadcastHistory() {
       const container = document.getElementById("broadcastHistory");
       try {
@@ -7911,6 +7898,7 @@
         const list = Array.isArray(res) ? res : [];
         _bcHistory = list.map(function (b) {
           return {
+            bcId: b.BcId || b.bcId || "",
             type: b.Type || b.type || "announcement",
             priority: b.Priority || b.priority || "normal",
             title: b.Title || b.title || "",
@@ -7929,6 +7917,36 @@
       renderBroadcastHistory();
     }
 
+    // Deletes one broadcast (with confirmation) — removes it from the sheet,
+    // so it also disappears from every member's dashboard/bell next load.
+    function _deleteBroadcastItem(bcId, title) {
+      if (!bcId) return;
+      confirmModal(
+        'Delete broadcast "' + escapeHtml(title) + '"?<br><span style="font-size:12px;color:#94a3b8;">This removes it for all members too.</span>',
+        function () {
+          const session = JSON.parse(localStorage.getItem("session") || "{}");
+          return postData({ action: "deleteBroadcast", BcId: bcId, AdminName: session.name || "Admin" })
+            .then(function (res) {
+              if (res && res.status === "success") {
+                _bcHistory = _bcHistory.filter(function (b) { return b.bcId !== bcId; });
+                renderBroadcastHistory();
+                toast("Broadcast deleted.", "success");
+              } else if (res && res.message) {
+                toast(res.message, "warn");
+              } else {
+                // Empty/unrecognized result usually means the deployed Apps Script
+                // backend doesn't have the deleteBroadcast action yet — needs redeploy.
+                toast("Delete isn't available yet — the Apps Script backend needs to be redeployed with the latest code.", "warn");
+              }
+            })
+            .catch(function () {
+              toast("Could not delete broadcast — check your connection.", "warn");
+            });
+        },
+        "Delete",
+        "#e74c3c"
+      );    }
+
     function renderBroadcastHistory() {
       const container = document.getElementById("broadcastHistory");
       if (!container) return;
@@ -7943,14 +7961,19 @@
       container.innerHTML = _bcHistory
         .map(
           (b) =>
-            `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px;margin-bottom:10px;border-left:4px solid ${prioColor[b.priority] || "#ccc"};">
-            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px;">
+            `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px;margin-bottom:10px;border-left:4px solid ${prioColor[b.priority] || "#ccc"};position:relative;">
+            <button type="button" onclick="_deleteBroadcastItem('${b.bcId}', '${escapeHtml(b.title).replace(/'/g, "&#39;")}')" title="Delete this broadcast"
+              style="position:absolute;top:10px;right:12px;background:none;border:none;color:#cbd5e1;font-size:13px;cursor:pointer;padding:4px;line-height:1;"
+              onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#cbd5e1'">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px;padding-right:24px;">
               <span style="display:flex;align-items:center;gap:6px;">
                 <span>${typeIcon[b.type] || "📢"}</span>
                 <span style="background:${prioBg[b.priority] || "#f1f5f9"};color:${prioColor[b.priority] || "#334155"};padding:2px 9px;border-radius:12px;font-size:10.5px;font-weight:700;">${(b.priority || "normal").toUpperCase()}</span>
                 <b style="font-size:13px;">${escapeHtml(b.title)}</b>
               </span>
-              <span style="font-size:11px;color:#aaa;">${escapeHtml(b.time)}</span>
+              <span style="font-size:11px;color:#aaa;">${escapeHtml(_formatBcTime(b.time))}</span>
             </div>
             <div style="font-size:12px;color:#555;margin-bottom:4px;">${escapeHtml(
               b.message.substring(0, 120)

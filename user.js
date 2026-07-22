@@ -1742,6 +1742,20 @@ existing updateUser action. No new Apps Script action needed.
     return String(n.id || "") + "|" + String(n.time || "");
   }
 
+  // Defensive formatter: the backend now sends a nicely formatted time
+  // string, but if an ISO string ever slips through (e.g. "2026-07-21T21:34:07.000Z"),
+  // reformat it here rather than showing the raw value. Already-nice strings pass through untouched.
+  function _formatBcTime(t) {
+    if (!t) return "";
+    const s = String(t);
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(s)) return s; // not ISO-looking — leave as-is
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return s;
+    try {
+      return d.toLocaleString(APP.locale || "en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    } catch (e) { return s; }
+  }
+
   function _getSeenNotifIds() {
     try { return new Set(JSON.parse(localStorage.getItem(_U_NOTIF_SEEN) || "[]")); }
     catch (e) { return new Set(); }
@@ -1859,7 +1873,7 @@ existing updateUser action. No new Apps Script action needed.
         + '<div class="notif-item-body">'
         + '<div class="notif-item-title">' + escapeHtml(n.title || "") + '</div>'
         + '<div class="notif-item-msg">' + escapeHtml(n.message || "") + '</div>'
-        + '<div class="notif-item-time">' + escapeHtml(n.time || "") + '</div>'
+        + '<div class="notif-item-time">' + escapeHtml(_formatBcTime(n.time) || "") + '</div>'
         + (n.actionsDone
             ? '<div class="notif-item-sent">✓ ' + escapeHtml(n.actionsDoneLabel || "Done") + '</div>'
             : (n.actions && n.actions.length
@@ -1932,7 +1946,7 @@ existing updateUser action. No new Apps Script action needed.
         + '<div class="bc-meta">'
         + '<span style="font-size:1rem;">' + (tIco[bType] || "📢") + '</span>'
         + '<span class="bc-pill" style="background:' + (pB[bPriority] || "#f1f5f9") + ';color:' + (pC[bPriority] || "#334155") + ';">' + (tLbl[bType] || "Announcement") + (bPriority !== "normal" ? " · " + bPriority.toUpperCase() : "") + '</span>'
-        + '<span class="bc-time">' + (b.Time || b.time || "") + '</span>'
+        + '<span class="bc-time">' + escapeHtml(_formatBcTime(b.Time || b.time || "")) + '</span>'
         + '</div>'
         + '<div class="bc-title">' + escapeHtml(b.Title || b.title || "") + '</div>'
         + '<div class="bc-msg">' + escapeHtml(b.Message || b.message || "") + '</div>'

@@ -1800,7 +1800,7 @@ function doGet(e) {
     "deleteGalleryPhoto",
     // Settings & comms
     "saveEmailSettings","saveAnnouncement","clearAnnouncement",
-    "saveBroadcast","saveChatbotConfig",
+    "saveBroadcast","deleteBroadcast","saveChatbotConfig",
     // Feedback & contribution requests
     "updateFeedbackStatus","deleteFeedback",
     "submitContributionRequest","resolveContributionRequest",
@@ -3274,6 +3274,7 @@ function doGet(e) {
   else if (action === "saveAnnouncement")       { result = _saveAnnouncement(e); }
   else if (action === "clearAnnouncement")      { result = _clearAnnouncement(e); }
   else if (action === "saveBroadcast")          { result = _saveBroadcast(e); }
+  else if (action === "deleteBroadcast")        { result = _deleteBroadcast(e); }
 
       else if (action === "removeExpenseReceipt" || action === "removeOneExpenseReceipt") {
       // removeOneExpenseReceipt: removes a single URL from the ReceiptURLs array
@@ -4542,15 +4543,25 @@ function _getBroadcasts() {
     const data = sheet.getDataRange().getValues();
     if (data.length < 2) return [];
     const headers = data[0];
-    return data.slice(1).reverse().slice(0,20).map(r => ({
-      BcId:    r[headers.indexOf("BcId")]    ||"",
-      Type:    r[headers.indexOf("Type")]    ||"",
-      Priority:r[headers.indexOf("Priority")]||"normal",
-      Title:   r[headers.indexOf("Title")]   ||"",
-      Message: r[headers.indexOf("Message")] ||"",
-      Time:    r[headers.indexOf("Time")]    ||"",
-      AdminName: r[headers.indexOf("AdminName")] ||""
-    }));
+    return data.slice(1).reverse().slice(0,20).map(r => {
+      const rawTime = r[headers.indexOf("Time")];
+      // Sheets auto-converts date-like strings into real Date cells, so this
+      // can come back as a JS Date object (which would otherwise serialize
+      // as a raw ISO string like "2026-07-21T21:34:07.000Z" to the client).
+      // Format it into something readable either way.
+      const time = (rawTime instanceof Date)
+        ? Utilities.formatDate(rawTime, "GMT+5:30", "dd MMM yyyy, hh:mm a")
+        : (rawTime || "");
+      return {
+        BcId:    r[headers.indexOf("BcId")]    ||"",
+        Type:    r[headers.indexOf("Type")]    ||"",
+        Priority:r[headers.indexOf("Priority")]||"normal",
+        Title:   r[headers.indexOf("Title")]   ||"",
+        Message: r[headers.indexOf("Message")] ||"",
+        Time:    time,
+        AdminName: r[headers.indexOf("AdminName")] ||""
+      };
+    });
   } catch(e) { return []; }
 }
 
@@ -4624,6 +4635,30 @@ function _saveBroadcast(e) {
     SpreadsheetApp.flush();
     logAction(e.parameter.AdminName||"Admin","saveBroadcast","Id: "+newBcId);
     return { status:"success", bcId:newBcId };
+  } catch(err) { return { status:"error", message:err.message }; }
+}
+
+// Deletes a single broadcast row by BcId — used by the admin "delete" button
+// in Broadcast History. Once removed here, it also stops showing in the
+// member dashboard/bell (both read from this same sheet via _getBroadcasts).
+function _deleteBroadcast(e) {
+  try {
+    const bcId = sanitize(e.parameter.BcId, 50);
+    if (!bcId) return { status:"error", message:"Missing BcId" };
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEETS.BROADCAST);
+    if (!sheet) return { status:"error", message:"BROADCAST sheet not found" };
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idCol = headers.indexOf("BcId");
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][idCol]) === bcId) {
+        sheet.deleteRow(i + 1);
+        SpreadsheetApp.flush();
+        logAction(sanitize(e.parameter.AdminName,100) || "Admin", "deleteBroadcast", "BcId: " + bcId);
+        return { status:"success" };
+      }
+    }
+    return { status:"error", message:"Broadcast not found" };
   } catch(err) { return { status:"error", message:err.message }; }
 }
 
