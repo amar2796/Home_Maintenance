@@ -117,7 +117,7 @@
         <div id="notifDropdown" class="hdr-dropdown notif-dropdown" role="menu" aria-label="Notifications">
           <div class="hdr-drop-head notif-drop-head">
             <span>Notifications</span>
-            <button type="button" class="notif-clear-all" onclick="_clearAllNotifs()" title="Clear all">Clear all</button>
+            <button type="button" class="notif-clear-all" onclick="event.stopPropagation();_clearAllNotifs()" title="Clear all">Clear all</button>
           </div>
           <div id="notifDropdownList" class="notif-drop-list">
             <div class="notif-empty">No notifications yet</div>

@@ -223,13 +223,29 @@ body.user-dark .hdr-bell-badge { box-shadow: 0 0 0 2px #1E2E36; }
   min-width: 0;
   border: 1px solid rgba(15, 118, 110,0.35);
   border-radius: 999px;
-  padding: 4px 10px;
+  padding: 8px 12px;
+  min-height: 34px;
   font-size: 11.5px;
   outline: none;
 }
 
 .notif-custom-input:focus {
   border-color: var(--gold);
+}
+
+.notif-custom-cancel {
+  border: 1px solid transparent;
+  background: none;
+  color: var(--ink-faint);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 6px;
+  flex-shrink: 0;
+}
+
+.notif-custom-cancel:hover {
+  color: var(--ink);
 }
 
 .notif-drop-list {
@@ -303,8 +319,9 @@ body.user-dark .hdr-bell-badge { box-shadow: 0 0 0 2px #1E2E36; }
   background: rgba(15, 118, 110,0.06);
   color: var(--ink);
   border-radius: 999px;
-  padding: 4px 9px;
-  font-size: 11px;
+  padding: 8px 13px;
+  min-height: 34px;
+  font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
   transition: background var(--t), transform var(--t);

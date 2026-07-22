@@ -1868,7 +1868,7 @@ existing updateUser action. No new Apps Script action needed.
                   }).join("") + '</div>'
                 : ''))
         + '</div>'
-        + '<button type="button" class="notif-item-close" title="Clear this notification" onclick="_dismissNotif(\'' + nid + '\')">✕</button>'
+        + '<button type="button" class="notif-item-close" title="Clear this notification" onclick="event.stopPropagation();_dismissNotif(\'' + nid + '\')">✕</button>'
         + '</div>';
     }).join("");
     _updateNotifBadge();
@@ -4413,10 +4413,12 @@ if (isDark) {
     const row = document.createElement("div");
     row.className = "notif-custom-row";
     row.innerHTML = '<input type="text" class="notif-custom-input" maxlength="120" placeholder="Write your own wish…" />'
-      + '<button class="notif-action-btn notif-custom-send">Send</button>';
+      + '<button class="notif-action-btn notif-custom-send">Send</button>'
+      + '<button type="button" class="notif-custom-cancel" title="Cancel">✕</button>';
     actionsRow.parentNode.insertBefore(row, actionsRow.nextSibling);
     const input = row.querySelector(".notif-custom-input");
     const sendBtn = row.querySelector(".notif-custom-send");
+    const cancelBtn = row.querySelector(".notif-custom-cancel");
     input.focus();
     function doSend() {
       const val = input.value.trim();
@@ -4424,7 +4426,11 @@ if (isDark) {
       window._sendBirthdayWishClick(sendBtn, toUserId, val);
     }
     sendBtn.addEventListener("click", doSend);
-    input.addEventListener("keydown", function (e) { if (e.key === "Enter") doSend(); });
+    cancelBtn.addEventListener("click", function () { row.remove(); });
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") doSend();
+      else if (e.key === "Escape") row.remove();
+    });
   };
 
   /* ═══ BIRTHDAY CELEBRATION ══════════════════════════════════════
