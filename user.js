@@ -3,6 +3,8 @@ const _U_PREFIX  = ((typeof APP !== "undefined" && APP.shortName) ? APP.shortNam
 const _U_RMK     = _U_PREFIX + "_remember_token";   // remember-me token
 const _U_DARK    = _U_PREFIX + "_user_dark";         // dark mode preference
 const _U_LANG    = _U_PREFIX + "_lang";              // language preference
+const _U_NOTIF_SEEN = _U_PREFIX + "_notif_seen_ids"; // announcement bell — seen broadcast IDs
+const _U_NOTIF_DISMISSED = _U_PREFIX + "_notif_dismissed_ids"; // notification bell — user-cleared IDs
 
 // ── Session guard — with Remember Me restore (H12)
 (function () {
@@ -1693,6 +1695,8 @@ existing updateUser action. No new Apps Script action needed.
       _uloStep(5); // Almost there…
       // ── Broadcasts in background — separate API call, don't block UI
       renderBroadcasts();
+      // ── Birthday wishes — who's celebrating today + wishes for you, same bell
+      _loadBirthdayNotifications(s);
 
       // ── Success: mark complete, reset retry counter, hide overlay
       _uloRetryCount = 0;
@@ -1726,6 +1730,174 @@ existing updateUser action. No new Apps Script action needed.
       }).join("");
   }
 
+  // ── Notification bell — a small reusable notification store backs the
+  // dropdown. Broadcasts populate it today; any future feature (system
+  // alerts, errors, etc.) can call pushNotification({...}) to add its own
+  // item to the same bell/tray without any new UI work.
+  window._notifStore = window._notifStore || [];
+
+  const _NOTIF_TYPE_ICON = { announcement: "📢", innovation: "💡", event: "🎉", maintenance: "🔧" };
+
+  function _notifIdOf(n) {
+    return String(n.id || "") + "|" + String(n.time || "");
+  }
+
+  function _getSeenNotifIds() {
+    try { return new Set(JSON.parse(localStorage.getItem(_U_NOTIF_SEEN) || "[]")); }
+    catch (e) { return new Set(); }
+  }
+
+  function _markNotifSeen(ids) {
+    try {
+      const seen = _getSeenNotifIds();
+      ids.forEach(function (id) { seen.add(id); });
+      // Cap stored IDs so this never grows unbounded over time
+      const trimmed = Array.from(seen).slice(-300);
+      localStorage.setItem(_U_NOTIF_SEEN, JSON.stringify(trimmed));
+    } catch (e) { /* ignore storage errors */ }
+  }
+
+  // Generic API for future use: push a single notification into the bell.
+  // n = { id, kind, icon, title, message, time }. "kind" just picks a
+  // fallback icon if none is given; anything ("system","error",...) works.
+  function pushNotification(n) {
+    if (!n || !n.id) return;
+    window._notifStore = window._notifStore.filter(function (x) { return _notifIdOf(x) !== _notifIdOf(n); });
+    window._notifStore.unshift(n);
+    _renderNotifDropdown();
+  }
+
+  // Replaces all broadcast-sourced items in one go (broadcasts are
+  // refreshed as a full list, not one at a time) while leaving any
+  // non-broadcast items already in the store untouched.
+  function _setBroadcastNotifications(bs) {
+    const others = window._notifStore.filter(function (n) { return n.kind !== "broadcast"; });
+    const fromBroadcasts = (bs || []).map(function (b) {
+      const type = b.Type || b.type || "announcement";
+      return {
+        id: b.BcId || b.bcId || "",
+        kind: "broadcast",
+        icon: _NOTIF_TYPE_ICON[type] || "📢",
+        title: b.Title || b.title || "",
+        message: b.Message || b.message || "",
+        time: b.Time || b.time || "",
+      };
+    });
+    window._notifStore = fromBroadcasts.concat(others);
+    _renderNotifDropdown();
+  }
+
+  // Same replace-in-place pattern as _setBroadcastNotifications, but for
+  // birthday-kind items — keeps broadcasts and any other kind untouched.
+  function _setBirthdayNotifications(items) {
+    const others = window._notifStore.filter(function (n) { return n.kind !== "birthday" && n.kind !== "birthday-mine"; });
+    window._notifStore = (items || []).concat(others);
+    _renderNotifDropdown();
+  }
+
+  function _getDismissedNotifIds() {
+    try { return new Set(JSON.parse(localStorage.getItem(_U_NOTIF_DISMISSED) || "[]")); }
+    catch (e) { return new Set(); }
+  }
+
+  function _saveDismissedNotifIds(set) {
+    try {
+      const trimmed = Array.from(set).slice(-300); // cap so this never grows unbounded
+      localStorage.setItem(_U_NOTIF_DISMISSED, JSON.stringify(trimmed));
+    } catch (e) { /* ignore storage errors */ }
+  }
+
+  // Removes one notification from view and remembers it so it doesn't
+  // reappear on the next refresh (e.g. next login).
+  window._dismissNotif = function (id) {
+    const d = _getDismissedNotifIds();
+    d.add(id);
+    _saveDismissedNotifIds(d);
+    window._notifStore = window._notifStore.filter(function (n) { return _notifIdOf(n) !== id; });
+    _renderNotifDropdown();
+  };
+
+  // Clears every notification currently in the tray at once.
+  window._clearAllNotifs = function () {
+    const d = _getDismissedNotifIds();
+    window._notifStore.forEach(function (n) { d.add(_notifIdOf(n)); });
+    _saveDismissedNotifIds(d);
+    window._notifStore = [];
+    _renderNotifDropdown();
+  };
+
+  function _updateNotifBadge() {
+    const badge = document.getElementById("hdrBellBadge");
+    if (!badge) return;
+    const seen = _getSeenNotifIds();
+    const dismissed = _getDismissedNotifIds();
+    const unread = window._notifStore.filter(function (n) { return !dismissed.has(_notifIdOf(n)) && !seen.has(_notifIdOf(n)); }).length;
+    if (unread > 0) {
+      badge.textContent = unread > 9 ? "9+" : String(unread);
+      badge.style.display = "";
+    } else {
+      badge.style.display = "none";
+    }
+  }
+
+  function _renderNotifDropdown() {
+    const list = document.getElementById("notifDropdownList");
+    if (!list) return;
+    const dismissed = _getDismissedNotifIds();
+    const visible = window._notifStore.filter(function (n) { return !dismissed.has(_notifIdOf(n)); });
+    if (visible.length === 0) {
+      list.innerHTML = '<div class="notif-empty">No notifications yet</div>';
+      _updateNotifBadge();
+      return;
+    }
+    const seen = _getSeenNotifIds();
+    list.innerHTML = visible.slice(0, 20).map(function (n) {
+      const isUnread = !seen.has(_notifIdOf(n));
+      const nid = _notifIdOf(n).replace(/'/g, "");
+      return '<div class="notif-item' + (isUnread ? ' unread' : '') + '">'
+        + '<span class="notif-item-icon">' + (n.icon || "🔔") + '</span>'
+        + '<div class="notif-item-body">'
+        + '<div class="notif-item-title">' + escapeHtml(n.title || "") + '</div>'
+        + '<div class="notif-item-msg">' + escapeHtml(n.message || "") + '</div>'
+        + '<div class="notif-item-time">' + escapeHtml(n.time || "") + '</div>'
+        + (n.actionsDone
+            ? '<div class="notif-item-sent">✓ ' + escapeHtml(n.actionsDoneLabel || "Done") + '</div>'
+            : (n.actions && n.actions.length
+                ? '<div class="notif-item-actions">' + n.actions.map(function (a) {
+                    return '<button class="notif-action-btn" onclick="' + a.onclick + '">' + escapeHtml(a.label) + '</button>';
+                  }).join("") + '</div>'
+                : ''))
+        + '</div>'
+        + '<button type="button" class="notif-item-close" title="Clear this notification" onclick="_dismissNotif(\'' + nid + '\')">✕</button>'
+        + '</div>';
+    }).join("");
+    _updateNotifBadge();
+  }
+
+
+  function toggleNotifDropdown() {
+    const dd = document.getElementById("notifDropdown");
+    if (!dd) return;
+    const isOpen = dd.classList.toggle("open");
+    const btn = document.getElementById("hdrBellBtn");
+    if (btn) btn.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    if (isOpen) {
+      _markNotifSeen(window._notifStore.map(_notifIdOf));
+      _renderNotifDropdown(); // re-render so the "unread" highlight clears, items stay visible
+    }
+  }
+
+  function closeNotifDropdown() {
+    const dd = document.getElementById("notifDropdown");
+    if (dd) dd.classList.remove("open");
+    const btn = document.getElementById("hdrBellBtn");
+    if (btn) btn.setAttribute("aria-expanded", "false");
+  }
+
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest(".hdr-bell-wrap")) closeNotifDropdown();
+  });
+
   async function renderBroadcasts() {
     const c = document.getElementById("broadcastContainer"); if (!c) return;
     // Use cached data if available and not requesting a re-fetch
@@ -1735,37 +1907,35 @@ existing updateUser action. No new Apps Script action needed.
     } else {
       try { const r = await getData("getBroadcasts"); bs = Array.isArray(r) ? r : []; } catch (e) { console.error("[renderBroadcasts] Fetch error:", e); bs = []; }
       // Filter out blank entries before caching
-      bs = bs.filter(function (b) { return (b.title || "").trim() || (b.message || "").trim(); });
+      bs = bs.filter(function (b) { return (b.Title || b.title || "").trim() || (b.Message || b.message || "").trim(); });
       // Only cache if fetch actually returned data — avoids persisting an empty
       // array on network error (which would prevent future retries from re-fetching)
       if (bs.length > 0) c.dataset.bsCached = JSON.stringify(bs);
     }
     if (bs.length === 0) { c.innerHTML = ""; return; }
+    _setBroadcastNotifications(bs);
     const showAll = c.dataset.showAll === "1";
     const recent = showAll ? bs : bs.slice(0, 5);
-    const tIco = { announcement: "📢", poll: "🗳️", innovation: "💡" };
-    const tLbl = { announcement: "Announcement", poll: "Poll", innovation: "New Idea" };
-    const pC = { urgent: "#ef4444", important: "#0F766E", normal: "#334155" };
-    const pB = { urgent: "#fee2e2", important: "#fef9ee", normal: "#f1f5f9" };
+    const tIco = { announcement: "📢", innovation: "💡", event: "🎉", maintenance: "🔧" };
+    const tLbl = { announcement: "Announcement", innovation: "New Idea", event: "Event", maintenance: "Maintenance" };
+    const pC = { urgent: "#ef4444", important: "#0F766E", normal: "#334155", low: "#94a3b8" };
+    const pB = { urgent: "#fee2e2", important: "#fef9ee", normal: "#f1f5f9", low: "#f8fafc" };
     const viewAllBtn = bs.length > 5
       ? '<button onclick="document.getElementById(\'broadcastContainer\').dataset.showAll=document.getElementById(\'broadcastContainer\').dataset.showAll===\'1\'?\'0\':\'1\';renderBroadcasts();" style="font-size:11px;background:none;border:1px solid var(--gold);color:var(--gold);border-radius:6px;padding:3px 10px;cursor:pointer;">' + (showAll ? 'Show Less' : 'View All (' + bs.length + ')') + '</button>'
       : '';
     const header = '<div class="sec-lbl" style="display:flex;align-items:center;justify-content:space-between;"><span><i class="fa-solid fa-bullhorn"></i> Announcements</span>' + viewAllBtn + '</div>';
     const items = recent.map(function (b) {
-      const bPriority = b.priority || "normal";
-      const cls = b.type === "poll" ? "poll" : b.type === "innovation" ? "innovation" : bPriority === "urgent" ? "urgent" : bPriority === "important" ? "important" : "";
-      const pollBtns = b.type === "poll"
-        ? '<div style="margin-top:9px;display:flex;gap:7px;flex-wrap:wrap;"><span style="background:rgba(34,197,94,0.12);color:#16a34a;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">✅ Yes</span><span style="background:rgba(239,68,68,0.10);color:#ef4444;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">❌ No</span><span style="background:rgba(15, 118, 110,0.10);color:#0F766E;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">💬 Suggestion</span></div>'
-        : '';
+      const bPriority = b.Priority || b.priority || "normal";
+      const bType = b.Type || b.type || "announcement";
+      const cls = bType === "innovation" ? "innovation" : bPriority === "urgent" ? "urgent" : bPriority === "important" ? "important" : "";
       return '<div class="bc-item ' + cls + '">'
         + '<div class="bc-meta">'
-        + '<span style="font-size:1rem;">' + (tIco[b.type] || "📢") + '</span>'
-        + '<span class="bc-pill" style="background:' + (pB[bPriority] || "#f1f5f9") + ';color:' + (pC[bPriority] || "#334155") + ';">' + (tLbl[b.type] || b.type) + (bPriority !== "normal" ? " · " + bPriority.toUpperCase() : "") + '</span>'
-        + '<span class="bc-time">' + (b.time || "") + '</span>'
+        + '<span style="font-size:1rem;">' + (tIco[bType] || "📢") + '</span>'
+        + '<span class="bc-pill" style="background:' + (pB[bPriority] || "#f1f5f9") + ';color:' + (pC[bPriority] || "#334155") + ';">' + (tLbl[bType] || "Announcement") + (bPriority !== "normal" ? " · " + bPriority.toUpperCase() : "") + '</span>'
+        + '<span class="bc-time">' + (b.Time || b.time || "") + '</span>'
         + '</div>'
-        + '<div class="bc-title">' + escapeHtml(b.title || "") + '</div>'
-        + '<div class="bc-msg">' + escapeHtml(b.message || "") + '</div>'
-        + pollBtns
+        + '<div class="bc-title">' + escapeHtml(b.Title || b.title || "") + '</div>'
+        + '<div class="bc-msg">' + escapeHtml(b.Message || b.message || "") + '</div>'
         + '</div>';
     }).join("");
     c.innerHTML = header + items;
@@ -4145,6 +4315,117 @@ if (isDark) {
     m.addEventListener("click", function (e) { if (e.target === m) m.remove(); });
     document.body.appendChild(m);
   }
+
+  /* ═══ BIRTHDAY WISH — feeds the existing notification bell ══════════
+     Reuses pushNotification()/_renderNotifDropdown() above rather than
+     building a second bell.
+
+     "Others" celebrating today each get their own card with fixed-reply
+     + custom-message actions. This is independent of whether it's ALSO
+     the requester's own birthday — two members can share a day, so both
+     sections can appear together.
+
+     Each wish you receive is its own notification (who + exact message),
+     not collapsed into one summary — so it stays clear who said what.
+  ═══════════════════════════════════════════════════════════════ */
+  async function _loadBirthdayNotifications(s) {
+    try {
+      const today = await getData("getTodayBirthdays");
+      if (!today || today.status !== "success") { _setBirthdayNotifications([]); return; }
+
+      const items = [];
+      const year = new Date().getFullYear();
+
+      // Other members celebrating today — wishable, regardless of whether
+      // it's ALSO the requester's birthday (two people can share a day)
+      if (today.others && today.others.length) {
+        const replies = (typeof APP !== "undefined" && Array.isArray(APP.birthdayWishes) && APP.birthdayWishes.length) ? APP.birthdayWishes : ["🎉 Happy Birthday!"];
+        today.others.forEach(function (o) {
+          const uid = String(o.UserId).replace(/'/g, "");
+          const item = {
+            id: "bday_" + uid + "_" + year,
+            kind: "birthday",
+            icon: "🎂",
+            title: (o.Name || "A member") + "'s birthday today!",
+            message: "Send a quick wish:",
+            time: ""
+          };
+          if (o.alreadyWished) {
+            item.actionsDone = true;
+            item.actionsDoneLabel = "Wish sent";
+          } else {
+            item.actions = replies.map(function (r) {
+              return { label: r, onclick: "_sendBirthdayWishClick(this,'" + uid + "','" + r.replace(/'/g, "\\'") + "')" };
+            }).concat([{ label: "✏️ Custom", onclick: "_openCustomWishInput(this,'" + uid + "')" }]);
+          }
+          items.push(item);
+        });
+      }
+
+      // Your own birthday — each wish received is a separate notification
+      if (today.isMyBirthdayToday) {
+        const mine = await getData("getMyBirthdayWishes");
+        const wishes = (mine && mine.status === "success") ? mine.wishes : [];
+        wishes.forEach(function (w) {
+          const stableId = w.WishId || ("bday_wish_" + year + "_" + (w.FromName || "") + "_" + (w.Timestamp || ""));
+          items.push({
+            id: stableId,
+            kind: "birthday-wish",
+            icon: "🎉",
+            title: (w.FromName || "A member") + " wished you happy birthday!",
+            message: w.Message || "",
+            time: w.Timestamp || ""
+          });
+        });
+      }
+
+      _setBirthdayNotifications(items);
+    } catch (e) {
+      // Silent — bell simply shows whatever it already had (e.g. broadcasts)
+    }
+  }
+
+  window._sendBirthdayWishClick = function (btnEl, toUserId, message) {
+    const itemEl = btnEl ? btnEl.closest(".notif-item") : null;
+    if (itemEl) itemEl.querySelectorAll("button, input").forEach(function (b) { b.disabled = true; });
+    postData({ action: "sendBirthdayWish", ToUserId: toUserId, Message: message })
+      .then(function (res) {
+        const s = _sess();
+        if (res && (res.status === "success" || res.status === "already_sent")) {
+          if (s) _loadBirthdayNotifications(s); // refresh from server so state stays accurate
+        } else {
+          toast((res && res.message) || "Could not send wish. Please try again.", "error");
+          if (itemEl) itemEl.querySelectorAll("button, input").forEach(function (b) { b.disabled = false; });
+        }
+      })
+      .catch(function () {
+        toast("Network error. Please try again.", "error");
+        if (itemEl) itemEl.querySelectorAll("button, input").forEach(function (b) { b.disabled = false; });
+      });
+  };
+
+  // Opens an inline text box inside that person's card so you can type
+  // your own message instead of using a fixed reply.
+  window._openCustomWishInput = function (btnEl, toUserId) {
+    const itemEl = btnEl ? btnEl.closest(".notif-item") : null;
+    const actionsRow = itemEl ? itemEl.querySelector(".notif-item-actions") : null;
+    if (!actionsRow || itemEl.querySelector(".notif-custom-row")) return;
+    const row = document.createElement("div");
+    row.className = "notif-custom-row";
+    row.innerHTML = '<input type="text" class="notif-custom-input" maxlength="120" placeholder="Write your own wish…" />'
+      + '<button class="notif-action-btn notif-custom-send">Send</button>';
+    actionsRow.parentNode.insertBefore(row, actionsRow.nextSibling);
+    const input = row.querySelector(".notif-custom-input");
+    const sendBtn = row.querySelector(".notif-custom-send");
+    input.focus();
+    function doSend() {
+      const val = input.value.trim();
+      if (!val) { input.focus(); return; }
+      window._sendBirthdayWishClick(sendBtn, toUserId, val);
+    }
+    sendBtn.addEventListener("click", doSend);
+    input.addEventListener("keydown", function (e) { if (e.key === "Enter") doSend(); });
+  };
 
   /* ═══ BIRTHDAY CELEBRATION ══════════════════════════════════════
      Shows a fullscreen confetti + message overlay once per birthday.

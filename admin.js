@@ -7784,16 +7784,6 @@
     /* ═══ BROADCAST FUNCTIONS ═══ */
     let _bcHistory = [];
 
-    (function () {
-      const bcTypeEl = document.getElementById("bc_type");
-      if (bcTypeEl)
-        bcTypeEl.addEventListener("change", function () {
-          const pollOpts = document.getElementById("bc_poll_options");
-          if (pollOpts)
-            pollOpts.style.display = this.value === "poll" ? "block" : "none";
-        });
-    })();
-
     function previewBroadcast() {
       const typeEl = document.getElementById("bc_type");
       const prioEl = document.getElementById("bc_priority");
@@ -7813,10 +7803,12 @@
       }
       const typeLabels = {
         announcement: "📢 Announcement",
-        poll: "🗳️ Poll",
         innovation: "💡 New Idea",
+        event: "🎉 Event / Festival",
+        maintenance: "🔧 Maintenance Update",
       };
       const prioLabels = {
+        low: "",
         normal: "",
         important: "⚠️ IMPORTANT — ",
         urgent: "🚨 URGENT — ",
@@ -7864,24 +7856,24 @@
       }
       const typeLabels = {
         announcement: "📢 Announcement",
-        poll: "🗳️ Poll",
         innovation: "💡 New Idea",
+        event: "🎉 Event / Festival",
+        maintenance: "🔧 Maintenance Update",
       };
       const prioLabels = {
+        low: "",
         normal: "",
         important: "⚠️ IMPORTANT — ",
         urgent: "🚨 URGENT — ",
       };
-      const pollBlock =
-        type === "poll"
-          ? "\n\nRespond with:\n✅ Yes  |  ❌ No  |  💬 Suggestion"
-          : "";
       const msg = `${APP.symbol||"🕉️"} *${APP.name.toUpperCase()}*\n📍 ${APP.location}\n━━━━━━━━━━━━━━━━━━━━\n${prioLabels[priority]
         }${typeLabels[type] || type
-        }\n\n*${title}*\n\n${message}${pollBlock}\n━━━━━━━━━━━━━━━━━━━━\n_${new Date().toLocaleDateString(
+        }\n\n*${title}*\n\n${message}\n━━━━━━━━━━━━━━━━━━━━\n_${new Date().toLocaleDateString(
           APP.locale||"en-IN"
         )}_`;
       window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
+      const session = JSON.parse(localStorage.getItem("session") || "{}");
+      const adminName = session.name || "Admin";
       // Add to session history
       _bcHistory.unshift({
         type,
@@ -7889,6 +7881,7 @@
         title,
         message,
         time: new Date().toLocaleString(APP.locale||"en-IN"),
+        adminName,
       });
       renderBroadcastHistory();
       // Store broadcast in backend sheet so all users can read it
@@ -7900,6 +7893,7 @@
           title,
           message,
           time: new Date().toLocaleString(APP.locale||"en-IN"),
+          AdminName: adminName,
         });
       } catch (e) {
       }
@@ -7908,31 +7902,60 @@
       toast("✅ WhatsApp opened with broadcast message!");
     }
 
+    // Loads existing broadcasts from the backend so history survives
+    // reloads/re-logins, instead of only showing what was sent this session.
+    async function _loadBroadcastHistory() {
+      const container = document.getElementById("broadcastHistory");
+      try {
+        const res = await getData("getBroadcasts");
+        const list = Array.isArray(res) ? res : [];
+        _bcHistory = list.map(function (b) {
+          return {
+            type: b.Type || b.type || "announcement",
+            priority: b.Priority || b.priority || "normal",
+            title: b.Title || b.title || "",
+            message: b.Message || b.message || "",
+            time: b.Time || b.time || "",
+            adminName: b.AdminName || b.adminName || "Admin",
+          };
+        });
+      } catch (e) {
+        _bcHistory = [];
+        if (container) {
+          container.innerHTML = '<div style="font-size:13px;color:#c0392b;text-align:center;padding:20px;">Could not load broadcast history — check your connection.</div>';
+          return;
+        }
+      }
+      renderBroadcastHistory();
+    }
+
     function renderBroadcastHistory() {
       const container = document.getElementById("broadcastHistory");
       if (!container) return;
       if (_bcHistory.length === 0) {
         container.innerHTML =
-          '<div style="font-size:13px;color:#888;text-align:center;padding:20px;">No broadcasts sent yet in this session.</div>';
+          '<div style="font-size:13px;color:#888;text-align:center;padding:20px;">No broadcasts sent yet.</div>';
         return;
       }
-      const typeColors = {
-        announcement: "#2980b9",
-        poll: "#8e44ad",
-        innovation: "#27ae60",
-      };
+      const typeIcon = { announcement: "📢", innovation: "💡", event: "🎉", maintenance: "🔧" };
+      const prioColor = { urgent: "#ef4444", important: "#0F766E", normal: "#94a3b8", low: "#cbd5e1" };
+      const prioBg = { urgent: "#fee2e2", important: "#F0FDFA", normal: "#f1f5f9", low: "#f8fafc" };
       container.innerHTML = _bcHistory
         .map(
           (b) =>
-            `<div style="background:#f8fafc;border-radius:10px;padding:12px 16px;margin-bottom:10px;border-left:4px solid ${typeColors[b.type] || "#ccc"
-            };">
+            `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px;margin-bottom:10px;border-left:4px solid ${prioColor[b.priority] || "#ccc"};">
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px;">
-              <b style="font-size:13px;">${escapeHtml(b.title)}</b>
-              <span style="font-size:11px;color:#aaa;">${b.time}</span>
+              <span style="display:flex;align-items:center;gap:6px;">
+                <span>${typeIcon[b.type] || "📢"}</span>
+                <span style="background:${prioBg[b.priority] || "#f1f5f9"};color:${prioColor[b.priority] || "#334155"};padding:2px 9px;border-radius:12px;font-size:10.5px;font-weight:700;">${(b.priority || "normal").toUpperCase()}</span>
+                <b style="font-size:13px;">${escapeHtml(b.title)}</b>
+              </span>
+              <span style="font-size:11px;color:#aaa;">${escapeHtml(b.time)}</span>
             </div>
-            <div style="font-size:12px;color:#555;">${escapeHtml(
+            <div style="font-size:12px;color:#555;margin-bottom:4px;">${escapeHtml(
               b.message.substring(0, 120)
             )}${b.message.length > 120 ? "…" : ""}</div>
+            <div style="font-size:10.5px;color:#aaa;">Sent by ${escapeHtml(b.adminName || "Admin")}</div>
           </div>`
         )
         .join("");
@@ -10330,13 +10353,12 @@
         }
       });
 
-      // ── M15: Broadcast quota info — populate on page show
-      // Hook into showPage for broadcastPage
+      // ── Hook into showPage to run page-specific init logic on navigation
       const _origShowPage = window.showPage;
       if (typeof _origShowPage === "function") {
         window.showPage = function (id, el) {
           _origShowPage(id, el);
-          if (id === "broadcastPage") _loadBroadcastQuotaInfo();
+          if (id === "broadcastPage") _loadBroadcastHistory();
           if (id === "healthCheckPage" && !window._hcRanOnce) { window._hcRanOnce = true; runHealthCheck(); }
           if (id === "healthCheckPage") { loadTrafficStats(); }
           if (id === "contributionRequestsPage") loadContributionRequests();
@@ -10439,6 +10461,32 @@
       _renderReqPaged();
     }
 
+    // ── Duplicate UTR/reference-number detection ──────────────────────
+    // Flags when the same UPI/cheque reference number has been submitted
+    // more than once (by the same member or different members), so admin
+    // can double-check before approving instead of relying on eyeballing.
+    function _findDuplicateUtrMatches(utr, excludeReqId) {
+      const norm = String(utr || "").trim().toLowerCase();
+      if (!norm) return [];
+      return (window._allRequests || []).filter(function (r) {
+        return String(r.ReqId) !== String(excludeReqId) &&
+          String(r.UtrRef || "").trim().toLowerCase() === norm;
+      });
+    }
+
+    function _utrDuplicateBadgeHtml(utr, excludeReqId) {
+      const matches = _findDuplicateUtrMatches(utr, excludeReqId);
+      if (matches.length === 0) return "";
+      const names = matches.map(function (m) {
+        const u = (users || []).find(function (u) { return String(u.UserId) === String(m.UserId); });
+        return escapeHtml(u ? u.Name : "Unknown") + " (" + escapeHtml(String(m.Status || "Pending")) + ")";
+      }).join(", ");
+      return '<div title="Same reference number also used by: ' + names + '" '
+        + 'style="margin-top:3px;display:inline-flex;align-items:center;gap:4px;background:#fef2f2;color:#991b1b;'
+        + 'border:1px solid #fca5a5;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;cursor:help;">'
+        + '<i class="fa-solid fa-triangle-exclamation"></i> Ref used ' + (matches.length + 1) + '×</div>';
+    }
+
     function _renderReqPaged() {
       const tbody = document.getElementById("reqTbody");
       if (!tbody) return;
@@ -10478,7 +10526,7 @@
           + '<td><strong style="color:#15803d;">' + (APP.currency||'₹') + fmt(r.Amount) + '</strong></td>'
           + '<td>' + escapeHtml(r.ForMonth || "") + ' ' + escapeHtml(String(r.Year || "")) + '</td>'
           + '<td>' + escapeHtml(r.PaymentMode || "UPI") + '</td>'
-          + '<td style="font-size:12px;font-family:monospace;">' + escapeHtml(r.UtrRef || "—") + '</td>'
+          + '<td style="font-size:12px;"><span style="font-family:monospace;">' + escapeHtml(r.UtrRef || "—") + '</span><br>' + _utrDuplicateBadgeHtml(r.UtrRef, r.ReqId) + '</td>'
           + '<td>' + slipHtml + '</td>'
           + '<td><span style="background:' + (statusBg[st] || "#f1f5f9") + ';color:' + (statusColor[st] || "#334155") + ';padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">' + st + '</span>' + rejNote + '</td>'
           + '<td style="font-size:11px;color:#64748b;">' + escapeHtml(formatPaymentDate(r.RequestedAt || "").split(" ")[0] || "") + '</td>'
@@ -10515,6 +10563,15 @@
         + '<span style="color:#64748b;">Mode</span><strong>' + escapeHtml(r.PaymentMode || "UPI") + '</strong>'
         + '<span style="color:#64748b;">UTR / Ref</span><strong>' + escapeHtml(r.UtrRef || "—") + '</strong>'
         + '</div></div>'
+        + (_findDuplicateUtrMatches(r.UtrRef, r.ReqId).length > 0
+            ? '<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#991b1b;">'
+              + '<i class="fa-solid fa-triangle-exclamation"></i> This reference number has also been used by: '
+              + escapeHtml(_findDuplicateUtrMatches(r.UtrRef, r.ReqId).map(function (m) {
+                  const u2 = (users || []).find(function (u2) { return String(u2.UserId) === String(m.UserId); });
+                  return (u2 ? u2.Name : "Unknown") + " (" + (m.Status || "Pending") + ")";
+                }).join(", "))
+              + '. Please verify before approving.</div>'
+            : '')
         + '<div style="margin-bottom:14px;">'
         + '<label style="font-size:13px;font-weight:600;color:#334155;display:block;margin-bottom:6px;"><i class="fa-solid fa-tag" style="color:#0F766E;margin-right:4px;"></i> Contribution Type <span style="font-weight:400;color:#e74c3c;">*</span></label>'
         + '<select id="_approveTypeSelect" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;">'
@@ -11218,27 +11275,6 @@
       }).catch(function() { /* silent — do not interrupt admin if network unavailable */ });
     }
 
-    // ── M15: Broadcast quota info
-    function _loadBroadcastQuotaInfo() {
-      const infoEl = document.getElementById("bcQuotaInfo");
-      if (!infoEl) return;
-      const memberCount = (window._allUsers || []).filter(function (u) {
-        return String(u.Role || "").toLowerCase() !== "admin" &&
-          String(u.Status || "Active").toLowerCase() === "active" &&
-          String(u.Email || "").trim() !== "";
-      }).length;
-      getEmailQuotaCached().then(function (q) {
-        if (!q) return;
-        const cntEl = document.getElementById("bcMemberCount");
-        const remEl = document.getElementById("bcQuotaRemaining");
-        const warnEl = document.getElementById("bcQuotaWarn");
-        if (cntEl) cntEl.textContent = memberCount;
-        if (remEl) remEl.textContent = q.remaining;
-        if (warnEl) warnEl.style.display = memberCount > q.remaining ? "inline" : "none";
-        infoEl.style.display = "block";
-      }).catch(function () { });
-    }
-
     // ── H7: Populate Contribution Records filter dropdowns (year, type, occasion)
     // Called from showPage() when contributionPage is opened — dash_ arrays are already populated by then
     function _cr_buildFilterDropdowns() {
@@ -11426,21 +11462,6 @@
     }
 
     // ── L8: Scheduled broadcast (queue for next available quota slot)
-    function scheduleBroadcast() {
-      const s = JSON.parse(localStorage.getItem("session") || "{}");
-      const title = (document.getElementById("bc_title") || {}).value || "";
-      const message = (document.getElementById("bc_message") || {}).value || "";
-      const type = (document.getElementById("bc_type") || {}).value || "announcement";
-      const priority = (document.getElementById("bc_priority") || {}).value || "normal";
-      if (!message.trim()) { toast("Please enter a message.", "warn"); return; }
-      // Queue it: save to localStorage with a scheduled timestamp (next day reset)
-      const scheduled = new Date(); scheduled.setHours(23, 59, 0, 0); // tonight at 23:59
-      const queue = JSON.parse(localStorage.getItem("mandir_bc_queue") || "[]");
-      queue.push({ title, message, type, priority, scheduled: scheduled.toISOString(), adminName: s.name || "Admin" });
-      localStorage.setItem("mandir_bc_queue", JSON.stringify(queue));
-      toast("⚠️ Broadcast saved locally only. Auto-send is not yet implemented — please send manually using the Send Now button.", "warn");
-    }
-
     // ════════════════════════════════════════════════════════════════
     //  INLINE DASHBOARD — all logic below replaces dashboard.html
     //  Uses admin globals: data, expenses, users, types, expenseTypes,

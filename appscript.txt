@@ -87,6 +87,7 @@ const SHEETS = {
   SETTINGS:      "SETTINGS",      // NEW: stores email automation toggles
   EVENTS:         "EVENTS",
   EVENT_EXPENSES: "EVENT_EXPENSES",
+  WISHES:         "WISHES",   // Birthday wishes sent between members
 };
 
 
@@ -301,6 +302,7 @@ function generateSheetId(prefix, yearReset) {
       "GAL":   { sheet: SHEETS.GALLERY,       col: "Id",         pat: /^GAL-(\d+)$/   },
       "EVT":   { sheet: SHEETS.EVENTS,        col: "EventId",    pat: /^EVT-(\d+)$/   },
       "EEXP":  { sheet: SHEETS.EVENT_EXPENSES,col: "Id",         pat: /^EEXP-(\d+)$/  },
+      "WISH":  { sheet: SHEETS.WISHES,        col: "WishId",     pat: /^WISH-(\d+)$/  },
     };
     if (_syncMap[prefix]) {
       const sm = _syncMap[prefix];
@@ -1824,6 +1826,8 @@ function doGet(e) {
     "getEmailSettings","getEmailQuota","getYearlySummary",
     "getPaymentDetails",  // SEC: bank/UPI details — never public, requires valid session
     "getMonthlyReportStatus",
+    // Birthday wish bell — reads other members' names/photos, writes wish records
+    "getTodayBirthdays","sendBirthdayWish","getMyBirthdayWishes",
   ];
   if (_WRITE_ACTIONS.indexOf(action) !== -1 && !_verifySession(e.parameter, action)) {
     return ContentService
@@ -3952,6 +3956,21 @@ function doGet(e) {
     }
   }
 
+  else if (action === "getTodayBirthdays") {
+    try { result = _getTodayBirthdays(e.parameter.userId); }
+    catch(err) { result = { status: "error", message: err.message }; }
+  }
+
+  else if (action === "sendBirthdayWish") {
+    try { result = _sendBirthdayWish(e.parameter); }
+    catch(err) { result = { status: "error", message: err.message }; }
+  }
+
+  else if (action === "getMyBirthdayWishes") {
+    try { result = _getMyBirthdayWishes(e.parameter.userId); }
+    catch(err) { result = { status: "error", message: err.message }; }
+  }
+
   else {
     logAction(sanitize(e.parameter.userId||e.parameter.UserId||"Unknown",30), "INVALID_ACTION", "Action: " + action, "", sanitize(e.parameter.deviceInfo||"",200), { severity:"WARN", result:"FAILURE" });
     result = { error: "Invalid action: " + action };
@@ -4529,7 +4548,8 @@ function _getBroadcasts() {
       Priority:r[headers.indexOf("Priority")]||"normal",
       Title:   r[headers.indexOf("Title")]   ||"",
       Message: r[headers.indexOf("Message")] ||"",
-      Time:    r[headers.indexOf("Time")]    ||""
+      Time:    r[headers.indexOf("Time")]    ||"",
+      AdminName: r[headers.indexOf("AdminName")] ||""
     }));
   } catch(e) { return []; }
 }
@@ -4605,6 +4625,159 @@ function _saveBroadcast(e) {
     logAction(e.parameter.AdminName||"Admin","saveBroadcast","Id: "+newBcId);
     return { status:"success", bcId:newBcId };
   } catch(err) { return { status:"error", message:err.message }; }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  BIRTHDAY WISH BELL — helpers
+//  Fixed-reply "wish" notifications between active members.
+//  Sheet: WISHES — WishId | FromUserId | FromName | ToUserId | ToName |
+//                  Message | Timestamp | Year
+// ════════════════════════════════════════════════════════════════
+
+// ── Parse a DOB cell (Date object OR "dd-MM-yyyy"/"yyyy-MM-dd" string)
+//    into {day, month} using IST — same rule sendBirthdayEmails() already
+//    uses, kept separate here so neither function risks the other.
+function _getDobDayMonth(dob) {
+  try {
+    if (dob instanceof Date) {
+      var istStr = Utilities.formatDate(dob, "GMT+5:30", "dd-MM-yyyy");
+      var p = istStr.split("-");
+      return { day: Number(p[0]), month: Number(p[1]) };
+    }
+    var s = String(dob || "").trim();
+    if (/^\d{2}-\d{2}-\d{4}$/.test(s)) {
+      var p2 = s.split("-"); return { day: Number(p2[0]), month: Number(p2[1]) };
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+      var p3 = s.split("-"); return { day: Number(p3[2]), month: Number(p3[1]) };
+    }
+    return null;
+  } catch (e) { return null; }
+}
+
+// ── Today's day/month/year, fixed to IST regardless of requester's timezone
+function _todayIST() {
+  var now = new Date();
+  return {
+    day:   Number(Utilities.formatDate(now, "GMT+5:30", "d")),
+    month: Number(Utilities.formatDate(now, "GMT+5:30", "M")),
+    year:  Number(Utilities.formatDate(now, "GMT+5:30", "yyyy"))
+  };
+}
+
+// ── getTodayBirthdays: for the requesting user, returns
+//    { isMyBirthdayToday, others: [{UserId,Name,PhotoURL,alreadyWished}] }
+//    "others" excludes the requester, inactive accounts, and anyone who has
+//    opted out via ShowBirthday === false (column optional — defaults to shown).
+function _getTodayBirthdays(requestUserId) {
+  var users = getSheetData(SHEETS.USERS);
+  var today = _todayIST();
+  var isMine = false;
+  var others = [];
+
+  // Build "already wished this year" set for this requester
+  var wished = {};
+  try {
+    var w = _readSheetRaw(SHEETS.WISHES);
+    var fCol = w.headers.indexOf("FromUserId");
+    var tCol = w.headers.indexOf("ToUserId");
+    var yCol = w.headers.indexOf("Year");
+    w.rows.forEach(function (r) {
+      if (String(r[fCol]) === String(requestUserId) && String(r[yCol]) === String(today.year)) {
+        wished[String(r[tCol])] = true;
+      }
+    });
+  } catch (e) { /* WISHES sheet doesn't exist yet — nothing wished */ }
+
+  users.forEach(function (u) {
+    if (String(u.Status || "").toLowerCase() !== "active") return;
+    if (u.ShowBirthday === false) return; // privacy opt-out (column optional)
+    var dm = _getDobDayMonth(u.DOB);
+    if (!dm || dm.day !== today.day || dm.month !== today.month) return;
+
+    if (String(u.UserId) === String(requestUserId)) {
+      isMine = true;
+    } else {
+      others.push({
+        UserId: u.UserId,
+        Name: u.Name,
+        PhotoURL: u.PhotoURL || "",
+        alreadyWished: !!wished[String(u.UserId)]
+      });
+    }
+  });
+
+  return { status: "success", isMyBirthdayToday: isMine, others: others };
+}
+
+// ── sendBirthdayWish: records one fixed-reply wish, one per sender per
+//    recipient per year. Returns {status:"success"} / {status:"already_sent"}.
+function _sendBirthdayWish(p) {
+  var fromUserId = sanitize(p.userId, 30);
+  var toUserId   = sanitize(p.ToUserId, 30);
+  var message    = sanitize(p.Message, 200);
+
+  if (!fromUserId || !toUserId || !message) {
+    return { status: "error", message: "Missing required fields." };
+  }
+  if (fromUserId === toUserId) {
+    return { status: "error", message: "You can't wish yourself." };
+  }
+
+  var today = _todayIST();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEETS.WISHES);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.WISHES);
+    sheet.appendRow(["WishId", "FromUserId", "FromName", "ToUserId", "ToName", "Message", "Timestamp", "Year"]);
+  }
+
+  // Duplicate guard — one wish per sender per recipient per year
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var fCol = headers.indexOf("FromUserId");
+  var tCol = headers.indexOf("ToUserId");
+  var yCol = headers.indexOf("Year");
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][fCol]) === fromUserId && String(data[i][tCol]) === toUserId && String(data[i][yCol]) === String(today.year)) {
+      return { status: "already_sent" };
+    }
+  }
+
+  var fromRow = _findUserRow(fromUserId);
+  var toRow   = _findUserRow(toUserId);
+  var fromName = fromRow ? fromRow.allData[fromRow.rowIndex][fromRow.headers.indexOf("Name")] : "";
+  var toName   = toRow   ? toRow.allData[toRow.rowIndex][toRow.headers.indexOf("Name")]     : "";
+
+  var wishId = generateSheetId("WISH");
+  sheet.appendRow([wishId, fromUserId, fromName, toUserId, toName, message, formatDate(), today.year]);
+  SpreadsheetApp.flush();
+
+  logAction(fromName || fromUserId, "SEND_BIRTHDAY_WISH", "To: " + (toName || toUserId) + " | Msg: " + message, "", "", { severity: "INFO", result: "SUCCESS" });
+
+  return { status: "success", wishId: wishId };
+}
+
+// ── getMyBirthdayWishes: wishes received by this user this year, newest first
+function _getMyBirthdayWishes(userId) {
+  var today = _todayIST();
+  var out = [];
+  try {
+    var w = _readSheetRaw(SHEETS.WISHES);
+    var idCol = w.headers.indexOf("WishId");
+    var tCol  = w.headers.indexOf("ToUserId");
+    var yCol  = w.headers.indexOf("Year");
+    var fnCol = w.headers.indexOf("FromName");
+    var mCol  = w.headers.indexOf("Message");
+    var tsCol = w.headers.indexOf("Timestamp");
+    w.rows.forEach(function (r) {
+      if (String(r[tCol]) === String(userId) && String(r[yCol]) === String(today.year)) {
+        out.push({ WishId: r[idCol], FromName: r[fnCol], Message: r[mCol], Timestamp: r[tsCol] });
+      }
+    });
+  } catch (e) { /* WISHES sheet doesn't exist yet */ }
+  out.reverse();
+  return { status: "success", wishes: out, count: out.length };
 }
 
 // ════════════════════════════════════════════════════════════════

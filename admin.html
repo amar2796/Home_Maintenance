@@ -2131,17 +2131,17 @@
         <div class="card">
           <h3><i class="fa-solid fa-bullhorn"></i> Send Broadcast Message</h3>
           <div style="
-                background: #fff8e8;
+                background: var(--gold-dim, #F0FDFA);
                 border: 1px solid #0F766E44;
                 border-radius: 8px;
                 padding: 10px 14px;
                 margin-bottom: 16px;
                 font-size: 12.5px;
-                color: #946c44;
+                color: #0F766E;
               ">
             <i class="fa-solid fa-circle-info"></i> Broadcast messages are
-            shared as WhatsApp announcements to all members. You can also post
-            polls/innovations for member feedback.
+            shared as WhatsApp announcements to all members, and also appear
+            on each member's dashboard under Announcements.
           </div>
           <div class="form-row">
             <div>
@@ -2150,13 +2150,15 @@
                 <option value="announcement">
                   📢 Announcement / Information
                 </option>
-                <option value="poll">🗳️ Poll (Yes/No)</option>
                 <option value="innovation">💡 New Innovation / Idea</option>
+                <option value="event">🎉 Event / Festival Notice</option>
+                <option value="maintenance">🔧 Maintenance Update</option>
               </select>
             </div>
             <div>
               <label>Priority</label>
               <select id="bc_priority">
+                <option value="low">Low</option>
                 <option value="normal">Normal</option>
                 <option value="important">⚠️ Important</option>
                 <option value="urgent">🚨 Urgent</option>
@@ -2182,60 +2184,16 @@
                   box-sizing: border-box;
                 " onfocus="this.style.borderColor='#0F766E'" onblur="this.style.borderColor='#ddd'"></textarea>
           </div>
-          <div id="bc_poll_options" style="display: none; margin-top: 4px">
-            <label style="
-                  font-size: 12px;
-                  font-weight: 600;
-                  color: #555;
-                  margin-bottom: 6px;
-                  display: block;
-                ">Poll Options (members can respond Yes/No/Suggestion)</label>
-            <div style="display: flex; gap: 8px; flex-wrap: wrap">
-              <span style="
-                    background: #eafaf1;
-                    color: #27ae60;
-                    padding: 6px 16px;
-                    border-radius: 20px;
-                    font-size: 12px;
-                    font-weight: 600;
-                  ">✅ Yes</span>
-              <span style="
-                    background: #fdedec;
-                    color: #e74c3c;
-                    padding: 6px 16px;
-                    border-radius: 20px;
-                    font-size: 12px;
-                    font-weight: 600;
-                  ">❌ No</span>
-              <span style="
-                    background: #fef9e7;
-                    color: #0F766E;
-                    padding: 6px 16px;
-                    border-radius: 20px;
-                    font-size: 12px;
-                    font-weight: 600;
-                  ">💬 Give Suggestion</span>
-            </div>
-            <p style="font-size: 11px; color: #aaa; margin-top: 6px">
-              Members will respond via WhatsApp
-            </p>
-          </div>
-          <div id="bcQuotaInfo"
-            style="display:none;background:#F0FDFA;border:1px solid #5EEAD4;border-radius:8px;padding:10px 14px;margin-top:12px;font-size:12px;color:#1e40af;">
-            📧 This will send to <strong id="bcMemberCount">?</strong> active members.
-            You have <strong id="bcQuotaRemaining">?</strong> emails remaining today.
-            <span id="bcQuotaWarn" style="color:#dc2626;font-weight:600;display:none;"> ⚠️ Quota may not be enough —
-              some members may not receive this.</span>
-          </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
             <button onclick="sendBroadcast()" style="background: #25d366">
-              <i class="fa-brands fa-whatsapp"></i> Send via WhatsApp
+              <i class="fa-brands fa-whatsapp"></i> Send
             </button>
-            <button onclick="scheduleBroadcast()" style="background:#6d28d9;"><i class="fa-solid fa-clock"></i>
-              Schedule</button>
             <button onclick="previewBroadcast()" style="background: #334155">
               <i class="fa-solid fa-eye"></i> Preview
             </button>
+          </div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:8px;">
+            <b>Preview</b> shows exactly what the message will look like. <b>Send</b> saves it to the member dashboard and opens WhatsApp with the message ready — you still tap Send inside WhatsApp yourself to actually deliver it there.
           </div>
         </div>
         <div class="card">
@@ -2246,7 +2204,7 @@
                 text-align: center;
                 padding: 20px;
               ">
-            No broadcasts sent yet in this session.
+            <i class="fa-solid fa-spinner fa-spin"></i> Loading broadcast history...
           </div>
         </div>
       </div>
