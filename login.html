@@ -10,13 +10,35 @@
   <link rel="apple-touch-icon" href="Image/logo.PNG">
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <link rel="stylesheet" href="design-system.css">
   <link rel="stylesheet" href="login.css">
 </head>
 <body>
 
-<div class="container">
+<div class="login-shell">
+
+  <!-- BRAND PANEL — decorative only, no functional elements -->
+  <aside class="brand-panel" aria-hidden="true">
+    <div class="brand-inner">
+      <div class="brand-logo-wrap">
+        <img src="Image/logo.PNG" alt="" class="header-icon-img"
+          onerror="this.style.display='none';document.getElementById('brandIconFallback').style.display='inline';">
+        <i id="brandIconFallback" class="fa-solid fa-house-user" style="display:none;color:#fff;font-size:1.6rem;"></i>
+      </div>
+      <h1 class="brand-name" id="brandName">Household Hub</h1>
+      <p class="brand-location" id="brandLocation"></p>
+      <ul class="brand-features">
+        <li><span class="bf-icon"><i class="fa-solid fa-shield-halved"></i></span> Bank-grade secure login</li>
+        <li><span class="bf-icon"><i class="fa-solid fa-chart-line"></i></span> Track every contribution</li>
+        <li><span class="bf-icon"><i class="fa-solid fa-bell"></i></span> Stay updated on announcements</li>
+      </ul>
+    </div>
+  </aside>
+
+  <div class="login-main">
+  <div class="container">
   <!-- LOGIN CARD -->
   <div class="card">
 
@@ -81,6 +103,9 @@
     </div>
 
   </div>
+  </div>
+  </div>
+
 </div>
 
 <!-- ══ FORGOT PASSWORD MODAL ══ -->
@@ -442,6 +467,9 @@
     // Login card subtitle
     var sub = document.getElementById('loginSubtitle');
     if (sub) sub.textContent = name + (loc ? ', ' + loc : '');
+    // Brand panel (decorative)
+    var bn = document.getElementById('brandName'); if (bn) bn.textContent = name;
+    var bl = document.getElementById('brandLocation'); if (bl) bl.textContent = loc ? loc + ' · ' + tagline : tagline;
     // T&C modal title & tagline
     var tct = document.getElementById('tcModalTitle');
     if (tct) tct.textContent = name + ' — Privacy & Usage Policy';

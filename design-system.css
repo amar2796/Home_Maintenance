@@ -1,0 +1,66 @@
+/* ══════════════════════════════════════════════════════════════════
+   DESIGN SYSTEM — shared tokens
+   Household / Mandir management system
+   Keep the app's existing teal + warm-cream identity; refine execution.
+   Import this file BEFORE any page-level stylesheet.
+   ══════════════════════════════════════════════════════════════════ */
+   :root{
+    /* ── Brand ── */
+    --color-primary:      #115E59;   /* deep teal — primary CTA, headings   */
+    --color-primary-dark: #0B4742;   /* hover state for primary actions      */
+    --color-brand:        #0F766E;   /* mid teal — borders, icons, focus     */
+    --color-brand-light:  #99F6E4;   /* pale teal — hairline borders         */
+    --color-brand-tint:   #E6FBF7;   /* faint teal wash for hover surfaces   */
+  
+    /* ── Temple-gold accent (sparingly, for one signature moment per page) ── */
+    --color-gold:      #C8860D;
+    --color-gold-soft: #FBEBC8;
+  
+    /* ── Surfaces ── */
+    --bg-page:         #F5F0E8;
+    --bg-surface:      #FFFFFF;
+    --bg-surface-cream:#FFFBF5;
+    --bg-input:        #FAFAF8;
+  
+    /* ── Text ── */
+    --text-body:  #2B2B2B;
+    --text-muted: #64748B;
+    --text-faint: #94A0A6;
+    --text-on-brand: #FFFFFF;
+  
+    /* ── Borders ── */
+    --border-light: #99F6E4;
+    --border-soft:  #E8E4DC;
+  
+    /* ── Semantic ── */
+    --success-bg: #EAFAF1; --success-text: #1E8449; --success-border: #A9DFBF;
+    --error-bg:   #FDEDEC; --error-text:   #C0392B; --error-border:   #F5B7B1;
+  
+    /* ── Radius ── */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 20px;
+    --radius-xl: 28px;
+    --radius-pill: 999px;
+  
+    /* ── Shadow (all tinted teal, never neutral grey — keeps depth on-brand) ── */
+    --shadow-xs: 0 1px 3px rgba(17,94,89,.07);
+    --shadow-sm: 0 4px 14px rgba(17,94,89,.08);
+    --shadow-md: 0 10px 34px rgba(17,94,89,.12);
+    --shadow-lg: 0 24px 64px rgba(17,94,89,.18);
+    --shadow-focus: 0 0 0 3px rgba(15,118,110,.16);
+  
+    /* ── Type ── */
+    --font-display: 'Fraunces', serif;
+    --font-body:    'Poppins', sans-serif;
+  
+    /* ── Motion ── */
+    --ease-out: cubic-bezier(.21,1.02,.73,1);
+    --dur-fast: .18s;
+    --dur-med:  .32s;
+    --dur-slow: .5s;
+  }
+  
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important;}
+  }

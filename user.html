@@ -43,15 +43,32 @@
   </noscript>
 
   <link rel="stylesheet" href="user.css">
+  <!-- constants.js loaded here (not just preloaded) so APP is available to the
+       anti-FOUC script below, which needs APP.shortName to build the same
+       tenant-prefixed storage key user.js uses. Previously this script
+       hardcoded 'mandir_user_dark' / 'mandir_lang' regardless of the actual
+       tenant prefix (APP.shortName = "TVH" → real keys are 'tvh_user_dark' /
+       'tvh_lang'), so the flash-prevention silently never matched and every
+       page load flashed light mode before user.js corrected it moments later. -->
+  <script src="constants.js"></script>
   <!-- ── Anti-FOUC: apply dark class BEFORE first paint to prevent white flash ── -->
   <script>
     (function() {
       try {
+        var prefix = (typeof APP !== 'undefined' && APP.shortName) ? APP.shortName.toLowerCase() : 'mandir';
+
         // Set language immediately from stored preference so lang attr is correct before paint
-        var storedLang = localStorage.getItem('mandir_lang');
+        var storedLang = localStorage.getItem(prefix + '_lang');
         if (storedLang === 'HI') document.documentElement.lang = 'hi';
 
-        var stored = localStorage.getItem('mandir_user_dark');
+        var stored = localStorage.getItem(prefix + '_user_dark');
+        if (stored === null) {
+          // No explicit dashboard preference yet — fall back to the landing
+          // page's toggle (if this visitor already set one there) so the
+          // choice carries across the site instead of resetting per page.
+          var cross = localStorage.getItem('hf_dark_mode');
+          if (cross !== null) stored = cross;
+        }
         var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
         if (stored === '1' || (stored === null && prefersDark)) {
           document.documentElement.classList.add('user-dark-init');
@@ -869,7 +886,6 @@
   </button>
 
 
-  <script src="constants.js"></script>
   <script src="config.js"></script>
   <script src="app.js"></script>
   <script src="user.js"></script>

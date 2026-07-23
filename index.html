@@ -23,6 +23,8 @@
     <link rel="stylesheet" href="index.css">
     <!-- HOME FEATURES: dark mode, FAQ, contacts, quick-pay FAB (frontend-only, safe to remove) -->
     <link rel="stylesheet" href="home-features.css">
+    <!-- Shared design tokens (also used by login.html) — additive only -->
+    <link rel="stylesheet" href="design-system.css">
   </head>
   <body>
     <!-- HOME FEATURES: apply saved dark-mode preference immediately, before first paint (avoids a light-mode flash on reload) -->
@@ -297,6 +299,73 @@
     </div>
     ══ END Household Finances HTML ══ -->
 
+    <!-- ══ FAQ SECTION — built by home-features.css/js but never wired into
+         a page before now; the nav's "FAQ" link (#hfFaq) pointed at nothing. ══ -->
+    <div class="hf-faq-section reveal" id="hfFaq">
+      <h2><i class="fa-solid fa-circle-question" style="color:#0F766E;margin-right:8px;"></i>Frequently Asked Questions</h2>
+      <div class="hf-faq-list">
+        <div class="hf-faq-item">
+          <button class="hf-faq-q" onclick="hfToggleFaq(this)" aria-expanded="false">
+            How do I register as a member?
+            <i class="fa-solid fa-chevron-down"></i>
+          </button>
+          <div class="hf-faq-a">Tap <b>Register</b> on the login page, fill in your details, and verify your email with a one-time code. Your request then goes to the household admin for approval — you'll get an email once your account is activated.</div>
+        </div>
+        <div class="hf-faq-item">
+          <button class="hf-faq-q" onclick="hfToggleFaq(this)" aria-expanded="false">
+            How do I make a contribution or payment?
+            <i class="fa-solid fa-chevron-down"></i>
+          </button>
+          <div class="hf-faq-a">Use the <b>Pay</b> button to see our bank account and UPI details. After paying, your contribution is recorded by the admin and a receipt is emailed to you.</div>
+        </div>
+        <div class="hf-faq-item">
+          <button class="hf-faq-q" onclick="hfToggleFaq(this)" aria-expanded="false">
+            I forgot my password — what now?
+            <i class="fa-solid fa-chevron-down"></i>
+          </button>
+          <div class="hf-faq-a">On the login page, select <b>Forgot password?</b> and enter your registered mobile number. We'll send a one-time code to your registered email so you can set a new password.</div>
+        </div>
+        <div class="hf-faq-item">
+          <button class="hf-faq-q" onclick="hfToggleFaq(this)" aria-expanded="false">
+            Can other members see my contribution details?
+            <i class="fa-solid fa-chevron-down"></i>
+          </button>
+          <div class="hf-faq-a">No. Your contribution history and personal details are private to you and the admin. Only aggregated totals are ever shown publicly.</div>
+        </div>
+        <div class="hf-faq-item">
+          <button class="hf-faq-q" onclick="hfToggleFaq(this)" aria-expanded="false">
+            Who do I contact if I have an issue?
+            <i class="fa-solid fa-chevron-down"></i>
+          </button>
+          <div class="hf-faq-a">Reach out using the contact details just below, or use the <b>Feedback</b> form further down this page — the admin reviews every message.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ CONTACTS SECTION — same status as FAQ above: styled, never placed.
+         Populated from constants.js (APP.phone / APP.email) below. ══ -->
+    <div class="hf-contacts-section reveal">
+      <h2><i class="fa-solid fa-address-book" style="color:#0F766E;margin-right:8px;"></i>Get in Touch</h2>
+      <div class="hf-contacts-grid">
+        <div class="hf-contact-card">
+          <div class="hf-contact-icon"><i class="fa-solid fa-phone"></i></div>
+          <div>
+            <div class="hf-contact-name">Admin / Trustee</div>
+            <div class="hf-contact-role">For registration, payments &amp; general queries</div>
+            <a class="hf-contact-phone" id="hfContactPhone" href="#"></a>
+          </div>
+        </div>
+        <div class="hf-contact-card">
+          <div class="hf-contact-icon"><i class="fa-solid fa-envelope"></i></div>
+          <div>
+            <div class="hf-contact-name">Email Support</div>
+            <div class="hf-contact-role">Receipts, OTPs &amp; written queries</div>
+            <a class="hf-contact-phone" id="hfContactEmail" href="#"></a>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Feedback Section: Map Left + Form Right -->
     <div class="feedback-section reveal" id="feedbackSection">
       <h2>
@@ -461,6 +530,12 @@
         // Footer full line
         var pf = document.getElementById('pageFooter');
         if (pf) pf.innerHTML = '&copy; ' + new Date().getFullYear() + ' ' + shortName + ' | Built with <span>&#10084;&#65039;</span><span class="footer-tagline" id="footerTagline">॥ ' + tagline + ' ॥ — Serving the community with faith &amp; devotion</span>';
+
+        // Contacts section (phone / email)
+        var cp = document.getElementById('hfContactPhone');
+        if (cp && APP.phone) { cp.textContent = APP.phone; cp.href = 'tel:' + APP.phone; }
+        var ce = document.getElementById('hfContactEmail');
+        if (ce && APP.email) { ce.textContent = APP.email; ce.href = 'mailto:' + APP.email; }
       });
     </script>
     <script src="config.js"></script>
