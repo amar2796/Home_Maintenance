@@ -398,6 +398,25 @@ body.user-dark .hdr-bell-badge { box-shadow: 0 0 0 2px #1E2E36; }
   display: block;
 }
 
+/* On phones, the bell isn't the rightmost header element (toggle + avatar
+   sit to its right), so anchoring the panel's right edge to the bell can
+   push its left edge off-screen. Anchor to the viewport instead.
+   Placed after .hdr-dropdown (same specificity) so it wins the cascade,
+   and !important'd as a second guard against future reordering. */
+@media (max-width: 600px) {
+  .notif-dropdown {
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    top: 66px !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    max-height: calc(100vh - 90px) !important;
+    overflow-y: auto !important;
+  }
+}
+
 .hdr-drop-head {
   background: linear-gradient(135deg, #1E1B4B 0%, #312E81 60%, #1E1B4B 100%);
   padding: 13px 16px;
