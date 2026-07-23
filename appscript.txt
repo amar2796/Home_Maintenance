@@ -2463,17 +2463,26 @@ function doGet(e) {
           // Use header-based column lookup — handles both old 6-col and new 9-col sheet layouts
           const hdr = data[0];
           const _ac = (n) => hdr.indexOf(n);
-          result = data.slice(1).slice(-1000).reverse().map(r => ({
-            Timestamp:  r[0]                               || "",
-            UserAdmin:  r[1]                               || "",
-            Action:     r[2]                               || "",
-            Result:     _ac("Result")    !== -1 ? (r[_ac("Result")]    || "") : "",
-            Details:    _ac("Details")   !== -1 ? (r[_ac("Details")]   || "") : (r[3] || ""),
-            Reason:     _ac("Reason")    !== -1 ? (r[_ac("Reason")]    || "") : (r[4] || ""),
-            Error:      _ac("Error")     !== -1 ? (r[_ac("Error")]     || "") : "",
-            DeviceInfo: _ac("DeviceInfo")!== -1 ? (r[_ac("DeviceInfo")]|| "") : (r[5] || ""),
-            Severity:   _ac("Severity")  !== -1 ? (r[_ac("Severity")]  || "") : ""
-          }));
+          result = data.slice(1).slice(-1000).reverse().map(r => {
+            const rawTs = r[0];
+            // Sheets can auto-convert a date-like string into a real Date cell,
+            // which then comes back as a JS Date object here (and would
+            // otherwise serialize as a raw ISO string to the client).
+            const ts = (rawTs instanceof Date)
+              ? Utilities.formatDate(rawTs, "GMT+5:30", "dd-MMM-yyyy HH:mm:ss")
+              : (rawTs || "");
+            return {
+              Timestamp:  ts,
+              UserAdmin:  r[1]                               || "",
+              Action:     r[2]                               || "",
+              Result:     _ac("Result")    !== -1 ? (r[_ac("Result")]    || "") : "",
+              Details:    _ac("Details")   !== -1 ? (r[_ac("Details")]   || "") : (r[3] || ""),
+              Reason:     _ac("Reason")    !== -1 ? (r[_ac("Reason")]    || "") : (r[4] || ""),
+              Error:      _ac("Error")     !== -1 ? (r[_ac("Error")]     || "") : "",
+              DeviceInfo: _ac("DeviceInfo")!== -1 ? (r[_ac("DeviceInfo")]|| "") : (r[5] || ""),
+              Severity:   _ac("Severity")  !== -1 ? (r[_ac("Severity")]  || "") : ""
+            };
+          });
         }
       }
     } catch(e) { result = []; }

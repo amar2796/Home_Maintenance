@@ -790,6 +790,188 @@
     function closeAdminDropdown() {
       document.getElementById("adminDropdown").classList.remove("open");
     }
+
+    // ── Admin activity notifications — sourced from the Audit Log, so
+    // every add/update/delete (success or error) shows up automatically,
+    // without needing to be wired into each individual function. Also
+    // covers backend/system events (e.g. backup failures) the same way.
+    window._adminNotifStore = window._adminNotifStore || [];
+    const _ADMIN_NOTIF_SEEN_KEY = "admin_notif_seen_ids";
+
+    function _adminNotifIdOf(n) {
+      return String(n.time || "") + "|" + String(n.action || "") + "|" + String(n.actor || "");
+    }
+
+    function _getSeenAdminNotifIds() {
+      try { return new Set(JSON.parse(localStorage.getItem(_ADMIN_NOTIF_SEEN_KEY) || "[]")); }
+      catch (e) { return new Set(); }
+    }
+
+    function _markAdminNotifsSeen(ids) {
+      try {
+        const seen = _getSeenAdminNotifIds();
+        ids.forEach(function (id) { seen.add(id); });
+        const trimmed = Array.from(seen).slice(-400);
+        localStorage.setItem(_ADMIN_NOTIF_SEEN_KEY, JSON.stringify(trimmed));
+      } catch (e) { /* ignore storage errors */ }
+    }
+
+    const _ADMIN_NOTIF_DISMISSED_KEY = "admin_notif_dismissed_ids";
+
+    function _getDismissedAdminNotifIds() {
+      try { return new Set(JSON.parse(localStorage.getItem(_ADMIN_NOTIF_DISMISSED_KEY) || "[]")); }
+      catch (e) { return new Set(); }
+    }
+
+    function _saveDismissedAdminNotifIds(set) {
+      try {
+        const trimmed = Array.from(set).slice(-400); // cap so this never grows unbounded
+        localStorage.setItem(_ADMIN_NOTIF_DISMISSED_KEY, JSON.stringify(trimmed));
+      } catch (e) { /* ignore storage errors */ }
+    }
+
+    // Removes one notification from view and remembers it so it doesn't
+    // reappear on the next refresh (the Audit Log keeps growing, so this
+    // dismissal has to persist by ID, not just by clearing the list).
+    window._dismissAdminNotif = function (id) {
+      const d = _getDismissedAdminNotifIds();
+      d.add(id);
+      _saveDismissedAdminNotifIds(d);
+      _renderAdminNotifDropdown();
+    };
+
+    // Clears every notification currently in the tray at once.
+    window._clearAllAdminNotifs = function () {
+      const d = _getDismissedAdminNotifIds();
+      window._adminNotifStore.forEach(function (n) { d.add(_adminNotifIdOf(n)); });
+      _saveDismissedAdminNotifIds(d);
+      _renderAdminNotifDropdown();
+    };
+
+    // Turns "SESSION_EXPIRED" / "SaveContribution" / "Delete Contribution"
+    // into a readable title, whatever naming style was used when logged.
+    function _prettifyAuditAction(action) {
+      if (!action) return "Activity";
+      if (/^[A-Z0-9_]+$/.test(action)) {
+        return action.split("_").map(function (w) { return w.charAt(0) + w.slice(1).toLowerCase(); }).join(" ");
+      }
+      if (/\s/.test(action)) return action; // already "Delete Contribution" style
+      return action.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/^./, function (c) { return c.toUpperCase(); });
+    }
+
+    async function _loadAdminActivityNotifications() {
+      const list = document.getElementById("adminNotifList");
+      try {
+        const res = await getData("getAuditLog");
+        const rows = Array.isArray(res) ? res : [];
+        window._adminNotifStore = rows
+          .filter(function (r) {
+            // Skip login/session security housekeeping (a separate concern),
+            // keep everything else: real successes, failures, and system errors/warnings.
+            if (r.Result === "BLOCKED") return false;
+            const isRealActivity = r.Result === "SUCCESS" || r.Result === "FAILURE";
+            const isSystemProblem = r.Severity === "ERROR" || r.Severity === "CRITICAL";
+            return isRealActivity || isSystemProblem;
+          })
+          .slice(0, 60)
+          .map(function (r) {
+            const isError = r.Result === "FAILURE" || r.Severity === "ERROR" || r.Severity === "CRITICAL";
+            return {
+              action: r.Action || "",
+              kind: isError ? "error" : "success",
+              title: _prettifyAuditAction(r.Action),
+              message: r.Error || r.Details || r.Reason || "",
+              time: r.Timestamp || "",
+              actor: r.UserAdmin || "",
+            };
+          });
+      } catch (e) {
+        window._adminNotifStore = [];
+        if (list) list.innerHTML = '<div class="adm-notif-empty">Could not load activity.</div>';
+        return;
+      }
+      _renderAdminNotifDropdown();
+    }
+
+    function _updateAdminNotifBadge() {
+      const badge = document.getElementById("adminNotifBadge");
+      if (!badge) return;
+      const seen = _getSeenAdminNotifIds();
+      const dismissed = _getDismissedAdminNotifIds();
+      const unread = window._adminNotifStore.filter(function (n) { return !dismissed.has(_adminNotifIdOf(n)) && !seen.has(_adminNotifIdOf(n)); }).length;
+      if (unread > 0) {
+        badge.textContent = unread > 9 ? "9+" : String(unread);
+        badge.style.display = "";
+      } else {
+        badge.style.display = "none";
+      }
+    }
+
+    function _renderAdminNotifDropdown() {
+      const list = document.getElementById("adminNotifList");
+      if (!list) return;
+      const dismissed = _getDismissedAdminNotifIds();
+      const visible = window._adminNotifStore.filter(function (n) { return !dismissed.has(_adminNotifIdOf(n)); });
+      if (visible.length === 0) {
+        list.innerHTML = '<div class="adm-notif-empty">No recent activity</div>';
+        _updateAdminNotifBadge();
+        return;
+      }
+      const seen = _getSeenAdminNotifIds();
+      list.innerHTML = visible.map(function (n) {
+        const isUnread = !seen.has(_adminNotifIdOf(n));
+        const nid = _adminNotifIdOf(n).replace(/'/g, "");
+        return '<div class="adm-notif-item' + (isUnread ? ' unread' : '') + '">'
+          + '<span class="adm-notif-icon">' + (n.kind === "error" ? "❌" : "✅") + '</span>'
+          + '<div class="adm-notif-body">'
+          + '<div class="adm-notif-title' + (n.kind === "error" ? ' error' : '') + '">' + escapeHtml(n.title) + '</div>'
+          + (n.message ? '<div class="adm-notif-msg">' + escapeHtml(n.message) + '</div>' : '')
+          + '<div class="adm-notif-meta">' + escapeHtml(n.actor || "Admin") + ' · ' + escapeHtml(_formatBcTime(n.time)) + '</div>'
+          + '</div>'
+          + '<button type="button" class="adm-notif-item-close" title="Clear this notification" onclick="event.stopPropagation();_dismissAdminNotif(\'' + nid + '\')">✕</button>'
+          + '</div>';
+      }).join("");
+      _updateAdminNotifBadge();
+    }
+
+    function toggleAdminNotifDropdown() {
+      const dd = document.getElementById("adminNotifDropdown");
+      const wrap = document.getElementById("adminNotifWrap");
+      if (!dd) return;
+      const isOpen = dd.classList.toggle("open");
+      if (isOpen) {
+        // Reset any previous clamp before measuring fresh
+        dd.style.left = "";
+        dd.style.right = "0";
+        requestAnimationFrame(function () {
+          const rect = dd.getBoundingClientRect();
+          const margin = 8;
+          if (rect.left < margin && wrap) {
+            const wrapRect = wrap.getBoundingClientRect();
+            dd.style.right = "auto";
+            dd.style.left = (margin - wrapRect.left) + "px";
+          }
+        });
+        _markAdminNotifsSeen(window._adminNotifStore.map(_adminNotifIdOf));
+        _renderAdminNotifDropdown();
+      }
+    }
+
+    function closeAdminNotifDropdown() {
+      const dd = document.getElementById("adminNotifDropdown");
+      if (dd) dd.classList.remove("open");
+    }
+
+    document.addEventListener("click", function (e) {
+      if (!e.target.closest("#adminNotifWrap")) closeAdminNotifDropdown();
+    });
+
+    // Load on startup, then refresh periodically so new activity (from this
+    // admin or anyone else) shows up without needing a manual hook in every
+    // add/update/delete function.
+    _loadAdminActivityNotifications();
+    setInterval(_loadAdminActivityNotifications, 45000);
+
     document.addEventListener("click", (e) => {
       if (!e.target.closest("#adminAvatar") && !e.target.closest("#adminDropdown")) {
         closeAdminDropdown();
