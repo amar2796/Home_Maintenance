@@ -157,10 +157,27 @@
   font-size: 17px;
   flex: 0 0 auto;
 }
+.hf-contact-card > div:last-child { min-width: 0; }
 .hf-contact-name { font-weight: 600; color: #0F172A; font-size: 0.95rem; }
 .hf-contact-role { font-size: 0.78rem; color: #64748B; margin: 2px 0 6px; }
-.hf-contact-phone { font-size: 0.88rem; color: #0F766E; text-decoration: none; font-weight: 600; }
+.hf-contact-phone {
+  font-size: 0.88rem;
+  color: #0F766E;
+  text-decoration: none;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 .hf-contact-phone:hover { text-decoration: underline; }
+
+@media (max-width: 768px) {
+  .hf-faq-section, .hf-contacts-section { padding: 36px 16px; }
+}
+@media (max-width: 480px) {
+  .hf-faq-section, .hf-contacts-section { padding: 30px 14px; }
+  .hf-contact-card { padding: 16px; gap: 10px; }
+  .hf-contact-icon { width: 38px; height: 38px; font-size: 15px; }
+}
 
 /* ══════════════════════════════════════════════════════════════════
    DARK MODE — scoped entirely under body.dark-mode, additive only
