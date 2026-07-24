@@ -751,6 +751,15 @@ body.user-dark .hdr-bell-badge { box-shadow: 0 0 0 2px #1E2E36; }
   transition: box-shadow var(--t), transform var(--t), border-color var(--t);
   overflow: hidden;
   contain: layout style paint;
+  min-width: 0; /* FIX: prevents .card from refusing to shrink below its content's
+                   natural width when used as a grid/flex item, which was pushing
+                   the page wider than the viewport once real content rendered. */
+}
+
+/* FIX: same min-width:0 fix for every ad-hoc inline grid container in this file —
+   see admin.css for the full explanation. */
+[style*="grid-template-columns:1fr"] > * {
+  min-width: 0;
 }
 
 .req-edit-btn:hover {

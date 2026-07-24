@@ -3625,6 +3625,8 @@
           window._hcRanOnce = true;
           setTimeout(runHealthCheck, 1500);
         }
+        // Today's birthdays — lets admin send a wish too, same as members
+        _loadAdminBirthdayWidget();
       } catch (err) {
         // Show specific error reason in the loading overlay with a Retry button
         _showLoadingError(err);
@@ -3641,6 +3643,95 @@
         requestAnimationFrame(() => window.scrollTo(0, _scrollY));
       }
     }
+
+    /* ═══ ADMIN — TODAY'S BIRTHDAYS WIDGET ═══════════════════════════
+       Lets an admin send the same fixed-reply / custom wishes members
+       can send each other. Reuses getTodayBirthdays / sendBirthdayWish
+       as-is — an admin account is just another row in USERS with its
+       own UserId, so no backend changes were needed for this.
+    ═══════════════════════════════════════════════════════════════ */
+    async function _loadAdminBirthdayWidget() {
+      const card = document.getElementById("adm_bday_card");
+      const list = document.getElementById("adm_bday_list");
+      if (!card || !list) return;
+      try {
+        const today = await getData("getTodayBirthdays");
+        if (!today || today.status !== "success" || !today.others || !today.others.length) {
+          card.style.display = "none";
+          return;
+        }
+        _renderAdminBirthdayList(today.others);
+        card.style.display = "";
+      } catch (e) {
+        card.style.display = "none"; // silent — widget just doesn't show if the check fails
+      }
+    }
+
+    function _renderAdminBirthdayList(others) {
+      const list = document.getElementById("adm_bday_list");
+      if (!list) return;
+      const replies = (typeof APP !== "undefined" && Array.isArray(APP.birthdayWishes) && APP.birthdayWishes.length) ? APP.birthdayWishes : ["🎉 Happy Birthday!"];
+      list.innerHTML = others.map(function (o) {
+        const uid = String(o.UserId).replace(/'/g, "");
+        const name = escapeHtml(o.Name || "A member");
+        const actionsHtml = o.alreadyWished
+          ? '<div class="adm-bday-sent">✓ Wish sent</div>'
+          : '<div class="adm-bday-actions">' + replies.map(function (r) {
+              return '<button class="adm-bday-btn" onclick="_sendAdminBirthdayWish(this,\'' + uid + '\',\'' + r.replace(/'/g, "\\'") + '\')">' + escapeHtml(r) + '</button>';
+            }).join("") + '<button class="adm-bday-btn" onclick="_openAdminCustomWish(this,\'' + uid + '\')">✏️ Custom</button></div>';
+        return '<div class="adm-bday-card">'
+          + '<div class="adm-bday-head"><div><div class="adm-bday-name">' + name + '\'s birthday today! 🎂</div>'
+          + (o.alreadyWished ? '' : '<div class="adm-bday-sub">Send a quick wish:</div>')
+          + '</div></div>'
+          + actionsHtml
+          + '</div>';
+      }).join("");
+    }
+
+    window._sendAdminBirthdayWish = function (btnEl, toUserId, message) {
+      const cardEl = btnEl ? btnEl.closest(".adm-bday-card") : null;
+      if (cardEl) cardEl.querySelectorAll("button, input").forEach(function (b) { b.disabled = true; });
+      postData({ action: "sendBirthdayWish", ToUserId: toUserId, Message: message })
+        .then(function (res) {
+          if (res && (res.status === "success" || res.status === "already_sent")) {
+            _loadAdminBirthdayWidget(); // refresh from server so state stays accurate
+          } else {
+            toast((res && res.message) || "Could not send wish. Please try again.", "error");
+            if (cardEl) cardEl.querySelectorAll("button, input").forEach(function (b) { b.disabled = false; });
+          }
+        })
+        .catch(function () {
+          toast("Network error. Please try again.", "error");
+          if (cardEl) cardEl.querySelectorAll("button, input").forEach(function (b) { b.disabled = false; });
+        });
+    };
+
+    window._openAdminCustomWish = function (btnEl, toUserId) {
+      const cardEl = btnEl ? btnEl.closest(".adm-bday-card") : null;
+      const actionsRow = cardEl ? cardEl.querySelector(".adm-bday-actions") : null;
+      if (!actionsRow || cardEl.querySelector(".adm-bday-custom-row")) return;
+      const row = document.createElement("div");
+      row.className = "adm-bday-custom-row";
+      row.innerHTML = '<input type="text" class="adm-bday-custom-input" maxlength="120" placeholder="Write your own wish…" />'
+        + '<button class="adm-bday-btn adm-bday-custom-send">Send</button>'
+        + '<button type="button" class="adm-bday-custom-cancel" title="Cancel">✕</button>';
+      actionsRow.parentNode.insertBefore(row, actionsRow.nextSibling);
+      const input = row.querySelector(".adm-bday-custom-input");
+      const sendBtn = row.querySelector(".adm-bday-custom-send");
+      const cancelBtn = row.querySelector(".adm-bday-custom-cancel");
+      input.focus();
+      function doSend() {
+        const val = input.value.trim();
+        if (!val) { input.focus(); return; }
+        window._sendAdminBirthdayWish(sendBtn, toUserId, val);
+      }
+      sendBtn.addEventListener("click", doSend);
+      cancelBtn.addEventListener("click", function () { row.remove(); });
+      input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") doSend();
+        else if (e.key === "Escape") row.remove();
+      });
+    };
 
     function loadMonths() {
       const opts = MONTHS.map(

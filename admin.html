@@ -545,6 +545,17 @@
         <!-- ── Section label ── -->
         <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#94a3b8;margin-bottom:10px;">At a glance</div>
 
+        <!-- ── Today's Birthdays — admin can send a wish too, same as members ──
+             Hidden until _loadAdminBirthdayWidget() finds someone with a
+             birthday today; reuses getTodayBirthdays / sendBirthdayWish,
+             no backend changes needed. -->
+        <div id="adm_bday_card" class="card" style="display:none;margin-bottom:14px;padding:16px 18px;border-top-color:#f59e0b;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <h3 style="margin:0;font-size:13px;">🎂 Today's Birthdays</h3>
+          </div>
+          <div id="adm_bday_list"></div>
+        </div>
+
         
         <!-- ── Year Balance Tracker ── -->
         <div class="card" style="margin-bottom:14px;padding:16px 18px;">
