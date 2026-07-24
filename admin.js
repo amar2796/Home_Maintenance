@@ -2737,6 +2737,19 @@
         var paidPct = activeMembers.length > 0 ? Math.round((paidCount / activeMembers.length) * 100) : 0;
         el.innerHTML = 'of ' + activeMembers.length + ' members &nbsp;·&nbsp; <b style="color:#27ae60;">' + paidPct + '% paid</b>';
       }
+      // Estimated ₹ outstanding: there's no fixed per-member due amount in the
+      // data model, so this is an estimate based on what paid members actually
+      // gave this month (clearly labelled "est." so it isn't read as exact).
+      el = document.getElementById("kpi_pending_amt");
+      if (el) {
+        if (pendingCount > 0 && paidCount > 0) {
+          var avgPaidAmt = monthMemberC / paidCount;
+          var estPending = Math.round(avgPaidAmt * pendingCount);
+          el.innerHTML = '~₹' + fmt(estPending) + ' outstanding <span style="color:#94a3b8;font-weight:400;">(est.)</span>';
+        } else {
+          el.innerHTML = '&nbsp;';
+        }
+      }
 
       // ── Member badge (show selected period)
       el = document.getElementById("hm_member_badge");
@@ -2746,9 +2759,31 @@
       window._hmMemberData = { activeMembers: activeMembers, paidUserIds: paidUserIds, monthMembers: monthMembers, curMonth: curMonth, curYear: curYear };
       _hmRenderMemberList();
 
-      // ── Member summary
+      // ── Member summary (now includes avg + top contributor for the period,
+      // computed from monthMembers which is already available here)
       el = document.getElementById("hm_member_summary");
-      if (el) el.textContent = paidCount + " paid · " + pendingCount + " pending";
+      if (el) {
+        var summaryHtml = paidCount + ' paid · ' + pendingCount + ' pending';
+        if (paidCount > 0) {
+          var avgAmt = monthMemberC / paidCount;
+          summaryHtml += ' · Avg ₹' + fmt(Math.round(avgAmt));
+          var byMember = {};
+          monthMembers.forEach(function(c) {
+            var uid = String(c.UserId);
+            byMember[uid] = (byMember[uid] || 0) + Number(c.Amount || 0);
+          });
+          var topUid = null, topAmt = 0;
+          Object.keys(byMember).forEach(function(uid) {
+            if (byMember[uid] > topAmt) { topAmt = byMember[uid]; topUid = uid; }
+          });
+          if (topUid) {
+            var topUser = activeMembers.find(function(u) { return String(u.UserId) === topUid; });
+            if (topUser) summaryHtml += ' · Top: ' + escapeHtml(topUser.Name) + ' ₹' + fmt(topAmt);
+          }
+        }
+        el.innerHTML = summaryHtml;
+        el.title = summaryHtml.replace(/<[^>]*>/g, "");
+      }
 
       // ── Walk-in list
       _hmRenderWalkinList(monthWalkIns);
@@ -2763,8 +2798,95 @@
       // ── Smart alerts
       _hmRenderAlerts(pendingCount, monthE, activeMembers, curMonth, curYear);
 
+      // ── Occasion breakdown (this month, includes walk-ins)
+      _hmRenderOccasionBreakdown(monthContribs);
+
+      // ── Backup status (independent of period — only needs to run once per
+      // page load, not on every month/year change)
+      if (!window._hmBackupChecked) {
+        window._hmBackupChecked = true;
+        _hmLoadBackupStatus();
+      }
+
       // ── Year tracker
       _hmRenderYearTracker(curYear, curMonth);
+    }
+
+    function _hmRenderOccasionBreakdown(monthContribs) {
+      var card = document.getElementById("hm_occasion_card");
+      var el   = document.getElementById("hm_occasion_list");
+      if (!card || !el) return;
+
+      var byOcc = {};
+      var total = 0;
+      monthContribs.forEach(function(c) {
+        var amt = Number(c.Amount || 0);
+        var key = c.OccasionId ? String(c.OccasionId) : "_none";
+        byOcc[key] = (byOcc[key] || 0) + amt;
+        total += amt;
+      });
+
+      var keys = Object.keys(byOcc).filter(function(k) { return k !== "_none"; });
+      // Hide the whole card when there's nothing occasion-tagged this month,
+      // rather than showing an empty/confusing widget.
+      if (keys.length === 0 || total === 0) {
+        card.style.display = "none";
+        return;
+      }
+      card.style.display = "block";
+
+      var rows = keys.map(function(k) {
+        var occ  = (occasions || []).find(function(o) { return String(o.OccasionId) === k; });
+        var name = occ ? occ.OccasionName : "Other";
+        var amt  = byOcc[k];
+        var pct  = total > 0 ? Math.round((amt / total) * 100) : 0;
+        return { name: name, amt: amt, pct: pct };
+      }).sort(function(a, b) { return b.amt - a.amt; });
+
+      // Untagged contributions, if any, shown as a neutral trailing chip
+      if (byOcc["_none"] > 0) {
+        rows.push({ name: "Not tagged", amt: byOcc["_none"], pct: Math.round((byOcc["_none"] / total) * 100), neutral: true });
+      }
+
+      el.innerHTML = rows.map(function(r) {
+        var bg  = r.neutral ? "#f1f5f9" : "#f0fdfa";
+        var bd  = r.neutral ? "#e2e8f0" : "#99f6e4";
+        var col = r.neutral ? "#64748b" : "#0F766E";
+        return '<div style="background:' + bg + ';border:1px solid ' + bd + ';border-radius:10px;padding:8px 12px;min-width:110px;">' +
+          '<div style="font-size:11px;font-weight:600;color:' + col + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;">' + escapeHtml(r.name) + '</div>' +
+          '<div style="font-size:13px;font-weight:700;color:#334155;margin-top:2px;">₹' + fmt(r.amt) + '</div>' +
+          '<div style="font-size:10px;color:#94a3b8;">' + r.pct + '% of month</div>' +
+        '</div>';
+      }).join("");
+    }
+
+    function _hmLoadBackupStatus() {
+      var el = document.getElementById("hm_backup_status");
+      if (!el) return;
+      getData("getHealthCheck").then(function(res) {
+        if (!res || res.status !== "ok" || !res.checks) {
+          el.innerHTML = '<span style="color:#94a3b8;">Backup status unavailable</span>';
+          return;
+        }
+        var last = res.checks.last_backup;
+        if (!last || last === "Never") {
+          el.innerHTML = '<span style="color:#e74c3c;font-weight:700;"><i class="fa-solid fa-triangle-exclamation"></i> No backup on record</span>';
+          return;
+        }
+        var d = new Date(last);
+        var daysAgo = isNaN(d) ? null : Math.floor((new Date() - d) / 86400000);
+        var dateLabel = isNaN(d) ? String(last) : d.toLocaleDateString(APP.locale||"en-IN");
+        var col = "#94a3b8";
+        if (daysAgo !== null) {
+          if (daysAgo > 35) col = "#e74c3c";
+          else if (daysAgo > 14) col = "#d97706";
+          else col = "#27ae60";
+        }
+        el.innerHTML = '<span style="color:' + col + ';font-weight:600;">Last backup: ' + dateLabel +
+          (daysAgo !== null ? ' (' + daysAgo + 'd ago)' : '') + '</span>';
+      }).catch(function() {
+        el.innerHTML = '<span style="color:#94a3b8;">Backup status unavailable</span>';
+      });
     }
 
     function _hmMemberTab(filter, btn) {
@@ -2805,9 +2927,14 @@
         var myContribs = d.monthMembers.filter(function(c) { return String(c.UserId) === String(u.UserId); });
         var myAmt      = myContribs.reduce(function(s,c) { return s + Number(c.Amount||0); }, 0);
 
-        var subLine = paid
-          ? "Paid · ₹" + fmt(myAmt)
-          : (String(u.Status||"").toLowerCase() === "inactive" ? "Inactive" : "Pending");
+        var isInactive = String(u.Status||"").toLowerCase() === "inactive";
+        var subLine = paid ? "Paid · ₹" + fmt(myAmt) : (isInactive ? "Inactive" : "Pending");
+
+        var rightHtml = paid
+          ? '<span style="font-size:11px;font-weight:700;color:#27ae60;white-space:nowrap;flex-shrink:0;">₹' + fmt(myAmt) + '</span>'
+          : isInactive
+            ? '<span style="font-size:10px;font-weight:700;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:20px;padding:3px 10px;white-space:nowrap;flex-shrink:0;">Inactive</span>'
+            : '<span style="font-size:10px;font-weight:700;color:#dc2626;background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.35);border-radius:20px;padding:3px 10px;white-space:nowrap;flex-shrink:0;">Pending</span>';
 
         return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9;">' +
           '<div style="width:8px;height:8px;border-radius:50%;background:' + dotCol + ';flex-shrink:0;"></div>' +
@@ -2816,7 +2943,7 @@
             '<div style="font-size:12px;font-weight:600;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(u.Name||"—") + '</div>' +
             '<div style="font-size:10px;color:#94a3b8;">' + subLine + '</div>' +
           '</div>' +
-          '<span style="font-size:11px;font-weight:700;color:' + (paid ? "#27ae60" : "#e74c3c") + ';">' + (paid ? "₹" + fmt(myAmt) : "—") + '</span>' +
+          rightHtml +
         '</div>';
       }).join("");
       if (window._lazyLoadDriveImgs) window._lazyLoadDriveImgs(el);
@@ -2849,7 +2976,7 @@
             '<div style="font-size:12px;font-weight:600;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(visitorName) + '</div>' +
             '<div style="font-size:10px;color:#94a3b8;">' + escapeHtml(typeName) + ' · ' + dateStr + '</div>' +
           '</div>' +
-          '<span style="font-size:12px;font-weight:700;color:#d97706;">₹' + fmt(c.Amount) + '</span>' +
+          '<span style="font-size:12px;font-weight:700;color:#d97706;white-space:nowrap;flex-shrink:0;">₹' + fmt(c.Amount) + '</span>' +
         '</div>';
       }).join("");
     }

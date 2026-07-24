@@ -557,47 +557,8 @@
         </div>
 
         
-        <!-- ── Year Balance Tracker ── -->
-        <div class="card" style="margin-bottom:14px;padding:16px 18px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-            <h3 style="margin:0;font-size:13px;"><i class="fa-solid fa-scale-balanced"></i> Year Balance — <span id="hm_yr_label">2025</span></h3>
-            <span id="hm_yr_status_badge" style="font-size:10px;font-weight:700;padding:2px 10px;border-radius:20px;"></span>
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:14px;">
-            <div style="background:#f8fafc;border-radius:8px;padding:10px 12px;">
-              <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;">All-time Contributions</div>
-              <div id="totalContribution" style="font-size:1.1rem;font-weight:700;color:#27ae60;">₹0</div>
-              <div id="trendContrib" style="font-size:10px;color:#94a3b8;margin-top:2px;">&nbsp;</div>
-            </div>
-            <div style="background:#f8fafc;border-radius:8px;padding:10px 12px;">
-              <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;">All-time Expenses</div>
-              <div id="totalExpense" style="font-size:1.1rem;font-weight:700;color:#e74c3c;">₹0</div>
-              <div id="trendExpense" style="font-size:10px;color:#94a3b8;margin-top:2px;">&nbsp;</div>
-            </div>
-            <div style="background:#f8fafc;border-radius:8px;padding:10px 12px;">
-              <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;">Total Members</div>
-              <div id="totalUsers" style="font-size:1.1rem;font-weight:700;color:#14B8A6;">0</div>
-              <div id="trendUsers" style="font-size:10px;color:#94a3b8;margin-top:2px;">Active members</div>
-            </div>
-            <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:8px;padding:10px 12px;">
-              <div style="font-size:10px;color:#94a3b8;font-weight:600;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;">Net Balance</div>
-              <div id="netBalance" style="font-size:1.1rem;font-weight:700;color:#0F766E;">₹0</div>
-              <div id="netBalanceBreakdown" style="font-size:10px;color:#64748b;margin-top:2px;">&nbsp;</div>
-            </div>
-          </div>
-          <!-- Year progress bar -->
-          <div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:#64748b;margin-bottom:4px;">
-              <span>Year collection progress (<span id="hm_yr_months_done">0</span> of 12 months)</span>
-              <span id="hm_yr_pct">0%</span>
-            </div>
-            <div style="height:6px;background:#f1f5f9;border-radius:4px;overflow:hidden;">
-              <div id="hm_yr_progress_fill" style="height:100%;border-radius:4px;background:#27ae60;width:0%;transition:width .6s ease;"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ── KPI Row: 4 stat cards ── -->
+        <!-- ── KPI Row: 4 stat cards ── (moved above the all-time summary: this is
+             the "what needs my attention today" data, so it should be seen first) -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:18px;">
 
           <!-- Month Collection -->
@@ -638,6 +599,7 @@
             </div>
             <div id="kpi_pending" style="font-size:1.5rem;font-weight:700;color:#14B8A6;line-height:1.1;">0</div>
             <div id="kpi_pending_sub" style="font-size:11px;color:#94a3b8;margin-top:4px;">of <span id="kpi_total_members">0</span> active members</div>
+            <div id="kpi_pending_amt" style="font-size:11px;color:#e74c3c;font-weight:700;margin-top:2px;">&nbsp;</div>
           </div>
 
         </div>
@@ -658,13 +620,13 @@
               <button onclick="_hmMemberTab('pending',this)" id="hm_tab_pending" class="btn-sm" style="background:#fef2f2;color:#e74c3c;border:1px solid #fca5a5;font-size:11px;padding:4px 12px;border-radius:20px;box-shadow:none;">Pending</button>
             </div>
             <!-- Member list -->
-            <div id="hm_member_list" style="max-height:220px;overflow-y:auto;">
+            <div id="hm_member_list" style="max-height:220px;overflow-y:auto;padding-right:8px;padding-left:2px;margin-right:-8px;scrollbar-gutter:stable;">
               <div style="text-align:center;padding:20px;color:#94a3b8;font-size:12px;"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>
             </div>
             <!-- Footer -->
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid #f1f5f9;">
-              <div id="hm_member_summary" style="font-size:11px;color:#94a3b8;"></div>
-              <button onclick="showPage('trackerPage',document.querySelector('[onclick*=trackerPage]'))" style="background:#334155;font-size:11px;padding:5px 12px;box-shadow:none;">View Tracker →</button>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid #f1f5f9;gap:8px;">
+              <div id="hm_member_summary" style="font-size:11px;color:#94a3b8;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+              <button onclick="showPage('trackerPage',document.querySelector('[onclick*=trackerPage]'))" style="background:#334155;font-size:11px;padding:5px 12px;box-shadow:none;flex-shrink:0;">View Tracker →</button>
             </div>
           </div>
 
@@ -674,7 +636,7 @@
               <i class="fa-solid fa-person-walking"></i> Walk-in Entries
               <span id="hm_walkin_badge" style="margin-left:auto;background:#fffbeb;color:#92400e;font-size:10px;font-weight:700;padding:2px 10px;border-radius:20px;border:1px solid #5EEAD4;">this month</span>
             </h3>
-            <div id="hm_walkin_list" style="max-height:220px;overflow-y:auto;">
+            <div id="hm_walkin_list" style="max-height:220px;overflow-y:auto;padding-right:8px;padding-left:2px;margin-right:-8px;scrollbar-gutter:stable;">
               <div style="text-align:center;padding:20px;color:#94a3b8;font-size:12px;"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>
             </div>
             <!-- Footer -->
@@ -686,20 +648,11 @@
 
         </div>
 
-        <!-- ── Three-column: Chart + Smart Alerts + Quick Actions ── -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;">
-
-          <!-- Monthly Bar Chart -->
-          <div class="card" style="margin-bottom:0;padding:16px 18px;">
-            <h3 style="margin-bottom:12px;font-size:13px;"><i class="fa-solid fa-chart-bar"></i> Monthly Income vs Expense</h3>
-            <div id="hm_bar_chart" style="display:flex;align-items:flex-end;gap:4px;height:90px;overflow-x:auto;">
-              <div style="color:#aaa;font-size:12px;">Loading...</div>
-            </div>
-            <div style="display:flex;gap:14px;margin-top:8px;font-size:10px;font-weight:600;color:#64748b;">
-              <span style="display:flex;align-items:center;gap:4px;"><span style="width:9px;height:9px;background:#22c55e;border-radius:2px;display:inline-block;"></span>Income</span>
-              <span style="display:flex;align-items:center;gap:4px;"><span style="width:9px;height:9px;background:#f97316;border-radius:2px;display:inline-block;"></span>Expense</span>
-            </div>
-          </div>
+        <!-- ── Two-column: Smart Alerts + Quick Actions ── (split out of the old
+             3-col row so both cards match height naturally — the chart used to
+             sit here and forced this row to grow/scroll unevenly against these
+             two short cards) -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
 
           <!-- Smart Alerts -->
           <div class="card" style="margin-bottom:0;padding:16px 18px;">
@@ -718,8 +671,76 @@
               <button onclick="_quickNav('trackerPage','[onclick*=trackerPage]')" style="background:#334155;text-align:left;padding:9px 14px;font-size:12px;display:flex;align-items:center;gap:8px;box-shadow:none;"><i class="fa-solid fa-chart-line"></i> Tracker / Reminders</button>
               <button onclick="openDashboard(document.querySelector('[onclick*=openDashboard]'))" style="background:#14B8A6;text-align:left;padding:9px 14px;font-size:12px;display:flex;align-items:center;gap:8px;box-shadow:none;"><i class="fa-solid fa-chart-pie"></i> Full Dashboard & Reports</button>
             </div>
+            <!-- Last Backup status -->
+            <div id="hm_backup_row" style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid #f1f5f9;">
+              <div id="hm_backup_status" style="font-size:11px;color:#94a3b8;"><i class="fa-solid fa-spinner fa-spin"></i> Checking backup…</div>
+              <button onclick="downloadLocalBackup()" style="background:#0F766E;font-size:10px;padding:4px 10px;box-shadow:none;flex-shrink:0;">Back up now</button>
+            </div>
           </div>
 
+        </div>
+
+        <!-- Occasion Breakdown — this month's collection split by occasion -->
+        <div class="card" id="hm_occasion_card" style="margin-bottom:14px;padding:16px 18px;display:none;">
+          <h3 style="margin-bottom:12px;font-size:13px;"><i class="fa-solid fa-gift"></i> This Month by Occasion</h3>
+          <div id="hm_occasion_list" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+        </div>
+
+        <!-- ── Section label ── -->
+        <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#94a3b8;margin-bottom:10px;">Zoom out — all-time &amp; trends</div>
+
+        <!-- ── Year Balance Tracker ── (moved below the actionable "today" widgets;
+             this is reference/summary info the admin checks less often) -->
+        <div class="card" style="margin-bottom:14px;padding:16px 18px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <h3 style="margin:0;font-size:13px;"><i class="fa-solid fa-scale-balanced"></i> Year Balance — <span id="hm_yr_label">2025</span></h3>
+            <span id="hm_yr_status_badge" style="font-size:10px;font-weight:700;padding:2px 10px;border-radius:20px;"></span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:14px;">
+            <div style="background:#f8fafc;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;">All-time Contributions</div>
+              <div id="totalContribution" style="font-size:1.1rem;font-weight:700;color:#27ae60;">₹0</div>
+              <div id="trendContrib" style="font-size:10px;color:#94a3b8;margin-top:2px;">&nbsp;</div>
+            </div>
+            <div style="background:#f8fafc;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;">All-time Expenses</div>
+              <div id="totalExpense" style="font-size:1.1rem;font-weight:700;color:#e74c3c;">₹0</div>
+              <div id="trendExpense" style="font-size:10px;color:#94a3b8;margin-top:2px;">&nbsp;</div>
+            </div>
+            <div style="background:#f8fafc;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;">Total Members</div>
+              <div id="totalUsers" style="font-size:1.1rem;font-weight:700;color:#14B8A6;">0</div>
+              <div id="trendUsers" style="font-size:10px;color:#94a3b8;margin-top:2px;">Active members</div>
+            </div>
+            <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:8px;padding:10px 12px;">
+              <div style="font-size:10px;color:#94a3b8;font-weight:600;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;">Net Balance</div>
+              <div id="netBalance" style="font-size:1.1rem;font-weight:700;color:#0F766E;">₹0</div>
+              <div id="netBalanceBreakdown" style="font-size:10px;color:#64748b;margin-top:2px;">&nbsp;</div>
+            </div>
+          </div>
+          <!-- Year progress bar -->
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:#64748b;margin-bottom:4px;">
+              <span>Year collection progress (<span id="hm_yr_months_done">0</span> of 12 months)</span>
+              <span id="hm_yr_pct">0%</span>
+            </div>
+            <div style="height:6px;background:#f1f5f9;border-radius:4px;overflow:hidden;">
+              <div id="hm_yr_progress_fill" style="height:100%;border-radius:4px;background:#27ae60;width:0%;transition:width .6s ease;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Monthly Bar Chart — now full width since it no longer has to share
+             a row with two much-shorter cards -->
+        <div class="card" style="margin-bottom:14px;padding:16px 18px;">
+          <h3 style="margin-bottom:12px;font-size:13px;"><i class="fa-solid fa-chart-bar"></i> Monthly Income vs Expense</h3>
+          <div id="hm_bar_chart" style="max-height:260px;overflow-y:auto;padding:0 8px 0 2px;margin-right:-8px;scrollbar-gutter:stable;">
+            <div style="color:#aaa;font-size:12px;">Loading...</div>
+          </div>
+          <div style="display:flex;gap:14px;margin-top:8px;font-size:10px;font-weight:600;color:#64748b;">
+            <span style="display:flex;align-items:center;gap:4px;"><span style="width:9px;height:9px;background:#22c55e;border-radius:2px;display:inline-block;"></span>Income</span>
+            <span style="display:flex;align-items:center;gap:4px;"><span style="width:9px;height:9px;background:#f97316;border-radius:2px;display:inline-block;"></span>Expense</span>
+          </div>
         </div>
 
 
