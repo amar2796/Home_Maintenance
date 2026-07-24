@@ -917,7 +917,7 @@ function confirmModal(message, onConfirm, confirmLabel, confirmColor) {
       <p style="font-size:12.5px;color:#94a3b8;margin:0 0 24px;">This action cannot be undone.</p>
       <div style="display:flex;gap:10px;justify-content:center;">
         <button class="_mbtn _cmCancel" style="
-          background:#f1f5f9;color:#475569;min-width:100px;
+          background:transparent;color:#64748b;min-width:100px;
           border:1.5px solid #e2e8f0;font-size:13.5px;
         " onclick="closeModal()">
           <i class="fa-solid fa-xmark" style="margin-right:5px;"></i>Cancel
@@ -935,10 +935,10 @@ function confirmModal(message, onConfirm, confirmLabel, confirmColor) {
         from{opacity:0;transform:scale(.5) rotate(-10deg)}
         to{opacity:1;transform:scale(1) rotate(0deg)}
       }
-      ._cmCancel:hover{background:#e2e8f0!important;}
+      ._cmCancel:hover:not(:disabled){background:#f8fafc!important;border-color:#94a3b8!important;color:#334155!important;}
       #_confirmOkBtn:hover{filter:brightness(1.08);transform:translateY(-1px);}
       #_confirmOkBtn:active{transform:scale(0.97) translateY(0);}
-      #_confirmOkBtn.btn-loading{cursor:wait;pointer-events:none;opacity:0.8;}
+      #_confirmOkBtn.btn-loading{cursor:wait;pointer-events:none;opacity:0.85;}
     </style>`;
   openModal(html, "340px");
   setTimeout(function() {
@@ -949,7 +949,11 @@ function confirmModal(message, onConfirm, confirmLabel, confirmColor) {
       // close modal ONLY after onConfirm() resolves. Previously modal closed immediately
       // so user saw a flash of old data before the entry disappeared.
       btn.disabled = true;
-      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="margin-right:5px;"></i>Processing…';
+      // Same markup convention the global _setBtnLoading() helper uses (admin.js) —
+      // hide the original label, add btn-loading, and let the shared CSS
+      // button.btn-loading::after ring spinner render. Keeps the "processing" look
+      // identical everywhere instead of this modal using its own Font Awesome icon.
+      btn.innerHTML = '<span class="btn-original-content" style="display:none">' + btn.innerHTML + '</span><span class="btn-loading-txt"> Processing…</span>';
       btn.classList.add("btn-loading");
       // Also disable cancel button and backdrop click so user can't dismiss mid-action
       var cancelBtn = document.querySelector("._cmCancel");

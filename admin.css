@@ -117,12 +117,17 @@ button {
   border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
-  transition: background 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+  transition: background 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease, filter 0.15s ease;
   box-shadow: 0 4px 10px rgba(15, 118, 110, 0.3);
 }
 
-button:hover {
-  background: #d35400;
+/* Universal hover feedback — filter-based so it works no matter how the
+   button's color was set (CSS class or inline style="background:..."). An
+   inline background always wins the cascade over a background set here, so a
+   plain background swap on :hover is invisible on most buttons in this app;
+   brightness/lift are separate properties and always show through. */
+button:hover:not(:disabled):not(.btn-loading) {
+  filter: brightness(1.08);
   transform: translateY(-2px);
 }
 
@@ -1456,15 +1461,18 @@ tbody tr.clickable-row:hover {
 }
 
 #glryCropCancelBtn {
-  background: #f0f0f0;
-  color: #555;
+  background: transparent;
+  color: #64748b;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 9px;
   box-shadow: none;
   padding: 9px 20px;
 }
 
 #glryCropCancelBtn:hover {
-  background: #e0e0e0;
-  transform: none;
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #334155;
 }
 
 #glryCropConfirmBtn {
@@ -2041,6 +2049,15 @@ body.dark-mode button:not(.sidebar li button):not(._mbtn):not(#darkModeBtn):not(
   filter: brightness(0.88) saturate(0.95);
 }
 
+/* Dark-mode hover: same scope as the dimming rule above (copied selector so
+   it can't accidentally widen to sidebar/toggle buttons), just brighter than
+   the resting dim state instead of brighter than 1.0 — keeps the same "lift +
+   brighten" feel as light mode without looking washed out on dark surfaces. */
+body.dark-mode button:not(.sidebar li button):not(._mbtn):not(#darkModeBtn):not(#langToggleBtn):not(.pg-btn):not(.gcr-ratio-btn):not(.status-tab):hover:not(:disabled):not(.btn-loading) {
+  filter: brightness(1.0) saturate(1.05);
+  transform: translateY(-2px);
+}
+
 body.dark-mode #darkModeBtn,
 body.dark-mode #langToggleBtn {
   background: rgba(255,255,255,0.07) !important;
@@ -2181,11 +2198,12 @@ body.dark-mode #glryCropRatioBar {
 body.dark-mode #glryCropFooter { border-top-color: #1e2d45 !important; }
 
 body.dark-mode #glryCropCancelBtn {
-  background: #1e2d45 !important;
+  background: transparent !important;
+  border-color: #2d3f58 !important;
   color: #94a3b8 !important;
 }
 
-body.dark-mode #glryCropCancelBtn:hover { background: #2d3f58 !important; }
+body.dark-mode #glryCropCancelBtn:hover { background: #1e2d45 !important; border-color: #475569 !important; color: #e2e8f0 !important; }
 
 body.dark-mode .gcr-ratio-btn {
   background: #0d1525 !important;
