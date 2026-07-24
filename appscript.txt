@@ -1799,8 +1799,8 @@ function doGet(e) {
     "addEvent","updateEvent","deleteEvent","addEventExpense",
     "deleteGalleryPhoto",
     // Settings & comms
-    "saveEmailSettings","saveAnnouncement","clearAnnouncement",
-    "saveBroadcast","deleteBroadcast","saveChatbotConfig",
+    "saveEmailSettings","saveAnnouncement","clearAnnouncement","toggleAnnouncementStatus",
+    "saveBroadcast","deleteBroadcast","toggleBroadcast","saveChatbotConfig",
     // Feedback & contribution requests
     "updateFeedbackStatus","deleteFeedback",
     "submitContributionRequest","resolveContributionRequest",
@@ -1821,7 +1821,7 @@ function doGet(e) {
     "getAllData","getContributions","getExpenses","getEventData","getYearConfig",
     "getUsers","getUsersByStatus","getPendingUsers","getPendingCount",
     "getFeedback","getContributionRequests","getUserContributionRequests",
-    "getAuditLog","getAnnouncementHistory","getHealthCheck",
+    "getAuditLog","getAnnouncementHistory","getHealthCheck","getBroadcastsAdmin",
     "getTrafficStats","resetTrafficStats",  // ── TRAFFIC: admin-only
     "getEmailSettings","getEmailQuota","getYearlySummary",
     "getPaymentDetails",  // SEC: bank/UPI details — never public, requires valid session
@@ -3280,10 +3280,13 @@ function doGet(e) {
   else if (action === "getAnnouncement")        { result = _getAnnouncement(); }
   else if (action === "getAnnouncementHistory") { result = _getAnnouncementHistory(); }
   else if (action === "getBroadcasts")          { result = _getBroadcasts(); }
+  else if (action === "getBroadcastsAdmin")     { result = _getBroadcastsAdmin(); }
   else if (action === "saveAnnouncement")       { result = _saveAnnouncement(e); }
   else if (action === "clearAnnouncement")      { result = _clearAnnouncement(e); }
+  else if (action === "toggleAnnouncementStatus"){ result = _toggleAnnouncementStatus(e); }
   else if (action === "saveBroadcast")          { result = _saveBroadcast(e); }
   else if (action === "deleteBroadcast")        { result = _deleteBroadcast(e); }
+  else if (action === "toggleBroadcast")        { result = _toggleBroadcast(e); }
 
       else if (action === "removeExpenseReceipt" || action === "removeOneExpenseReceipt") {
       // removeOneExpenseReceipt: removes a single URL from the ReceiptURLs array
@@ -3409,7 +3412,7 @@ function doGet(e) {
       var expectedCols = {
         "USERS":                 ["UserId","Name","Mobile","Role","Password","Email","Status","SessionToken","Village","Address","RegisteredAt","PhotoURL","MonthlyTarget","LastLogin","DOB","TokenExpiry","ContribStartDate","InactiveSince","SessionTTL"],
         "CONTRIBUTION_REQUESTS": ["ReqId","UserId","Amount","PaymentMode","ForMonth","Year","Note","UtrRef","Status","RequestedAt","SlipURL","RejectionNote"],
-        "BROADCAST":             ["BcId","Type","Priority","Title","Message","Time","AdminName"],
+        "BROADCAST":             ["BcId","Type","Priority","Title","Message","Time","AdminName","Status"],
         "CONTRIBUTIONS":         ["Id","UserId","Amount","PaymentDate","ForMonth","Year","TypeId","OccasionId","Note","ReceiptID","PaymentMode"],
         "EXPENSES":              ["Id","Title","Amount","PaymentDate","Year","ExpenseTypeId","ForMonth","ReceiptURL","ReceiptURLs"],
         "GOALS":                 ["GoalId","GoalName","TargetAmount","CurrentAmount","Status","CreatedAt"],
@@ -4545,33 +4548,49 @@ function _getAnnouncementHistory() {
   } catch(e) { return []; }
 }
 
+// Member/bell-facing view — enabled broadcasts only. Disabled ones stay in
+// the sheet (so the admin can still re-enable them) but never reach members.
 function _getBroadcasts() {
   try {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEETS.BROADCAST);
-    if (!sheet) return [];
-    const data = sheet.getDataRange().getValues();
-    if (data.length < 2) return [];
-    const headers = data[0];
-    return data.slice(1).reverse().slice(0,20).map(r => {
-      const rawTime = r[headers.indexOf("Time")];
-      // Sheets auto-converts date-like strings into real Date cells, so this
-      // can come back as a JS Date object (which would otherwise serialize
-      // as a raw ISO string like "2026-07-21T21:34:07.000Z" to the client).
-      // Format it into something readable either way.
-      const time = (rawTime instanceof Date)
-        ? Utilities.formatDate(rawTime, "GMT+5:30", "dd MMM yyyy, hh:mm a")
-        : (rawTime || "");
-      return {
-        BcId:    r[headers.indexOf("BcId")]    ||"",
-        Type:    r[headers.indexOf("Type")]    ||"",
-        Priority:r[headers.indexOf("Priority")]||"normal",
-        Title:   r[headers.indexOf("Title")]   ||"",
-        Message: r[headers.indexOf("Message")] ||"",
-        Time:    time,
-        AdminName: r[headers.indexOf("AdminName")] ||""
-      };
-    });
+    return _readBroadcasts().filter(b => String(b.Status||"Enabled").toLowerCase() !== "disabled");
   } catch(e) { return []; }
+}
+
+// Admin-facing view — everything, including disabled ones, so the admin
+// panel can show the dimmed/disabled entries and toggle them back on.
+function _getBroadcastsAdmin() {
+  try {
+    return _readBroadcasts();
+  } catch(e) { return []; }
+}
+
+function _readBroadcasts() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEETS.BROADCAST);
+  if (!sheet) return [];
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 2) return [];
+  const headers = data[0];
+  const stIdx = headers.indexOf("Status");
+  return data.slice(1).reverse().slice(0,20).map(r => {
+    const rawTime = r[headers.indexOf("Time")];
+    // Sheets auto-converts date-like strings into real Date cells, so this
+    // can come back as a JS Date object (which would otherwise serialize
+    // as a raw ISO string like "2026-07-21T21:34:07.000Z" to the client).
+    // Format it into something readable either way.
+    const time = (rawTime instanceof Date)
+      ? Utilities.formatDate(rawTime, "GMT+5:30", "dd MMM yyyy, hh:mm a")
+      : (rawTime || "");
+    return {
+      BcId:    r[headers.indexOf("BcId")]    ||"",
+      Type:    r[headers.indexOf("Type")]    ||"",
+      Priority:r[headers.indexOf("Priority")]||"normal",
+      Title:   r[headers.indexOf("Title")]   ||"",
+      Message: r[headers.indexOf("Message")] ||"",
+      Time:    time,
+      AdminName: r[headers.indexOf("AdminName")] ||"",
+      Status:  (stIdx===-1 ? "Enabled" : (r[stIdx]||"Enabled"))
+    };
+  });
 }
 
 function _saveAnnouncement(e) {
@@ -4626,21 +4645,64 @@ function _clearAnnouncement(e) {
   } catch(err) { return { status:"error", message:err.message }; }
 }
 
+// Toggles a single announcement's status by AnnId:
+//  - activating a Past one flips every other row to Past first (reusing the
+//    same single-active-only rule as _saveAnnouncement/_clearAnnouncement),
+//    then sets the target row to Active.
+//  - disabling the currently Active one just sets that row to Past — the
+//    same effect as "Remove banner", but targeted at a specific history row.
+function _toggleAnnouncementStatus(e) {
+  try {
+    const annId = sanitize(e.parameter.AnnId, 50);
+    if (!annId) return { status:"error", message:"Missing AnnId" };
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEETS.ANNOUNCEMENT);
+    if (!sheet) return { status:"error", message:"ANNOUNCEMENT sheet not found" };
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idCol = headers.indexOf("AnnId");
+    const stCol = headers.indexOf("Status");
+    if (stCol === -1) return { status:"error", message:"Status column missing" };
+    const rowIdx = data.findIndex((r,i) => i>0 && String(r[idCol]) === annId);
+    if (rowIdx === -1) return { status:"error", message:"Announcement not found" };
+    const current = String(data[rowIdx][stCol] || "Active").toLowerCase();
+    const activating = current !== "active";
+    if (activating) {
+      // Flip every row (including the target) to Past first, then activate the target.
+      for (let i = 1; i < data.length; i++) {
+        if (String(data[i][stCol]||"").toLowerCase()==="active") sheet.getRange(i+1, stCol+1).setValue("Past");
+      }
+      sheet.getRange(rowIdx+1, stCol+1).setValue("Active");
+    } else {
+      sheet.getRange(rowIdx+1, stCol+1).setValue("Past");
+    }
+    SpreadsheetApp.flush();
+    logAction(sanitize(e.parameter.AdminName,100) || "Admin", "toggleAnnouncementStatus", "AnnId: " + annId + " -> " + (activating ? "Active" : "Past"));
+    return { status:"success", newStatus: activating ? "Active" : "Past" };
+  } catch(err) { return { status:"error", message:err.message }; }
+}
+
 function _saveBroadcast(e) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let bcSheet = ss.getSheetByName(SHEETS.BROADCAST);
-    if (!bcSheet) { bcSheet = ss.insertSheet(SHEETS.BROADCAST); bcSheet.appendRow(["BcId","Type","Priority","Title","Message","Time","AdminName"]); }
+    if (!bcSheet) { bcSheet = ss.insertSheet(SHEETS.BROADCAST); bcSheet.appendRow(["BcId","Type","Priority","Title","Message","Time","AdminName","Status"]); }
+    // Existing sheets created before this feature won't have the Status
+    // column yet — add it on the fly so old data keeps working.
+    const hdrRow = bcSheet.getRange(1,1,1,bcSheet.getLastColumn()).getValues()[0];
+    if (hdrRow.indexOf("Status")===-1) bcSheet.getRange(1, hdrRow.length+1).setValue("Status");
     const newBcId = generateSheetId("BCAST");
-    bcSheet.appendRow([
-      newBcId,
-      sanitize(e.parameter.type     ||"announcement",30),
-      sanitize(e.parameter.priority ||"normal",20),
-      sanitize(e.parameter.title    ||"",200),
-      sanitize(e.parameter.message  ||"",2000),
-      sanitize(e.parameter.time     ||formatDate(),50),
-      sanitize(e.parameter.AdminName||"Admin",100)
-    ]);
+    const freshHdrs = bcSheet.getRange(1,1,1,bcSheet.getLastColumn()).getValues()[0];
+    bcSheet.appendRow(freshHdrs.map(h=>{
+      if(h==="BcId")     return newBcId;
+      if(h==="Type")     return sanitize(e.parameter.type     ||"announcement",30);
+      if(h==="Priority") return sanitize(e.parameter.priority ||"normal",20);
+      if(h==="Title")    return sanitize(e.parameter.title    ||"",200);
+      if(h==="Message")  return sanitize(e.parameter.message  ||"",2000);
+      if(h==="Time")     return sanitize(e.parameter.time     ||formatDate(),50);
+      if(h==="AdminName")return sanitize(e.parameter.AdminName||"Admin",100);
+      if(h==="Status")   return "Enabled";
+      return "";
+    }));
     SpreadsheetApp.flush();
     logAction(e.parameter.AdminName||"Admin","saveBroadcast","Id: "+newBcId);
     return { status:"success", bcId:newBcId };
@@ -4665,6 +4727,35 @@ function _deleteBroadcast(e) {
         SpreadsheetApp.flush();
         logAction(sanitize(e.parameter.AdminName,100) || "Admin", "deleteBroadcast", "BcId: " + bcId);
         return { status:"success" };
+      }
+    }
+    return { status:"error", message:"Broadcast not found" };
+  } catch(err) { return { status:"error", message:err.message }; }
+}
+
+// Flips a broadcast between Enabled/Disabled instead of deleting it — used
+// by the admin "toggle" control in Broadcast History. Disabled broadcasts
+// stay in the sheet (so they can be re-enabled later) but are filtered out
+// of _getBroadcasts(), which is what feeds the member dashboard/bell.
+function _toggleBroadcast(e) {
+  try {
+    const bcId = sanitize(e.parameter.BcId, 50);
+    if (!bcId) return { status:"error", message:"Missing BcId" };
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEETS.BROADCAST);
+    if (!sheet) return { status:"error", message:"BROADCAST sheet not found" };
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idCol = headers.indexOf("BcId");
+    let stCol = headers.indexOf("Status");
+    if (stCol === -1) { sheet.getRange(1, headers.length+1).setValue("Status"); stCol = headers.length; }
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][idCol]) === bcId) {
+        const current = String(data[i][stCol] || "Enabled");
+        const next = current.toLowerCase() === "disabled" ? "Enabled" : "Disabled";
+        sheet.getRange(i+1, stCol+1).setValue(next);
+        SpreadsheetApp.flush();
+        logAction(sanitize(e.parameter.AdminName,100) || "Admin", "toggleBroadcast", "BcId: " + bcId + " -> " + next);
+        return { status:"success", newStatus: next };
       }
     }
     return { status:"error", message:"Broadcast not found" };

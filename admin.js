@@ -1867,6 +1867,29 @@
       }, "Remove", "#0F766E");
     }
 
+    // Toggles a single history item between Active/Past. Activating one
+    // automatically deactivates whichever other item was active (enforced
+    // server-side too), so only one announcement is ever live at a time.
+    function toggleAnnouncementItem(annId, isActive) {
+      if (!checkSession() || !annId) return;
+      var goingTo = isActive ? "Disable" : "Enable";
+      var warnLine = isActive
+        ? "This removes the banner from the home page."
+        : "This will show it on the home page and disable any other active announcement.";
+      confirmModal(goingTo + ' this announcement?<br><span style="font-size:12px;color:#94a3b8;">' + warnLine + '</span>', async function () {
+        var session = JSON.parse(localStorage.getItem("session") || "{}");
+        try {
+          var res = await postData({ action: "toggleAnnouncementStatus", AnnId: annId, AdminName: session.name || "Admin" });
+          if (res && res.status === "success") {
+            toast("Announcement " + (res.newStatus === "Active" ? "enabled" : "disabled") + ".", "success");
+            loadAnnouncementAdmin();
+          } else {
+            toast((res && res.message) || "This isn't available yet — the Apps Script backend needs to be redeployed with the latest code.", "warn");
+          }
+        } catch (e) { toast("Error: " + e.message, "error"); }
+      }, goingTo, isActive ? "#e74c3c" : "#16a34a");
+    }
+
     async function loadAnnouncementAdmin() {
       var list = document.getElementById("annHistoryList");
       if (!list) return;
@@ -1893,9 +1916,10 @@
             escapeHtml(a.AdminName || "Admin") + ' · ' + escapeHtml(a.CreatedAt || "—") +
             '</div>' +
             '</div>' +
-            (isActive ?
-              '<button onclick="clearAnnouncement()" title="Remove" style="background:rgba(231,76,60,0.1);color:#e74c3c;border:1px solid rgba(231,76,60,0.25);border-radius:7px;padding:5px 10px;font-size:12px;cursor:pointer;box-shadow:none;flex-shrink:0;">' +
-              '<i class="fa-solid fa-ban"></i></button>' : '') +
+            '<button onclick="toggleAnnouncementItem(\'' + escapeHtml(a.AnnId || "") + '\', ' + isActive + ')" title="' + (isActive ? "Disable" : "Enable") + '" style="background:' +
+              (isActive ? 'rgba(231,76,60,0.1);color:#e74c3c;border:1px solid rgba(231,76,60,0.25);' : 'rgba(22,163,74,0.1);color:#16a34a;border:1px solid rgba(22,163,74,0.25);') +
+              'border-radius:7px;padding:5px 10px;font-size:12px;cursor:pointer;box-shadow:none;flex-shrink:0;">' +
+              '<i class="fa-solid ' + (isActive ? 'fa-ban' : 'fa-check') + '"></i></button>' +
             '</div>';
         }).join("");
       } catch (e) {
@@ -8294,7 +8318,9 @@
     async function _loadBroadcastHistory() {
       const container = document.getElementById("broadcastHistory");
       try {
-        const res = await getData("getBroadcasts");
+        // Admin view: includes disabled broadcasts too (so they can be
+        // re-enabled), unlike getBroadcasts which only returns enabled ones.
+        const res = await getData("getBroadcastsAdmin");
         const list = Array.isArray(res) ? res : [];
         _bcHistory = list.map(function (b) {
           return {
@@ -8305,6 +8331,7 @@
             message: b.Message || b.message || "",
             time: b.Time || b.time || "",
             adminName: b.AdminName || b.adminName || "Admin",
+            status: b.Status || b.status || "Enabled",
           };
         });
       } catch (e) {
@@ -8317,35 +8344,43 @@
       renderBroadcastHistory();
     }
 
-    // Deletes one broadcast (with confirmation) — removes it from the sheet,
-    // so it also disappears from every member's dashboard/bell next load.
-    function _deleteBroadcastItem(bcId, title) {
+    // Flips a broadcast between Enabled/Disabled instead of deleting it.
+    // Disabled broadcasts stay in history (dimmed, admin-only) and can be
+    // re-enabled later; they disappear from every member's dashboard/bell
+    // the moment they're disabled.
+    function _toggleBroadcastItem(bcId, title, currentlyEnabled) {
       if (!bcId) return;
+      const goingTo = currentlyEnabled ? "Disable" : "Enable";
+      const warnLine = currentlyEnabled
+        ? 'This hides it from all members too.'
+        : 'This makes it visible to all members again.';
       confirmModal(
-        'Delete broadcast "' + escapeHtml(title) + '"?<br><span style="font-size:12px;color:#94a3b8;">This removes it for all members too.</span>',
+        goingTo + ' broadcast "' + escapeHtml(title) + '"?<br><span style="font-size:12px;color:#94a3b8;">' + warnLine + '</span>',
         function () {
           const session = JSON.parse(localStorage.getItem("session") || "{}");
-          return postData({ action: "deleteBroadcast", BcId: bcId, AdminName: session.name || "Admin" })
+          return postData({ action: "toggleBroadcast", BcId: bcId, AdminName: session.name || "Admin" })
             .then(function (res) {
               if (res && res.status === "success") {
-                _bcHistory = _bcHistory.filter(function (b) { return b.bcId !== bcId; });
+                const item = _bcHistory.find(function (b) { return b.bcId === bcId; });
+                if (item) item.status = res.newStatus || (currentlyEnabled ? "Disabled" : "Enabled");
                 renderBroadcastHistory();
-                toast("Broadcast deleted.", "success");
+                toast("Broadcast " + (res.newStatus === "Disabled" ? "disabled" : "enabled") + ".", "success");
               } else if (res && res.message) {
                 toast(res.message, "warn");
               } else {
                 // Empty/unrecognized result usually means the deployed Apps Script
-                // backend doesn't have the deleteBroadcast action yet — needs redeploy.
-                toast("Delete isn't available yet — the Apps Script backend needs to be redeployed with the latest code.", "warn");
+                // backend doesn't have the toggleBroadcast action yet — needs redeploy.
+                toast("This isn't available yet — the Apps Script backend needs to be redeployed with the latest code.", "warn");
               }
             })
             .catch(function () {
-              toast("Could not delete broadcast — check your connection.", "warn");
+              toast("Could not update broadcast — check your connection.", "warn");
             });
         },
-        "Delete",
-        "#e74c3c"
-      );    }
+        goingTo,
+        currentlyEnabled ? "#e74c3c" : "#16a34a"
+      );
+    }
 
     function renderBroadcastHistory() {
       const container = document.getElementById("broadcastHistory");
@@ -8360,12 +8395,17 @@
       const prioBg = { urgent: "#fee2e2", important: "#F0FDFA", normal: "#f1f5f9", low: "#f8fafc" };
       container.innerHTML = _bcHistory
         .map(
-          (b) =>
-            `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px;margin-bottom:10px;border-left:4px solid ${prioColor[b.priority] || "#ccc"};position:relative;">
-            <button type="button" onclick="_deleteBroadcastItem('${b.bcId}', '${escapeHtml(b.title).replace(/'/g, "&#39;")}')" title="Delete this broadcast"
-              style="position:absolute;top:10px;right:12px;background:none;border:none;color:#cbd5e1;font-size:13px;cursor:pointer;padding:4px;line-height:1;"
-              onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#cbd5e1'">
-              <i class="fa-solid fa-trash"></i>
+          (b) => {
+            const enabled = String(b.status || "Enabled").toLowerCase() !== "disabled";
+            const dimStyle = enabled ? "" : "opacity:0.55;";
+            const btnIcon = enabled ? "fa-toggle-on" : "fa-toggle-off";
+            const btnColor = enabled ? "#16a34a" : "#94a3b8";
+            const btnTitle = enabled ? "Disable (hide from members)" : "Enable (show to members)";
+            return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px;margin-bottom:10px;border-left:4px solid ${prioColor[b.priority] || "#ccc"};position:relative;${dimStyle}">
+            ${!enabled ? '<span style="position:absolute;top:10px;right:44px;font-size:9.5px;font-weight:700;color:#94a3b8;background:#f1f5f9;border-radius:8px;padding:1px 7px;">DISABLED</span>' : ""}
+            <button type="button" onclick="_toggleBroadcastItem('${b.bcId}', '${escapeHtml(b.title).replace(/'/g, "&#39;")}', ${enabled})" title="${btnTitle}"
+              style="position:absolute;top:8px;right:12px;background:none;border:none;color:${btnColor};font-size:18px;cursor:pointer;padding:4px;line-height:1;">
+              <i class="fa-solid ${btnIcon}"></i>
             </button>
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px;padding-right:24px;">
               <span style="display:flex;align-items:center;gap:6px;">
@@ -8379,7 +8419,8 @@
               b.message.substring(0, 120)
             )}${b.message.length > 120 ? "…" : ""}</div>
             <div style="font-size:10.5px;color:#aaa;">Sent by ${escapeHtml(b.adminName || "Admin")}</div>
-          </div>`
+          </div>`;
+          }
         )
         .join("");
     }
