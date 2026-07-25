@@ -2982,7 +2982,7 @@
       }
       // Show most recent 8
       var recent = walkIns.slice().sort(function(a,b) {
-        return String(b.PaymentDate||"").localeCompare(String(a.PaymentDate||""));
+        return _dash_parseDateSort(b.PaymentDate).localeCompare(_dash_parseDateSort(a.PaymentDate));
       }).slice(0, 8);
 
       el.innerHTML = recent.map(function(c) {
@@ -5973,7 +5973,7 @@
       if (!amtEl) return;
       const userContribs = data
         .filter(c => String(c.UserId) === String(userId))
-        .sort((a, b) => new Date(b.PaymentDate || 0) - new Date(a.PaymentDate || 0));
+        .sort((a, b) => _dash_parseDateSort(b.PaymentDate).localeCompare(_dash_parseDateSort(a.PaymentDate)));
       if (userContribs.length === 0) return;
       const last = userContribs[0];
       if (!amtEl.value) {
@@ -6134,7 +6134,7 @@
             <label class="sp-label">Note</label>
             <input class="sp-input" id="prev_note" value="${escapeHtml(note)}" placeholder="Optional note" />
           </div>
-          <div id="_dupWarnBannerSP" style="display:none;background:linear-gradient(90deg,#fff7ed,#ffedd5);border:1.5px solid #fb923c;border-radius:10px;padding:10px 14px;font-size:12px;color:#9a3412;display:flex;align-items:flex-start;gap:8px;margin-bottom:4px;">
+          <div id="_dupWarnBannerSP" style="display:none;background:linear-gradient(90deg,#fff7ed,#ffedd5);border:1.5px solid #fb923c;border-radius:10px;padding:10px 14px;font-size:12px;color:#9a3412;align-items:flex-start;gap:8px;margin-bottom:4px;">
             <i class="fa-solid fa-triangle-exclamation" style="margin-top:1px;flex-shrink:0;color:#ea580c;"></i>
             <span id="_dupWarnTextSP"></span>
           </div>
@@ -12275,9 +12275,10 @@
 
     function dash_switchTab(tab) {
       _dash_activeTab = tab;
-      // Toggle tab button styles
-      document.getElementById("dash_tab_contrib").classList.toggle("dash-tab-active", tab === "contrib");
-      document.getElementById("dash_tab_expense").classList.toggle("dash-tab-active", tab === "expense");
+      // Toggle which folder tab is "open" (color comes from the button's
+      // static tab-type-contrib/tab-type-expense class + this is-active flag)
+      document.getElementById("dash_tab_contrib").classList.toggle("is-active", tab === "contrib");
+      document.getElementById("dash_tab_expense").classList.toggle("is-active", tab === "expense");
       // Show/hide panels
       document.getElementById("dash_panel_contrib").style.display = tab === "contrib" ? "" : "none";
       document.getElementById("dash_panel_expense").style.display = tab === "expense" ? "" : "none";
@@ -12483,9 +12484,9 @@
 
       // Sort
       _et_filtered.sort((a,b) => {
-        const da = _ct_fmtDate(a.PaymentDate), db = _ct_fmtDate(b.PaymentDate);
-        if (_et_sortBy === "date_desc")   return db < da ? -1 : 1;
-        if (_et_sortBy === "date_asc")    return da < db ? -1 : 1;
+        const da = _dash_parseDateSort(a.PaymentDate), db = _dash_parseDateSort(b.PaymentDate);
+        if (_et_sortBy === "date_desc")   return db.localeCompare(da);
+        if (_et_sortBy === "date_asc")    return da.localeCompare(db);
         if (_et_sortBy === "amount_desc") return Number(b.Amount||0) - Number(a.Amount||0);
         if (_et_sortBy === "amount_asc")  return Number(a.Amount||0) - Number(b.Amount||0);
         if (_et_sortBy === "title_asc")   return (a.Title||"").localeCompare(b.Title||"");

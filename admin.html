@@ -789,9 +789,9 @@
           </div>
         </div>
 
-        <!-- ── Row 2: Tracker header + Tab switcher + Export ── -->
-        <div id="dash-tracker-hdr" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
-          <!-- Left: icon + title + tabs -->
+        <!-- ── Row 2: Tracker header + Export ── -->
+        <div id="dash-tracker-hdr" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+          <!-- Left: icon + title -->
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
             <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#0F766E,#f59e0b);display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(15, 118, 110,0.35);flex-shrink:0;">
               <i class="fa-solid fa-chart-line" style="color:#fff;font-size:15px;"></i>
@@ -799,15 +799,6 @@
             <div>
               <div style="font-size:15px;font-weight:700;color:#1e293b;">Financial Tracker</div>
               <div style="font-size:11px;color:#94a3b8;margin-top:1px;">Power Filtered — Full Track</div>
-            </div>
-            <!-- Tab pills -->
-            <div style="display:flex;gap:4px;background:#f1f5f9;border-radius:10px;padding:3px;">
-              <button id="dash_tab_contrib" onclick="dash_switchTab('contrib')" class="dash-tab-active" style="padding:6px 14px;border-radius:8px;border:none;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;background:#fff;color:#1e293b;box-shadow:0 1px 4px rgba(0,0,0,0.1);">
-                <i class="fa-solid fa-hand-holding-dollar" style="color:#22c55e;"></i> Contributions
-              </button>
-              <button id="dash_tab_expense" onclick="dash_switchTab('expense')" style="padding:6px 14px;border-radius:8px;border:none;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;background:transparent;color:#64748b;box-shadow:none;">
-                <i class="fa-solid fa-file-invoice-dollar" style="color:#ef4444;"></i> Expenses
-              </button>
             </div>
           </div>
           <!-- Right: Export buttons -->
@@ -824,8 +815,18 @@
           </div>
         </div>
 
+        <!-- ── Row 2b: Full-width folder-style tab switcher ── -->
+        <div class="dash-tab-folder" id="dash_tab_switch">
+          <button id="dash_tab_contrib" class="dash-tab-btn tab-type-contrib is-active" onclick="dash_switchTab('contrib')">
+            <i class="fa-solid fa-hand-holding-dollar"></i> Contributions
+          </button>
+          <button id="dash_tab_expense" class="dash-tab-btn tab-type-expense" onclick="dash_switchTab('expense')">
+            <i class="fa-solid fa-file-invoice-dollar"></i> Expenses
+          </button>
+        </div>
+
         <!-- ══ CONTRIBUTION PANEL ══ -->
-        <div id="dash_panel_contrib">
+        <div id="dash_panel_contrib" class="dash-tab-panel tab-type-contrib">
           <!-- Section divider -->
           <div class="ct-sec-divider" style="margin-bottom:14px;">
             <span></span>
@@ -979,7 +980,7 @@
         </div>
 
         <!-- TABLE VIEW -->
-        <div class="card" id="ct_view_table">
+        <div class="card ct-view-panel" id="ct_view_table">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
             <h3 style="margin:0;font-size:13px;">
               <i class="fa-solid fa-list-check" style="color:#0F766E;"></i>
@@ -1015,12 +1016,12 @@
         </div>
 
         <!-- MEMBER CARDS VIEW (hidden by default) -->
-        <div id="ct_view_cards" style="display:none;">
+        <div class="ct-view-panel" id="ct_view_cards" style="display:none;">
           <div id="ct_cardsBody" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;"></div>
         </div>
 
         <!-- MONTH GRID VIEW (hidden by default) -->
-        <div id="ct_view_grid" style="display:none;">
+        <div class="ct-view-panel" id="ct_view_grid" style="display:none;">
           <div class="card">
             <h3 style="font-size:13px;margin-bottom:12px;">
               <i class="fa-solid fa-calendar-days" style="color:#0F766E;"></i> Month × Member Payment Grid
@@ -1034,7 +1035,7 @@
         </div><!-- end #dash_panel_contrib -->
 
         <!-- ══ EXPENSE PANEL ══ -->
-        <div id="dash_panel_expense" style="display:none;">
+        <div id="dash_panel_expense" class="dash-tab-panel tab-type-expense" style="display:none;">
 
           <div class="ct-sec-divider" style="margin-bottom:14px;">
             <span></span>
