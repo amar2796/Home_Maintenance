@@ -8398,22 +8398,22 @@
           (b) => {
             const enabled = String(b.status || "Enabled").toLowerCase() !== "disabled";
             const dimStyle = enabled ? "" : "opacity:0.55;";
-            const btnIcon = enabled ? "fa-toggle-on" : "fa-toggle-off";
-            const btnColor = enabled ? "#16a34a" : "#94a3b8";
             const btnTitle = enabled ? "Disable (hide from members)" : "Enable (show to members)";
-            return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px;margin-bottom:10px;border-left:4px solid ${prioColor[b.priority] || "#ccc"};position:relative;${dimStyle}">
-            ${!enabled ? '<span style="position:absolute;top:10px;right:44px;font-size:9.5px;font-weight:700;color:#94a3b8;background:#f1f5f9;border-radius:8px;padding:1px 7px;">DISABLED</span>' : ""}
-            <button type="button" onclick="_toggleBroadcastItem('${b.bcId}', '${escapeHtml(b.title).replace(/'/g, "&#39;")}', ${enabled})" title="${btnTitle}"
-              style="position:absolute;top:8px;right:12px;background:none;border:none;color:${btnColor};font-size:18px;cursor:pointer;padding:4px;line-height:1;">
-              <i class="fa-solid ${btnIcon}"></i>
-            </button>
-            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px;padding-right:24px;">
-              <span style="display:flex;align-items:center;gap:6px;">
+            return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px;margin-bottom:10px;border-left:4px solid ${prioColor[b.priority] || "#ccc"};${dimStyle}">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:6px;">
+              <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;">
                 <span>${typeIcon[b.type] || "📢"}</span>
                 <span style="background:${prioBg[b.priority] || "#f1f5f9"};color:${prioColor[b.priority] || "#334155"};padding:2px 9px;border-radius:12px;font-size:10.5px;font-weight:700;">${(b.priority || "normal").toUpperCase()}</span>
                 <b style="font-size:13px;">${escapeHtml(b.title)}</b>
               </span>
-              <span style="font-size:11px;color:#aaa;">${escapeHtml(_formatBcTime(b.time))}</span>
+              <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+                <span style="font-size:11px;color:#aaa;white-space:nowrap;">${escapeHtml(_formatBcTime(b.time))}</span>
+                ${!enabled ? '<span style="font-size:9.5px;font-weight:700;color:#94a3b8;background:#f1f5f9;border-radius:8px;padding:1px 7px;white-space:nowrap;">DISABLED</span>' : ""}
+                <label class="ea-toggle" title="${btnTitle}">
+                  <input type="checkbox" ${enabled ? "checked" : ""} onclick="event.preventDefault(); _toggleBroadcastItem('${b.bcId}', '${escapeHtml(b.title).replace(/'/g, "&#39;")}', ${enabled})">
+                  <span class="ea-slider"></span>
+                </label>
+              </div>
             </div>
             <div style="font-size:12px;color:#555;margin-bottom:4px;">${escapeHtml(
               b.message.substring(0, 120)

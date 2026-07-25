@@ -695,9 +695,8 @@ tbody tr:hover {
     font-size: 0.92rem;
   }
 
-  /* Home dashboard: collapse 2-col and 3-col to single col on mobile */
-  #home [style*="grid-template-columns:1fr 1fr"],
-  #home [style*="grid-template-columns:1fr 1fr 1fr"] {
+  /* Home dashboard: collapse 2-col grid to single col on mobile */
+  #home [style*="grid-template-columns:1fr 1fr"] {
     grid-template-columns: 1fr !important;
   }
 }
@@ -4360,9 +4359,11 @@ body.dark-mode .card {
     max-height: 170px !important;
   }
 
-  /* Bar chart */
+  /* Bar chart — now a scrollable 12-row month list in its own full-width
+     card (not the old horizontal flex-bar chart), so it needs real room
+     instead of the old chart's compact height. */
   #hm_bar_chart {
-    height: 78px !important;
+    max-height: 180px !important;
   }
 
   /* Quick Actions buttons */
@@ -4372,11 +4373,19 @@ body.dark-mode .card {
     font-size: 11px !important;
   }
 
-  /* Home 3-col section → 1-col (chart/alerts/actions) already handled
-     by the existing rule, but reinforce for consistency */
-  #home [style*="grid-template-columns:1fr 1fr 1fr"] {
-    grid-template-columns: 1fr !important;
+  /* Backup-status row: let it wrap on the smallest screens instead of
+     squeezing the date text and "Back up now" button onto one line */
+  #hm_backup_row {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
   }
+
+  /* Pending-₹-estimate line: smaller font so a longer estimate doesn't wrap
+     to 2-3 lines and stretch this KPI card taller than its row siblings */
+  #kpi_pending_amt {
+    font-size: 10px !important;
+  }
+
   /* Home 2-col section → 1-col */
   #home [style*="grid-template-columns:1fr 1fr"] {
     grid-template-columns: 1fr !important;
