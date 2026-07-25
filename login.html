@@ -19,14 +19,14 @@
 
 <div class="login-shell">
 
-  <!-- BRAND PANEL — decorative only, no functional elements -->
-  <aside class="brand-panel" aria-hidden="true">
+  <!-- BRAND PANEL — logo doubles as back-to-home link -->
+  <aside class="brand-panel">
     <div class="brand-inner">
-      <div class="brand-logo-wrap">
+      <a href="index.html" class="brand-logo-wrap" aria-label="Back to home page">
         <img src="Image/logo.PNG" alt="" class="header-icon-img"
           onerror="this.style.display='none';document.getElementById('brandIconFallback').style.display='inline';">
         <i id="brandIconFallback" class="fa-solid fa-house-user" style="display:none;color:#fff;font-size:1.6rem;"></i>
-      </div>
+      </a>
       <h1 class="brand-name" id="brandName">Household Hub</h1>
       <p class="brand-location" id="brandLocation"></p>
       <ul class="brand-features">
@@ -44,11 +44,6 @@
 
     <!-- Cream header -->
     <div class="card-header">
-      <a href="index.html" class="header-icon-wrap" id="hdrIconWrap" aria-label="Go to home page">
-        <img src="Image/logo.PNG" alt="Home Logo" class="header-icon-img"
-          onerror="this.style.display='none';document.getElementById('hdrIcon').style.display='inline';">
-        <i id="hdrIcon" class="fa-solid fa-house-user" style="display:none;color:#0F766E;font-size:1.6rem;filter:drop-shadow(0 0 6px rgba(15, 118, 110,0.4));"></i>
-      </a>
       <h2>Household Login</h2>
       <span class="card-subtitle" id="loginSubtitle"></span>
     </div>
