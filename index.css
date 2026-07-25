@@ -23,6 +23,8 @@
     overflow-x: hidden;
     /* Smooth momentum scrolling on iOS */
     -webkit-overflow-scrolling: touch;
+    /* Header eases down/up instead of snapping when the banner opens or closes */
+    transition: padding-top 0.35s ease;
   }
   ::-webkit-scrollbar {
     width: 10px;
@@ -182,7 +184,6 @@
     width: 100%;
     box-sizing: border-box;
     height: 64px;
-    animation: fadeIn 1s ease-out 1.7s both;
     gap: 16px;
     /* Fix Firefox scroll-linked positioning warning */
     will-change: transform;
@@ -420,7 +421,25 @@
     .header-brand-text .brand-main { font-size: 0.88rem; }
     .header-brand-text .brand-sub  { display: none; }
     .nav-links { display: none; }
-    .login-nav-links { display: none; }
+    /* .nav-links is hidden, but its wrapper <div> still occupies a slot in the
+       header's `justify-content: space-between`, which spreads empty space
+       around that invisible slot too — pulling the toggle away from the
+       hamburger instead of grouping them. Remove the wrapper from the flex
+       row entirely so spacing stays consistent at every width. */
+    .header > div:nth-child(2) { display: none; }
+    /* Login already has a mobile equivalent inside the hamburger menu (.menu-login),
+       but the dark-mode toggle doesn't — so only hide the Login button here and
+       keep .login-nav-links (and the toggle inside it) visible and reachable.
+       margin-left:auto pins the toggle+hamburger group flush against the right
+       edge, tight against each other, regardless of leftover header width. */
+    .login-nav-links {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: auto;
+    }
+    .login-nav-links a.login-btn,
+    .login-nav-links a.login-donate-btn { display: none; }
     .hamburger-btn { display: flex; }
     .nav-menu { top: 56px; }
   }
