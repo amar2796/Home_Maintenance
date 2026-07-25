@@ -207,3 +207,48 @@ body.dark-mode .hf-contact-icon { background: rgba(15,118,110,0.18); }
 
 body.dark-mode .gallery-swiper-section,
 body.dark-mode .swiper-gallery { background: transparent; }
+
+/* ── Hero section: sync with the toggle ──────────────────────────────
+   The hero is already a dark teal/navy gradient, so leaving it untouched
+   made the toggle feel like it "skipped" this section. Deepen the tones
+   to match the rest of dark mode, and add a soft glass reflection that
+   sweeps across the hero once, right when the toggle fires — a visible
+   confirmation the change reached here too. */
+body.dark-mode .hero {
+  background:
+    radial-gradient(circle at 20% 25%, rgba(45, 212, 191, 0.22) 0%, transparent 45%),
+    radial-gradient(circle at 82% 70%, rgba(245, 158, 11, 0.14) 0%, transparent 42%),
+    linear-gradient(135deg, #060B14 0%, #0B3B37 45%, #0A5049 75%, #062420 100%);
+}
+body.dark-mode .hero::after {
+  background:
+    radial-gradient(circle at 50% 32%, rgba(255,255,255,0.08) 0%, transparent 40%),
+    radial-gradient(circle at 22% 28%, rgba(255,255,255,0.10) 0%, transparent 38%),
+    radial-gradient(circle at 82% 65%, rgba(147,197,253,0.14) 0%, transparent 42%),
+    linear-gradient(0deg, rgba(0,0,0,0.55) 0%, transparent 45%);
+}
+
+/* Reflection sweep — a soft diagonal band of light that glides across the
+   hero once. Element is created on demand by hfPlayHeroSweep() in
+   home-features.js, so no HTML changes are required. */
+.hero-mode-sweep {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 42%, rgba(255,255,255,0.22) 50%, transparent 58%);
+  background-size: 250% 250%;
+  background-position: -60% -60%;
+  opacity: 0;
+}
+.hero-mode-sweep.play {
+  animation: heroModeSweep 0.9s ease-out;
+}
+@keyframes heroModeSweep {
+  0%   { opacity: 0;   background-position: -60% -60%; }
+  15%  { opacity: 1; }
+  100% { opacity: 0;   background-position: 160% 160%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-mode-sweep.play { animation: none; }
+}
