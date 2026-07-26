@@ -185,4 +185,16 @@
       folderGallery: "1xIIFG2i3_DA7F2OXQUHPT1Gm1ToD95-i",  // Drive > GalleryPhotos/
       folderSlip:    "1SjbhXqzcwi0Ucvag8IxgVI4OQZVr_eds",   // Drive > PaymentSlips/
     
+    
+      /* ── BIRTHDAY WISH — FIXED REPLIES ──────────────────────────────────
+         One-tap reply messages shown to other active members when someone
+         has a birthday today (bell notification). Edit freely — no code
+         changes needed elsewhere; the bell reads this list directly. */
+      birthdayWishes: [
+        "🎉 Happy Birthday!",
+        "🎂 Wishing you a wonderful year ahead!",
+        "🙏 Many happy returns of the day!",
+        "🌸 Have a blessed birthday!"
+      ],
+    
     };

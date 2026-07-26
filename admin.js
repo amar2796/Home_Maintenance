@@ -790,6 +790,188 @@
     function closeAdminDropdown() {
       document.getElementById("adminDropdown").classList.remove("open");
     }
+
+    // ── Admin activity notifications — sourced from the Audit Log, so
+    // every add/update/delete (success or error) shows up automatically,
+    // without needing to be wired into each individual function. Also
+    // covers backend/system events (e.g. backup failures) the same way.
+    window._adminNotifStore = window._adminNotifStore || [];
+    const _ADMIN_NOTIF_SEEN_KEY = "admin_notif_seen_ids";
+
+    function _adminNotifIdOf(n) {
+      return String(n.time || "") + "|" + String(n.action || "") + "|" + String(n.actor || "");
+    }
+
+    function _getSeenAdminNotifIds() {
+      try { return new Set(JSON.parse(localStorage.getItem(_ADMIN_NOTIF_SEEN_KEY) || "[]")); }
+      catch (e) { return new Set(); }
+    }
+
+    function _markAdminNotifsSeen(ids) {
+      try {
+        const seen = _getSeenAdminNotifIds();
+        ids.forEach(function (id) { seen.add(id); });
+        const trimmed = Array.from(seen).slice(-400);
+        localStorage.setItem(_ADMIN_NOTIF_SEEN_KEY, JSON.stringify(trimmed));
+      } catch (e) { /* ignore storage errors */ }
+    }
+
+    const _ADMIN_NOTIF_DISMISSED_KEY = "admin_notif_dismissed_ids";
+
+    function _getDismissedAdminNotifIds() {
+      try { return new Set(JSON.parse(localStorage.getItem(_ADMIN_NOTIF_DISMISSED_KEY) || "[]")); }
+      catch (e) { return new Set(); }
+    }
+
+    function _saveDismissedAdminNotifIds(set) {
+      try {
+        const trimmed = Array.from(set).slice(-400); // cap so this never grows unbounded
+        localStorage.setItem(_ADMIN_NOTIF_DISMISSED_KEY, JSON.stringify(trimmed));
+      } catch (e) { /* ignore storage errors */ }
+    }
+
+    // Removes one notification from view and remembers it so it doesn't
+    // reappear on the next refresh (the Audit Log keeps growing, so this
+    // dismissal has to persist by ID, not just by clearing the list).
+    window._dismissAdminNotif = function (id) {
+      const d = _getDismissedAdminNotifIds();
+      d.add(id);
+      _saveDismissedAdminNotifIds(d);
+      _renderAdminNotifDropdown();
+    };
+
+    // Clears every notification currently in the tray at once.
+    window._clearAllAdminNotifs = function () {
+      const d = _getDismissedAdminNotifIds();
+      window._adminNotifStore.forEach(function (n) { d.add(_adminNotifIdOf(n)); });
+      _saveDismissedAdminNotifIds(d);
+      _renderAdminNotifDropdown();
+    };
+
+    // Turns "SESSION_EXPIRED" / "SaveContribution" / "Delete Contribution"
+    // into a readable title, whatever naming style was used when logged.
+    function _prettifyAuditAction(action) {
+      if (!action) return "Activity";
+      if (/^[A-Z0-9_]+$/.test(action)) {
+        return action.split("_").map(function (w) { return w.charAt(0) + w.slice(1).toLowerCase(); }).join(" ");
+      }
+      if (/\s/.test(action)) return action; // already "Delete Contribution" style
+      return action.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/^./, function (c) { return c.toUpperCase(); });
+    }
+
+    async function _loadAdminActivityNotifications() {
+      const list = document.getElementById("adminNotifList");
+      try {
+        const res = await getData("getAuditLog");
+        const rows = Array.isArray(res) ? res : [];
+        window._adminNotifStore = rows
+          .filter(function (r) {
+            // Skip login/session security housekeeping (a separate concern),
+            // keep everything else: real successes, failures, and system errors/warnings.
+            if (r.Result === "BLOCKED") return false;
+            const isRealActivity = r.Result === "SUCCESS" || r.Result === "FAILURE";
+            const isSystemProblem = r.Severity === "ERROR" || r.Severity === "CRITICAL";
+            return isRealActivity || isSystemProblem;
+          })
+          .slice(0, 60)
+          .map(function (r) {
+            const isError = r.Result === "FAILURE" || r.Severity === "ERROR" || r.Severity === "CRITICAL";
+            return {
+              action: r.Action || "",
+              kind: isError ? "error" : "success",
+              title: _prettifyAuditAction(r.Action),
+              message: r.Error || r.Details || r.Reason || "",
+              time: r.Timestamp || "",
+              actor: r.UserAdmin || "",
+            };
+          });
+      } catch (e) {
+        window._adminNotifStore = [];
+        if (list) list.innerHTML = '<div class="adm-notif-empty">Could not load activity.</div>';
+        return;
+      }
+      _renderAdminNotifDropdown();
+    }
+
+    function _updateAdminNotifBadge() {
+      const badge = document.getElementById("adminNotifBadge");
+      if (!badge) return;
+      const seen = _getSeenAdminNotifIds();
+      const dismissed = _getDismissedAdminNotifIds();
+      const unread = window._adminNotifStore.filter(function (n) { return !dismissed.has(_adminNotifIdOf(n)) && !seen.has(_adminNotifIdOf(n)); }).length;
+      if (unread > 0) {
+        badge.textContent = unread > 9 ? "9+" : String(unread);
+        badge.style.display = "";
+      } else {
+        badge.style.display = "none";
+      }
+    }
+
+    function _renderAdminNotifDropdown() {
+      const list = document.getElementById("adminNotifList");
+      if (!list) return;
+      const dismissed = _getDismissedAdminNotifIds();
+      const visible = window._adminNotifStore.filter(function (n) { return !dismissed.has(_adminNotifIdOf(n)); });
+      if (visible.length === 0) {
+        list.innerHTML = '<div class="adm-notif-empty">No recent activity</div>';
+        _updateAdminNotifBadge();
+        return;
+      }
+      const seen = _getSeenAdminNotifIds();
+      list.innerHTML = visible.map(function (n) {
+        const isUnread = !seen.has(_adminNotifIdOf(n));
+        const nid = _adminNotifIdOf(n).replace(/'/g, "");
+        return '<div class="adm-notif-item' + (isUnread ? ' unread' : '') + '">'
+          + '<span class="adm-notif-icon">' + (n.kind === "error" ? "❌" : "✅") + '</span>'
+          + '<div class="adm-notif-body">'
+          + '<div class="adm-notif-title' + (n.kind === "error" ? ' error' : '') + '">' + escapeHtml(n.title) + '</div>'
+          + (n.message ? '<div class="adm-notif-msg">' + escapeHtml(n.message) + '</div>' : '')
+          + '<div class="adm-notif-meta">' + escapeHtml(n.actor || "Admin") + ' · ' + escapeHtml(_formatBcTime(n.time)) + '</div>'
+          + '</div>'
+          + '<button type="button" class="adm-notif-item-close" title="Clear this notification" onclick="event.stopPropagation();_dismissAdminNotif(\'' + nid + '\')">✕</button>'
+          + '</div>';
+      }).join("");
+      _updateAdminNotifBadge();
+    }
+
+    function toggleAdminNotifDropdown() {
+      const dd = document.getElementById("adminNotifDropdown");
+      const wrap = document.getElementById("adminNotifWrap");
+      if (!dd) return;
+      const isOpen = dd.classList.toggle("open");
+      if (isOpen) {
+        // Reset any previous clamp before measuring fresh
+        dd.style.left = "";
+        dd.style.right = "0";
+        requestAnimationFrame(function () {
+          const rect = dd.getBoundingClientRect();
+          const margin = 8;
+          if (rect.left < margin && wrap) {
+            const wrapRect = wrap.getBoundingClientRect();
+            dd.style.right = "auto";
+            dd.style.left = (margin - wrapRect.left) + "px";
+          }
+        });
+        _markAdminNotifsSeen(window._adminNotifStore.map(_adminNotifIdOf));
+        _renderAdminNotifDropdown();
+      }
+    }
+
+    function closeAdminNotifDropdown() {
+      const dd = document.getElementById("adminNotifDropdown");
+      if (dd) dd.classList.remove("open");
+    }
+
+    document.addEventListener("click", function (e) {
+      if (!e.target.closest("#adminNotifWrap")) closeAdminNotifDropdown();
+    });
+
+    // Load on startup, then refresh periodically so new activity (from this
+    // admin or anyone else) shows up without needing a manual hook in every
+    // add/update/delete function.
+    _loadAdminActivityNotifications();
+    setInterval(_loadAdminActivityNotifications, 45000);
+
     document.addEventListener("click", (e) => {
       if (!e.target.closest("#adminAvatar") && !e.target.closest("#adminDropdown")) {
         closeAdminDropdown();
@@ -1685,6 +1867,29 @@
       }, "Remove", "#0F766E");
     }
 
+    // Toggles a single history item between Active/Past. Activating one
+    // automatically deactivates whichever other item was active (enforced
+    // server-side too), so only one announcement is ever live at a time.
+    function toggleAnnouncementItem(annId, isActive) {
+      if (!checkSession() || !annId) return;
+      var goingTo = isActive ? "Disable" : "Enable";
+      var warnLine = isActive
+        ? "This removes the banner from the home page."
+        : "This will show it on the home page and disable any other active announcement.";
+      confirmModal(goingTo + ' this announcement?<br><span style="font-size:12px;color:#94a3b8;">' + warnLine + '</span>', async function () {
+        var session = JSON.parse(localStorage.getItem("session") || "{}");
+        try {
+          var res = await postData({ action: "toggleAnnouncementStatus", AnnId: annId, AdminName: session.name || "Admin" });
+          if (res && res.status === "success") {
+            toast("Announcement " + (res.newStatus === "Active" ? "enabled" : "disabled") + ".", "success");
+            loadAnnouncementAdmin();
+          } else {
+            toast((res && res.message) || "This isn't available yet — the Apps Script backend needs to be redeployed with the latest code.", "warn");
+          }
+        } catch (e) { toast("Error: " + e.message, "error"); }
+      }, goingTo, isActive ? "#e74c3c" : "#16a34a");
+    }
+
     async function loadAnnouncementAdmin() {
       var list = document.getElementById("annHistoryList");
       if (!list) return;
@@ -1711,9 +1916,10 @@
             escapeHtml(a.AdminName || "Admin") + ' · ' + escapeHtml(a.CreatedAt || "—") +
             '</div>' +
             '</div>' +
-            (isActive ?
-              '<button onclick="clearAnnouncement()" title="Remove" style="background:rgba(231,76,60,0.1);color:#e74c3c;border:1px solid rgba(231,76,60,0.25);border-radius:7px;padding:5px 10px;font-size:12px;cursor:pointer;box-shadow:none;flex-shrink:0;">' +
-              '<i class="fa-solid fa-ban"></i></button>' : '') +
+            '<button onclick="toggleAnnouncementItem(\'' + escapeHtml(a.AnnId || "") + '\', ' + isActive + ')" title="' + (isActive ? "Disable" : "Enable") + '" style="background:' +
+              (isActive ? 'rgba(231,76,60,0.1);color:#e74c3c;border:1px solid rgba(231,76,60,0.25);' : 'rgba(22,163,74,0.1);color:#16a34a;border:1px solid rgba(22,163,74,0.25);') +
+              'border-radius:7px;padding:5px 10px;font-size:12px;cursor:pointer;box-shadow:none;flex-shrink:0;">' +
+              '<i class="fa-solid ' + (isActive ? 'fa-ban' : 'fa-check') + '"></i></button>' +
             '</div>';
         }).join("");
       } catch (e) {
@@ -2555,6 +2761,19 @@
         var paidPct = activeMembers.length > 0 ? Math.round((paidCount / activeMembers.length) * 100) : 0;
         el.innerHTML = 'of ' + activeMembers.length + ' members &nbsp;·&nbsp; <b style="color:#27ae60;">' + paidPct + '% paid</b>';
       }
+      // Estimated ₹ outstanding: there's no fixed per-member due amount in the
+      // data model, so this is an estimate based on what paid members actually
+      // gave this month (clearly labelled "est." so it isn't read as exact).
+      el = document.getElementById("kpi_pending_amt");
+      if (el) {
+        if (pendingCount > 0 && paidCount > 0) {
+          var avgPaidAmt = monthMemberC / paidCount;
+          var estPending = Math.round(avgPaidAmt * pendingCount);
+          el.innerHTML = '~₹' + fmt(estPending) + ' outstanding <span style="color:#94a3b8;font-weight:400;">(est.)</span>';
+        } else {
+          el.innerHTML = '&nbsp;';
+        }
+      }
 
       // ── Member badge (show selected period)
       el = document.getElementById("hm_member_badge");
@@ -2564,9 +2783,31 @@
       window._hmMemberData = { activeMembers: activeMembers, paidUserIds: paidUserIds, monthMembers: monthMembers, curMonth: curMonth, curYear: curYear };
       _hmRenderMemberList();
 
-      // ── Member summary
+      // ── Member summary (now includes avg + top contributor for the period,
+      // computed from monthMembers which is already available here)
       el = document.getElementById("hm_member_summary");
-      if (el) el.textContent = paidCount + " paid · " + pendingCount + " pending";
+      if (el) {
+        var summaryHtml = paidCount + ' paid · ' + pendingCount + ' pending';
+        if (paidCount > 0) {
+          var avgAmt = monthMemberC / paidCount;
+          summaryHtml += ' · Avg ₹' + fmt(Math.round(avgAmt));
+          var byMember = {};
+          monthMembers.forEach(function(c) {
+            var uid = String(c.UserId);
+            byMember[uid] = (byMember[uid] || 0) + Number(c.Amount || 0);
+          });
+          var topUid = null, topAmt = 0;
+          Object.keys(byMember).forEach(function(uid) {
+            if (byMember[uid] > topAmt) { topAmt = byMember[uid]; topUid = uid; }
+          });
+          if (topUid) {
+            var topUser = activeMembers.find(function(u) { return String(u.UserId) === topUid; });
+            if (topUser) summaryHtml += ' · Top: ' + escapeHtml(topUser.Name) + ' ₹' + fmt(topAmt);
+          }
+        }
+        el.innerHTML = summaryHtml;
+        el.title = summaryHtml.replace(/<[^>]*>/g, "");
+      }
 
       // ── Walk-in list
       _hmRenderWalkinList(monthWalkIns);
@@ -2581,8 +2822,95 @@
       // ── Smart alerts
       _hmRenderAlerts(pendingCount, monthE, activeMembers, curMonth, curYear);
 
+      // ── Occasion breakdown (this month, includes walk-ins)
+      _hmRenderOccasionBreakdown(monthContribs);
+
+      // ── Backup status (independent of period — only needs to run once per
+      // page load, not on every month/year change)
+      if (!window._hmBackupChecked) {
+        window._hmBackupChecked = true;
+        _hmLoadBackupStatus();
+      }
+
       // ── Year tracker
       _hmRenderYearTracker(curYear, curMonth);
+    }
+
+    function _hmRenderOccasionBreakdown(monthContribs) {
+      var card = document.getElementById("hm_occasion_card");
+      var el   = document.getElementById("hm_occasion_list");
+      if (!card || !el) return;
+
+      var byOcc = {};
+      var total = 0;
+      monthContribs.forEach(function(c) {
+        var amt = Number(c.Amount || 0);
+        var key = c.OccasionId ? String(c.OccasionId) : "_none";
+        byOcc[key] = (byOcc[key] || 0) + amt;
+        total += amt;
+      });
+
+      var keys = Object.keys(byOcc).filter(function(k) { return k !== "_none"; });
+      // Hide the whole card when there's nothing occasion-tagged this month,
+      // rather than showing an empty/confusing widget.
+      if (keys.length === 0 || total === 0) {
+        card.style.display = "none";
+        return;
+      }
+      card.style.display = "block";
+
+      var rows = keys.map(function(k) {
+        var occ  = (occasions || []).find(function(o) { return String(o.OccasionId) === k; });
+        var name = occ ? occ.OccasionName : "Other";
+        var amt  = byOcc[k];
+        var pct  = total > 0 ? Math.round((amt / total) * 100) : 0;
+        return { name: name, amt: amt, pct: pct };
+      }).sort(function(a, b) { return b.amt - a.amt; });
+
+      // Untagged contributions, if any, shown as a neutral trailing chip
+      if (byOcc["_none"] > 0) {
+        rows.push({ name: "Not tagged", amt: byOcc["_none"], pct: Math.round((byOcc["_none"] / total) * 100), neutral: true });
+      }
+
+      el.innerHTML = rows.map(function(r) {
+        var bg  = r.neutral ? "#f1f5f9" : "#f0fdfa";
+        var bd  = r.neutral ? "#e2e8f0" : "#99f6e4";
+        var col = r.neutral ? "#64748b" : "#0F766E";
+        return '<div style="background:' + bg + ';border:1px solid ' + bd + ';border-radius:10px;padding:8px 12px;min-width:110px;">' +
+          '<div style="font-size:11px;font-weight:600;color:' + col + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;">' + escapeHtml(r.name) + '</div>' +
+          '<div style="font-size:13px;font-weight:700;color:#334155;margin-top:2px;">₹' + fmt(r.amt) + '</div>' +
+          '<div style="font-size:10px;color:#94a3b8;">' + r.pct + '% of month</div>' +
+        '</div>';
+      }).join("");
+    }
+
+    function _hmLoadBackupStatus() {
+      var el = document.getElementById("hm_backup_status");
+      if (!el) return;
+      getData("getHealthCheck").then(function(res) {
+        if (!res || res.status !== "ok" || !res.checks) {
+          el.innerHTML = '<span style="color:#94a3b8;">Backup status unavailable</span>';
+          return;
+        }
+        var last = res.checks.last_backup;
+        if (!last || last === "Never") {
+          el.innerHTML = '<span style="color:#e74c3c;font-weight:700;"><i class="fa-solid fa-triangle-exclamation"></i> No backup on record</span>';
+          return;
+        }
+        var d = new Date(last);
+        var daysAgo = isNaN(d) ? null : Math.floor((new Date() - d) / 86400000);
+        var dateLabel = isNaN(d) ? String(last) : d.toLocaleDateString(APP.locale||"en-IN");
+        var col = "#94a3b8";
+        if (daysAgo !== null) {
+          if (daysAgo > 35) col = "#e74c3c";
+          else if (daysAgo > 14) col = "#d97706";
+          else col = "#27ae60";
+        }
+        el.innerHTML = '<span style="color:' + col + ';font-weight:600;">Last backup: ' + dateLabel +
+          (daysAgo !== null ? ' (' + daysAgo + 'd ago)' : '') + '</span>';
+      }).catch(function() {
+        el.innerHTML = '<span style="color:#94a3b8;">Backup status unavailable</span>';
+      });
     }
 
     function _hmMemberTab(filter, btn) {
@@ -2623,9 +2951,14 @@
         var myContribs = d.monthMembers.filter(function(c) { return String(c.UserId) === String(u.UserId); });
         var myAmt      = myContribs.reduce(function(s,c) { return s + Number(c.Amount||0); }, 0);
 
-        var subLine = paid
-          ? "Paid · ₹" + fmt(myAmt)
-          : (String(u.Status||"").toLowerCase() === "inactive" ? "Inactive" : "Pending");
+        var isInactive = String(u.Status||"").toLowerCase() === "inactive";
+        var subLine = paid ? "Paid · ₹" + fmt(myAmt) : (isInactive ? "Inactive" : "Pending");
+
+        var rightHtml = paid
+          ? '<span style="font-size:11px;font-weight:700;color:#27ae60;white-space:nowrap;flex-shrink:0;">₹' + fmt(myAmt) + '</span>'
+          : isInactive
+            ? '<span style="font-size:10px;font-weight:700;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:20px;padding:3px 10px;white-space:nowrap;flex-shrink:0;">Inactive</span>'
+            : '<span style="font-size:10px;font-weight:700;color:#dc2626;background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.35);border-radius:20px;padding:3px 10px;white-space:nowrap;flex-shrink:0;">Pending</span>';
 
         return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9;">' +
           '<div style="width:8px;height:8px;border-radius:50%;background:' + dotCol + ';flex-shrink:0;"></div>' +
@@ -2634,7 +2967,7 @@
             '<div style="font-size:12px;font-weight:600;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(u.Name||"—") + '</div>' +
             '<div style="font-size:10px;color:#94a3b8;">' + subLine + '</div>' +
           '</div>' +
-          '<span style="font-size:11px;font-weight:700;color:' + (paid ? "#27ae60" : "#e74c3c") + ';">' + (paid ? "₹" + fmt(myAmt) : "—") + '</span>' +
+          rightHtml +
         '</div>';
       }).join("");
       if (window._lazyLoadDriveImgs) window._lazyLoadDriveImgs(el);
@@ -2649,7 +2982,7 @@
       }
       // Show most recent 8
       var recent = walkIns.slice().sort(function(a,b) {
-        return String(b.PaymentDate||"").localeCompare(String(a.PaymentDate||""));
+        return _dash_parseDateSort(b.PaymentDate).localeCompare(_dash_parseDateSort(a.PaymentDate));
       }).slice(0, 8);
 
       el.innerHTML = recent.map(function(c) {
@@ -2667,7 +3000,7 @@
             '<div style="font-size:12px;font-weight:600;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(visitorName) + '</div>' +
             '<div style="font-size:10px;color:#94a3b8;">' + escapeHtml(typeName) + ' · ' + dateStr + '</div>' +
           '</div>' +
-          '<span style="font-size:12px;font-weight:700;color:#d97706;">₹' + fmt(c.Amount) + '</span>' +
+          '<span style="font-size:12px;font-weight:700;color:#d97706;white-space:nowrap;flex-shrink:0;">₹' + fmt(c.Amount) + '</span>' +
         '</div>';
       }).join("");
     }
@@ -3443,6 +3776,8 @@
           window._hcRanOnce = true;
           setTimeout(runHealthCheck, 1500);
         }
+        // Today's birthdays — lets admin send a wish too, same as members
+        _loadAdminBirthdayWidget();
       } catch (err) {
         // Show specific error reason in the loading overlay with a Retry button
         _showLoadingError(err);
@@ -3459,6 +3794,95 @@
         requestAnimationFrame(() => window.scrollTo(0, _scrollY));
       }
     }
+
+    /* ═══ ADMIN — TODAY'S BIRTHDAYS WIDGET ═══════════════════════════
+       Lets an admin send the same fixed-reply / custom wishes members
+       can send each other. Reuses getTodayBirthdays / sendBirthdayWish
+       as-is — an admin account is just another row in USERS with its
+       own UserId, so no backend changes were needed for this.
+    ═══════════════════════════════════════════════════════════════ */
+    async function _loadAdminBirthdayWidget() {
+      const card = document.getElementById("adm_bday_card");
+      const list = document.getElementById("adm_bday_list");
+      if (!card || !list) return;
+      try {
+        const today = await getData("getTodayBirthdays");
+        if (!today || today.status !== "success" || !today.others || !today.others.length) {
+          card.style.display = "none";
+          return;
+        }
+        _renderAdminBirthdayList(today.others);
+        card.style.display = "";
+      } catch (e) {
+        card.style.display = "none"; // silent — widget just doesn't show if the check fails
+      }
+    }
+
+    function _renderAdminBirthdayList(others) {
+      const list = document.getElementById("adm_bday_list");
+      if (!list) return;
+      const replies = (typeof APP !== "undefined" && Array.isArray(APP.birthdayWishes) && APP.birthdayWishes.length) ? APP.birthdayWishes : ["🎉 Happy Birthday!"];
+      list.innerHTML = others.map(function (o) {
+        const uid = String(o.UserId).replace(/'/g, "");
+        const name = escapeHtml(o.Name || "A member");
+        const actionsHtml = o.alreadyWished
+          ? '<div class="adm-bday-sent">✓ Wish sent</div>'
+          : '<div class="adm-bday-actions">' + replies.map(function (r) {
+              return '<button class="adm-bday-btn" onclick="_sendAdminBirthdayWish(this,\'' + uid + '\',\'' + r.replace(/'/g, "\\'") + '\')">' + escapeHtml(r) + '</button>';
+            }).join("") + '<button class="adm-bday-btn" onclick="_openAdminCustomWish(this,\'' + uid + '\')">✏️ Custom</button></div>';
+        return '<div class="adm-bday-card">'
+          + '<div class="adm-bday-head"><div><div class="adm-bday-name">' + name + '\'s birthday today! 🎂</div>'
+          + (o.alreadyWished ? '' : '<div class="adm-bday-sub">Send a quick wish:</div>')
+          + '</div></div>'
+          + actionsHtml
+          + '</div>';
+      }).join("");
+    }
+
+    window._sendAdminBirthdayWish = function (btnEl, toUserId, message) {
+      const cardEl = btnEl ? btnEl.closest(".adm-bday-card") : null;
+      if (cardEl) cardEl.querySelectorAll("button, input").forEach(function (b) { b.disabled = true; });
+      postData({ action: "sendBirthdayWish", ToUserId: toUserId, Message: message })
+        .then(function (res) {
+          if (res && (res.status === "success" || res.status === "already_sent")) {
+            _loadAdminBirthdayWidget(); // refresh from server so state stays accurate
+          } else {
+            toast((res && res.message) || "Could not send wish. Please try again.", "error");
+            if (cardEl) cardEl.querySelectorAll("button, input").forEach(function (b) { b.disabled = false; });
+          }
+        })
+        .catch(function () {
+          toast("Network error. Please try again.", "error");
+          if (cardEl) cardEl.querySelectorAll("button, input").forEach(function (b) { b.disabled = false; });
+        });
+    };
+
+    window._openAdminCustomWish = function (btnEl, toUserId) {
+      const cardEl = btnEl ? btnEl.closest(".adm-bday-card") : null;
+      const actionsRow = cardEl ? cardEl.querySelector(".adm-bday-actions") : null;
+      if (!actionsRow || cardEl.querySelector(".adm-bday-custom-row")) return;
+      const row = document.createElement("div");
+      row.className = "adm-bday-custom-row";
+      row.innerHTML = '<input type="text" class="adm-bday-custom-input" maxlength="120" placeholder="Write your own wish…" />'
+        + '<button class="adm-bday-btn adm-bday-custom-send">Send</button>'
+        + '<button type="button" class="adm-bday-custom-cancel" title="Cancel">✕</button>';
+      actionsRow.parentNode.insertBefore(row, actionsRow.nextSibling);
+      const input = row.querySelector(".adm-bday-custom-input");
+      const sendBtn = row.querySelector(".adm-bday-custom-send");
+      const cancelBtn = row.querySelector(".adm-bday-custom-cancel");
+      input.focus();
+      function doSend() {
+        const val = input.value.trim();
+        if (!val) { input.focus(); return; }
+        window._sendAdminBirthdayWish(sendBtn, toUserId, val);
+      }
+      sendBtn.addEventListener("click", doSend);
+      cancelBtn.addEventListener("click", function () { row.remove(); });
+      input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") doSend();
+        else if (e.key === "Escape") row.remove();
+      });
+    };
 
     function loadMonths() {
       const opts = MONTHS.map(
@@ -5549,7 +5973,7 @@
       if (!amtEl) return;
       const userContribs = data
         .filter(c => String(c.UserId) === String(userId))
-        .sort((a, b) => new Date(b.PaymentDate || 0) - new Date(a.PaymentDate || 0));
+        .sort((a, b) => _dash_parseDateSort(b.PaymentDate).localeCompare(_dash_parseDateSort(a.PaymentDate)));
       if (userContribs.length === 0) return;
       const last = userContribs[0];
       if (!amtEl.value) {
@@ -5710,7 +6134,7 @@
             <label class="sp-label">Note</label>
             <input class="sp-input" id="prev_note" value="${escapeHtml(note)}" placeholder="Optional note" />
           </div>
-          <div id="_dupWarnBannerSP" style="display:none;background:linear-gradient(90deg,#fff7ed,#ffedd5);border:1.5px solid #fb923c;border-radius:10px;padding:10px 14px;font-size:12px;color:#9a3412;display:flex;align-items:flex-start;gap:8px;margin-bottom:4px;">
+          <div id="_dupWarnBannerSP" style="display:none;background:linear-gradient(90deg,#fff7ed,#ffedd5);border:1.5px solid #fb923c;border-radius:10px;padding:10px 14px;font-size:12px;color:#9a3412;align-items:flex-start;gap:8px;margin-bottom:4px;">
             <i class="fa-solid fa-triangle-exclamation" style="margin-top:1px;flex-shrink:0;color:#ea580c;"></i>
             <span id="_dupWarnTextSP"></span>
           </div>
@@ -7784,16 +8208,6 @@
     /* ═══ BROADCAST FUNCTIONS ═══ */
     let _bcHistory = [];
 
-    (function () {
-      const bcTypeEl = document.getElementById("bc_type");
-      if (bcTypeEl)
-        bcTypeEl.addEventListener("change", function () {
-          const pollOpts = document.getElementById("bc_poll_options");
-          if (pollOpts)
-            pollOpts.style.display = this.value === "poll" ? "block" : "none";
-        });
-    })();
-
     function previewBroadcast() {
       const typeEl = document.getElementById("bc_type");
       const prioEl = document.getElementById("bc_priority");
@@ -7811,33 +8225,28 @@
         toast("Please enter a title and message first.", "warn");
         return;
       }
-      const typeLabels = {
-        announcement: "📢 Announcement",
-        poll: "🗳️ Poll",
-        innovation: "💡 New Idea",
-      };
-      const prioLabels = {
-        normal: "",
-        important: "⚠️ IMPORTANT — ",
-        urgent: "🚨 URGENT — ",
-      };
-      const preview = `${APP.symbol||"🕉️"} *${APP.name.toUpperCase()}*\n📍 ${APP.location}\n━━━━━━━━━━━━━━━━━━━━\n${prioLabels[priority]
-        }${typeLabels[type] || type
-        }\n\n*${title}*\n\n${message}\n━━━━━━━━━━━━━━━━━━━━\n_${new Date().toLocaleDateString(
-          APP.locale||"en-IN"
-        )}_`;
+      const typeIcon = { announcement: "📢", innovation: "💡", event: "🎉", maintenance: "🔧" };
+      const prioColor = { urgent: "#ef4444", important: "#0F766E", normal: "#94a3b8", low: "#cbd5e1" };
+      const prioBg = { urgent: "#fee2e2", important: "#F0FDFA", normal: "#f1f5f9", low: "#f8fafc" };
+      const preview = `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px 18px;border-left:4px solid ${prioColor[priority] || "#ccc"};">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="font-size:1.1rem;">${typeIcon[type] || "📢"}</span>
+          <span style="background:${prioBg[priority] || "#f1f5f9"};color:${prioColor[priority] || "#334155"};padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;">${priority.toUpperCase()}</span>
+        </div>
+        <div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:4px;">${escapeHtml(title || "(no title)")}</div>
+        <div style="font-size:13px;color:#555;line-height:1.5;">${escapeHtml(message || "(no message)")}</div>
+      </div>`;
       openModal(
         `<div class="_mhdr"><h3><i class="fa-solid fa-eye"></i> Broadcast Preview</h3><button class="_mcls" onclick="closeModal()">×</button></div>
           <div class="_mbdy">
-            <div style="background:#1e293b;color:#e2e8f0;padding:16px;border-radius:10px;font-family:monospace;font-size:13px;white-space:pre-wrap;line-height:1.7;">${escapeHtml(
-          preview
-        )}</div>
+            <p style="font-size:12px;color:#94a3b8;margin:0 0 12px;">This is how it will look on each member's dashboard and notification bell:</p>
+            ${preview}
           </div>
           <div class="_mft">
             <button class="_mbtn" style="background:#999;" onclick="closeModal()">Close</button>
-            <button class="_mbtn" style="background:#25d366;" onclick="closeModal();sendBroadcast()"><i class="fa-brands fa-whatsapp"></i> Send Now</button>
+            <button class="_mbtn" style="background:#0F766E;" onclick="closeModal();sendBroadcast()"><i class="fa-solid fa-paper-plane"></i> Send Now</button>
           </div>`,
-        "540px"
+        "480px"
       );
     }
 
@@ -7862,50 +8271,115 @@
         toast("Please enter a message.", "warn");
         return;
       }
-      const typeLabels = {
-        announcement: "📢 Announcement",
-        poll: "🗳️ Poll",
-        innovation: "💡 New Idea",
-      };
-      const prioLabels = {
-        normal: "",
-        important: "⚠️ IMPORTANT — ",
-        urgent: "🚨 URGENT — ",
-      };
-      const pollBlock =
-        type === "poll"
-          ? "\n\nRespond with:\n✅ Yes  |  ❌ No  |  💬 Suggestion"
-          : "";
-      const msg = `${APP.symbol||"🕉️"} *${APP.name.toUpperCase()}*\n📍 ${APP.location}\n━━━━━━━━━━━━━━━━━━━━\n${prioLabels[priority]
-        }${typeLabels[type] || type
-        }\n\n*${title}*\n\n${message}${pollBlock}\n━━━━━━━━━━━━━━━━━━━━\n_${new Date().toLocaleDateString(
-          APP.locale||"en-IN"
-        )}_`;
-      window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
-      // Add to session history
-      _bcHistory.unshift({
-        type,
-        priority,
-        title,
-        message,
-        time: new Date().toLocaleString(APP.locale||"en-IN"),
-      });
-      renderBroadcastHistory();
+      const session = JSON.parse(localStorage.getItem("session") || "{}");
+      const adminName = session.name || "Admin";
+      const time = new Date().toLocaleString(APP.locale||"en-IN");
       // Store broadcast in backend sheet so all users can read it
       try {
-        await postData({
+        const res = await postData({
           action: "saveBroadcast",
           type,
           priority,
           title,
           message,
-          time: new Date().toLocaleString(APP.locale||"en-IN"),
+          time,
+          AdminName: adminName,
         });
+        if (!res || res.status !== "success") {
+          toast((res && res.message) || "Could not send broadcast.", "warn");
+          return;
+        }
       } catch (e) {
+        toast("Could not send broadcast — check your connection.", "warn");
+        return;
       }
+      _loadBroadcastHistory(); // re-fetch so the new entry has its real BcId (needed for delete)
       titleEl.value = "";
       msgEl.value = "";
-      toast("✅ WhatsApp opened with broadcast message!");
+      toast("✅ Broadcast sent — now visible on member dashboards.");
+    }
+
+    // Loads existing broadcasts from the backend so history survives
+    // reloads/re-logins, instead of only showing what was sent this session.
+    // Defensive formatter: the backend now formats Time itself, but this
+    // covers the gap until that's redeployed, and any other odd values —
+    // reformats ISO-looking strings, leaves already-good strings untouched.
+    function _formatBcTime(t) {
+      if (!t) return "";
+      const s = String(t);
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(s)) return s;
+      const d = new Date(s);
+      if (isNaN(d.getTime())) return s;
+      try {
+        return d.toLocaleString(APP.locale || "en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+      } catch (e) { return s; }
+    }
+
+    async function _loadBroadcastHistory() {
+      const container = document.getElementById("broadcastHistory");
+      try {
+        // Admin view: includes disabled broadcasts too (so they can be
+        // re-enabled), unlike getBroadcasts which only returns enabled ones.
+        const res = await getData("getBroadcastsAdmin");
+        const list = Array.isArray(res) ? res : [];
+        _bcHistory = list.map(function (b) {
+          return {
+            bcId: b.BcId || b.bcId || "",
+            type: b.Type || b.type || "announcement",
+            priority: b.Priority || b.priority || "normal",
+            title: b.Title || b.title || "",
+            message: b.Message || b.message || "",
+            time: b.Time || b.time || "",
+            adminName: b.AdminName || b.adminName || "Admin",
+            status: b.Status || b.status || "Enabled",
+          };
+        });
+      } catch (e) {
+        _bcHistory = [];
+        if (container) {
+          container.innerHTML = '<div style="font-size:13px;color:#c0392b;text-align:center;padding:20px;">Could not load broadcast history — check your connection.</div>';
+          return;
+        }
+      }
+      renderBroadcastHistory();
+    }
+
+    // Flips a broadcast between Enabled/Disabled instead of deleting it.
+    // Disabled broadcasts stay in history (dimmed, admin-only) and can be
+    // re-enabled later; they disappear from every member's dashboard/bell
+    // the moment they're disabled.
+    function _toggleBroadcastItem(bcId, title, currentlyEnabled) {
+      if (!bcId) return;
+      const goingTo = currentlyEnabled ? "Disable" : "Enable";
+      const warnLine = currentlyEnabled
+        ? 'This hides it from all members too.'
+        : 'This makes it visible to all members again.';
+      confirmModal(
+        goingTo + ' broadcast "' + escapeHtml(title) + '"?<br><span style="font-size:12px;color:#94a3b8;">' + warnLine + '</span>',
+        function () {
+          const session = JSON.parse(localStorage.getItem("session") || "{}");
+          return postData({ action: "toggleBroadcast", BcId: bcId, AdminName: session.name || "Admin" })
+            .then(function (res) {
+              if (res && res.status === "success") {
+                const item = _bcHistory.find(function (b) { return b.bcId === bcId; });
+                if (item) item.status = res.newStatus || (currentlyEnabled ? "Disabled" : "Enabled");
+                renderBroadcastHistory();
+                toast("Broadcast " + (res.newStatus === "Disabled" ? "disabled" : "enabled") + ".", "success");
+              } else if (res && res.message) {
+                toast(res.message, "warn");
+              } else {
+                // Empty/unrecognized result usually means the deployed Apps Script
+                // backend doesn't have the toggleBroadcast action yet — needs redeploy.
+                toast("This isn't available yet — the Apps Script backend needs to be redeployed with the latest code.", "warn");
+              }
+            })
+            .catch(function () {
+              toast("Could not update broadcast — check your connection.", "warn");
+            });
+        },
+        goingTo,
+        currentlyEnabled ? "#e74c3c" : "#16a34a"
+      );
     }
 
     function renderBroadcastHistory() {
@@ -7913,27 +8387,40 @@
       if (!container) return;
       if (_bcHistory.length === 0) {
         container.innerHTML =
-          '<div style="font-size:13px;color:#888;text-align:center;padding:20px;">No broadcasts sent yet in this session.</div>';
+          '<div style="font-size:13px;color:#888;text-align:center;padding:20px;">No broadcasts sent yet.</div>';
         return;
       }
-      const typeColors = {
-        announcement: "#2980b9",
-        poll: "#8e44ad",
-        innovation: "#27ae60",
-      };
+      const typeIcon = { announcement: "📢", innovation: "💡", event: "🎉", maintenance: "🔧" };
+      const prioColor = { urgent: "#ef4444", important: "#0F766E", normal: "#94a3b8", low: "#cbd5e1" };
+      const prioBg = { urgent: "#fee2e2", important: "#F0FDFA", normal: "#f1f5f9", low: "#f8fafc" };
       container.innerHTML = _bcHistory
         .map(
-          (b) =>
-            `<div style="background:#f8fafc;border-radius:10px;padding:12px 16px;margin-bottom:10px;border-left:4px solid ${typeColors[b.type] || "#ccc"
-            };">
-            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px;">
-              <b style="font-size:13px;">${escapeHtml(b.title)}</b>
-              <span style="font-size:11px;color:#aaa;">${b.time}</span>
+          (b) => {
+            const enabled = String(b.status || "Enabled").toLowerCase() !== "disabled";
+            const dimStyle = enabled ? "" : "opacity:0.55;";
+            const btnTitle = enabled ? "Disable (hide from members)" : "Enable (show to members)";
+            return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px;margin-bottom:10px;border-left:4px solid ${prioColor[b.priority] || "#ccc"};${dimStyle}">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:6px;">
+              <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;">
+                <span>${typeIcon[b.type] || "📢"}</span>
+                <span style="background:${prioBg[b.priority] || "#f1f5f9"};color:${prioColor[b.priority] || "#334155"};padding:2px 9px;border-radius:12px;font-size:10.5px;font-weight:700;">${(b.priority || "normal").toUpperCase()}</span>
+                <b style="font-size:13px;">${escapeHtml(b.title)}</b>
+              </span>
+              <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+                <span style="font-size:11px;color:#aaa;white-space:nowrap;">${escapeHtml(_formatBcTime(b.time))}</span>
+                ${!enabled ? '<span style="font-size:9.5px;font-weight:700;color:#94a3b8;background:#f1f5f9;border-radius:8px;padding:1px 7px;white-space:nowrap;">DISABLED</span>' : ""}
+                <label class="ea-toggle" title="${btnTitle}">
+                  <input type="checkbox" ${enabled ? "checked" : ""} onclick="event.preventDefault(); _toggleBroadcastItem('${b.bcId}', '${escapeHtml(b.title).replace(/'/g, "&#39;")}', ${enabled})">
+                  <span class="ea-slider"></span>
+                </label>
+              </div>
             </div>
-            <div style="font-size:12px;color:#555;">${escapeHtml(
+            <div style="font-size:12px;color:#555;margin-bottom:4px;">${escapeHtml(
               b.message.substring(0, 120)
             )}${b.message.length > 120 ? "…" : ""}</div>
-          </div>`
+            <div style="font-size:10.5px;color:#aaa;">Sent by ${escapeHtml(b.adminName || "Admin")}</div>
+          </div>`;
+          }
         )
         .join("");
     }
@@ -10330,13 +10817,12 @@
         }
       });
 
-      // ── M15: Broadcast quota info — populate on page show
-      // Hook into showPage for broadcastPage
+      // ── Hook into showPage to run page-specific init logic on navigation
       const _origShowPage = window.showPage;
       if (typeof _origShowPage === "function") {
         window.showPage = function (id, el) {
           _origShowPage(id, el);
-          if (id === "broadcastPage") _loadBroadcastQuotaInfo();
+          if (id === "broadcastPage") _loadBroadcastHistory();
           if (id === "healthCheckPage" && !window._hcRanOnce) { window._hcRanOnce = true; runHealthCheck(); }
           if (id === "healthCheckPage") { loadTrafficStats(); }
           if (id === "contributionRequestsPage") loadContributionRequests();
@@ -10439,6 +10925,32 @@
       _renderReqPaged();
     }
 
+    // ── Duplicate UTR/reference-number detection ──────────────────────
+    // Flags when the same UPI/cheque reference number has been submitted
+    // more than once (by the same member or different members), so admin
+    // can double-check before approving instead of relying on eyeballing.
+    function _findDuplicateUtrMatches(utr, excludeReqId) {
+      const norm = String(utr || "").trim().toLowerCase();
+      if (!norm) return [];
+      return (window._allRequests || []).filter(function (r) {
+        return String(r.ReqId) !== String(excludeReqId) &&
+          String(r.UtrRef || "").trim().toLowerCase() === norm;
+      });
+    }
+
+    function _utrDuplicateBadgeHtml(utr, excludeReqId) {
+      const matches = _findDuplicateUtrMatches(utr, excludeReqId);
+      if (matches.length === 0) return "";
+      const names = matches.map(function (m) {
+        const u = (users || []).find(function (u) { return String(u.UserId) === String(m.UserId); });
+        return escapeHtml(u ? u.Name : "Unknown") + " (" + escapeHtml(String(m.Status || "Pending")) + ")";
+      }).join(", ");
+      return '<div title="Same reference number also used by: ' + names + '" '
+        + 'style="margin-top:3px;display:inline-flex;align-items:center;gap:4px;background:#fef2f2;color:#991b1b;'
+        + 'border:1px solid #fca5a5;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:700;cursor:help;">'
+        + '<i class="fa-solid fa-triangle-exclamation"></i> Ref used ' + (matches.length + 1) + '×</div>';
+    }
+
     function _renderReqPaged() {
       const tbody = document.getElementById("reqTbody");
       if (!tbody) return;
@@ -10478,7 +10990,7 @@
           + '<td><strong style="color:#15803d;">' + (APP.currency||'₹') + fmt(r.Amount) + '</strong></td>'
           + '<td>' + escapeHtml(r.ForMonth || "") + ' ' + escapeHtml(String(r.Year || "")) + '</td>'
           + '<td>' + escapeHtml(r.PaymentMode || "UPI") + '</td>'
-          + '<td style="font-size:12px;font-family:monospace;">' + escapeHtml(r.UtrRef || "—") + '</td>'
+          + '<td style="font-size:12px;"><span style="font-family:monospace;">' + escapeHtml(r.UtrRef || "—") + '</span><br>' + _utrDuplicateBadgeHtml(r.UtrRef, r.ReqId) + '</td>'
           + '<td>' + slipHtml + '</td>'
           + '<td><span style="background:' + (statusBg[st] || "#f1f5f9") + ';color:' + (statusColor[st] || "#334155") + ';padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">' + st + '</span>' + rejNote + '</td>'
           + '<td style="font-size:11px;color:#64748b;">' + escapeHtml(formatPaymentDate(r.RequestedAt || "").split(" ")[0] || "") + '</td>'
@@ -10515,6 +11027,15 @@
         + '<span style="color:#64748b;">Mode</span><strong>' + escapeHtml(r.PaymentMode || "UPI") + '</strong>'
         + '<span style="color:#64748b;">UTR / Ref</span><strong>' + escapeHtml(r.UtrRef || "—") + '</strong>'
         + '</div></div>'
+        + (_findDuplicateUtrMatches(r.UtrRef, r.ReqId).length > 0
+            ? '<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#991b1b;">'
+              + '<i class="fa-solid fa-triangle-exclamation"></i> This reference number has also been used by: '
+              + escapeHtml(_findDuplicateUtrMatches(r.UtrRef, r.ReqId).map(function (m) {
+                  const u2 = (users || []).find(function (u2) { return String(u2.UserId) === String(m.UserId); });
+                  return (u2 ? u2.Name : "Unknown") + " (" + (m.Status || "Pending") + ")";
+                }).join(", "))
+              + '. Please verify before approving.</div>'
+            : '')
         + '<div style="margin-bottom:14px;">'
         + '<label style="font-size:13px;font-weight:600;color:#334155;display:block;margin-bottom:6px;"><i class="fa-solid fa-tag" style="color:#0F766E;margin-right:4px;"></i> Contribution Type <span style="font-weight:400;color:#e74c3c;">*</span></label>'
         + '<select id="_approveTypeSelect" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;">'
@@ -11218,27 +11739,6 @@
       }).catch(function() { /* silent — do not interrupt admin if network unavailable */ });
     }
 
-    // ── M15: Broadcast quota info
-    function _loadBroadcastQuotaInfo() {
-      const infoEl = document.getElementById("bcQuotaInfo");
-      if (!infoEl) return;
-      const memberCount = (window._allUsers || []).filter(function (u) {
-        return String(u.Role || "").toLowerCase() !== "admin" &&
-          String(u.Status || "Active").toLowerCase() === "active" &&
-          String(u.Email || "").trim() !== "";
-      }).length;
-      getEmailQuotaCached().then(function (q) {
-        if (!q) return;
-        const cntEl = document.getElementById("bcMemberCount");
-        const remEl = document.getElementById("bcQuotaRemaining");
-        const warnEl = document.getElementById("bcQuotaWarn");
-        if (cntEl) cntEl.textContent = memberCount;
-        if (remEl) remEl.textContent = q.remaining;
-        if (warnEl) warnEl.style.display = memberCount > q.remaining ? "inline" : "none";
-        infoEl.style.display = "block";
-      }).catch(function () { });
-    }
-
     // ── H7: Populate Contribution Records filter dropdowns (year, type, occasion)
     // Called from showPage() when contributionPage is opened — dash_ arrays are already populated by then
     function _cr_buildFilterDropdowns() {
@@ -11426,21 +11926,6 @@
     }
 
     // ── L8: Scheduled broadcast (queue for next available quota slot)
-    function scheduleBroadcast() {
-      const s = JSON.parse(localStorage.getItem("session") || "{}");
-      const title = (document.getElementById("bc_title") || {}).value || "";
-      const message = (document.getElementById("bc_message") || {}).value || "";
-      const type = (document.getElementById("bc_type") || {}).value || "announcement";
-      const priority = (document.getElementById("bc_priority") || {}).value || "normal";
-      if (!message.trim()) { toast("Please enter a message.", "warn"); return; }
-      // Queue it: save to localStorage with a scheduled timestamp (next day reset)
-      const scheduled = new Date(); scheduled.setHours(23, 59, 0, 0); // tonight at 23:59
-      const queue = JSON.parse(localStorage.getItem("mandir_bc_queue") || "[]");
-      queue.push({ title, message, type, priority, scheduled: scheduled.toISOString(), adminName: s.name || "Admin" });
-      localStorage.setItem("mandir_bc_queue", JSON.stringify(queue));
-      toast("⚠️ Broadcast saved locally only. Auto-send is not yet implemented — please send manually using the Send Now button.", "warn");
-    }
-
     // ════════════════════════════════════════════════════════════════
     //  INLINE DASHBOARD — all logic below replaces dashboard.html
     //  Uses admin globals: data, expenses, users, types, expenseTypes,
@@ -11790,9 +12275,10 @@
 
     function dash_switchTab(tab) {
       _dash_activeTab = tab;
-      // Toggle tab button styles
-      document.getElementById("dash_tab_contrib").classList.toggle("dash-tab-active", tab === "contrib");
-      document.getElementById("dash_tab_expense").classList.toggle("dash-tab-active", tab === "expense");
+      // Toggle which folder tab is "open" (color comes from the button's
+      // static tab-type-contrib/tab-type-expense class + this is-active flag)
+      document.getElementById("dash_tab_contrib").classList.toggle("is-active", tab === "contrib");
+      document.getElementById("dash_tab_expense").classList.toggle("is-active", tab === "expense");
       // Show/hide panels
       document.getElementById("dash_panel_contrib").style.display = tab === "contrib" ? "" : "none";
       document.getElementById("dash_panel_expense").style.display = tab === "expense" ? "" : "none";
@@ -11998,9 +12484,9 @@
 
       // Sort
       _et_filtered.sort((a,b) => {
-        const da = _ct_fmtDate(a.PaymentDate), db = _ct_fmtDate(b.PaymentDate);
-        if (_et_sortBy === "date_desc")   return db < da ? -1 : 1;
-        if (_et_sortBy === "date_asc")    return da < db ? -1 : 1;
+        const da = _dash_parseDateSort(a.PaymentDate), db = _dash_parseDateSort(b.PaymentDate);
+        if (_et_sortBy === "date_desc")   return db.localeCompare(da);
+        if (_et_sortBy === "date_asc")    return da.localeCompare(db);
         if (_et_sortBy === "amount_desc") return Number(b.Amount||0) - Number(a.Amount||0);
         if (_et_sortBy === "amount_asc")  return Number(a.Amount||0) - Number(b.Amount||0);
         if (_et_sortBy === "title_asc")   return (a.Title||"").localeCompare(b.Title||"");

@@ -383,8 +383,26 @@ var _trLoaded = false;
           var badge = document.getElementById("annBadge");
           if (data.Badge) { badge.textContent = data.Badge; badge.style.display = "inline-block"; }
           if (data.Icon) document.querySelector(".ann-icon").textContent = data.Icon;
-          document.getElementById("announcementBanner").classList.add("open");
+
+          var banner = document.getElementById("announcementBanner");
+          banner.classList.add("open");
+          // Start collapsed, then transition open — mirrors dismissBanner's close animation
+          // so the header eases into place instead of snapping down instantly.
+          banner.style.maxHeight = "0";
+          banner.style.opacity = "0";
+          banner.style.overflow = "hidden";
+          void banner.offsetHeight; // force reflow so the collapsed state registers first
+          var targetHeight = banner.scrollHeight;
+          banner.style.transition = "max-height 0.4s ease, opacity 0.35s ease";
+          banner.style.maxHeight = targetHeight + "px";
+          banner.style.opacity = "1";
           _syncSiteTopHeight();
+          setTimeout(function(){
+            banner.style.maxHeight = "";
+            banner.style.overflow = "";
+            banner.style.transition = "";
+            _syncSiteTopHeight();
+          }, 420);
         }).catch(function(){});
       }
       document.addEventListener("DOMContentLoaded", function(){ setTimeout(loadAnnouncement, 600); });

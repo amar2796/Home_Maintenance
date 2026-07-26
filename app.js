@@ -836,9 +836,9 @@ function _ensureModalCSS(){
   let st=document.createElement("style");st.id="_mCSS";
   st.textContent=`
     @keyframes _mF{from{opacity:0}to{opacity:1}}
-    @keyframes _mS{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:translateY(0)}}
-    #_uniModal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:88888;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;animation:_mF .2s ease;}
-    ._mbox{background:#fff;border-radius:16px;width:100%;max-height:92vh;overflow-y:auto;animation:_mS .3s cubic-bezier(.21,1.02,.73,1);box-shadow:0 20px 60px rgba(0,0,0,0.25);}
+    @keyframes _mS{from{opacity:0;transform:translateY(24px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+    #_uniModal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);z-index:88888;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;animation:_mF .2s ease;}
+    ._mbox{background:#fff;border-radius:16px;width:100%;max-height:92vh;overflow-y:auto;animation:_mS .32s cubic-bezier(.21,1.02,.73,1);box-shadow:0 20px 60px rgba(0,0,0,0.25);}
     ._mbox::-webkit-scrollbar{width:5px}._mbox::-webkit-scrollbar-thumb{background:#ddd;border-radius:3px;}
     ._mhdr{background:#334155;color:#fff;padding:16px 22px;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:2;}
     ._mhdr h3{margin:0;font-size:1.05rem;font-weight:700;color:#0F766E;display:flex;align-items:center;gap:8px;}
@@ -899,31 +899,32 @@ function confirmModal(message, onConfirm, confirmLabel, confirmColor) {
               : color === "#0F766E" ? "15, 118, 110"
               : "231,76,60";
   var html = `
-    <div class="_mhdr" style="background:#fff;border-bottom:1px solid #f1f5f9;padding:18px 20px 14px;">
+    <div style="height:4px;background:${color};border-radius:16px 16px 0 0;"></div>
+    <div class="_mhdr" style="background:#fff;border-bottom:1px solid #f1f5f9;border-radius:0;padding:16px 20px 12px;">
       <span></span>
       <button class="_mcls" onclick="closeModal()" style="color:#94a3b8!important;font-size:20px;line-height:1;">&#xd7;</button>
     </div>
-    <div class="_mbdy" style="text-align:center;padding:8px 28px 28px;">
+    <div class="_mbdy" style="text-align:center;padding:6px 28px 28px;">
       <div style="
-        width:64px;height:64px;border-radius:50%;margin:0 auto 18px;
+        width:68px;height:68px;border-radius:50%;margin:0 auto 18px;
         background:rgba(${ringRgb},0.1);
         display:flex;align-items:center;justify-content:center;
-        box-shadow:0 0 0 8px rgba(${ringRgb},0.07);
+        box-shadow:0 0 0 8px rgba(${ringRgb},0.07), 0 0 0 16px rgba(${ringRgb},0.03);
         animation:_cmIconPop .35s cubic-bezier(.34,1.56,.64,1) both;
       ">
         <i class="fa-solid ${icon}" style="font-size:28px;color:${color};"></i>
       </div>
-      <p style="font-size:15px;font-weight:600;color:#1e293b;margin:0 0 6px;line-height:1.4;">${message}</p>
+      <p style="font-size:15.5px;font-weight:600;color:#1e293b;margin:0 0 6px;line-height:1.4;">${message}</p>
       <p style="font-size:12.5px;color:#94a3b8;margin:0 0 24px;">This action cannot be undone.</p>
       <div style="display:flex;gap:10px;justify-content:center;">
         <button class="_mbtn _cmCancel" style="
-          background:#f1f5f9;color:#475569;min-width:100px;
-          border:1.5px solid #e2e8f0;font-size:13.5px;
+          background:transparent;color:#64748b;min-width:104px;
+          border:1.5px solid #e2e8f0;font-size:13.5px;border-radius:10px;
         " onclick="closeModal()">
           <i class="fa-solid fa-xmark" style="margin-right:5px;"></i>Cancel
         </button>
         <button class="_mbtn" id="_confirmOkBtn" style="
-          background:${color};min-width:100px;font-size:13.5px;
+          background:${color};min-width:104px;font-size:13.5px;border-radius:10px;
           box-shadow:0 4px 14px rgba(${ringRgb},0.35);
         ">
           <i class="fa-solid fa-check" style="margin-right:5px;"></i>${label}
@@ -935,10 +936,10 @@ function confirmModal(message, onConfirm, confirmLabel, confirmColor) {
         from{opacity:0;transform:scale(.5) rotate(-10deg)}
         to{opacity:1;transform:scale(1) rotate(0deg)}
       }
-      ._cmCancel:hover{background:#e2e8f0!important;}
+      ._cmCancel:hover:not(:disabled){background:#f8fafc!important;border-color:#94a3b8!important;color:#334155!important;}
       #_confirmOkBtn:hover{filter:brightness(1.08);transform:translateY(-1px);}
       #_confirmOkBtn:active{transform:scale(0.97) translateY(0);}
-      #_confirmOkBtn.btn-loading{cursor:wait;pointer-events:none;opacity:0.8;}
+      #_confirmOkBtn.btn-loading{cursor:wait;pointer-events:none;opacity:0.85;}
     </style>`;
   openModal(html, "340px");
   setTimeout(function() {
@@ -949,7 +950,11 @@ function confirmModal(message, onConfirm, confirmLabel, confirmColor) {
       // close modal ONLY after onConfirm() resolves. Previously modal closed immediately
       // so user saw a flash of old data before the entry disappeared.
       btn.disabled = true;
-      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="margin-right:5px;"></i>Processing…';
+      // Same markup convention the global _setBtnLoading() helper uses (admin.js) —
+      // hide the original label, add btn-loading, and let the shared CSS
+      // button.btn-loading::after ring spinner render. Keeps the "processing" look
+      // identical everywhere instead of this modal using its own Font Awesome icon.
+      btn.innerHTML = '<span class="btn-original-content" style="display:none">' + btn.innerHTML + '</span><span class="btn-loading-txt"> Processing…</span>';
       btn.classList.add("btn-loading");
       // Also disable cancel button and backdrop click so user can't dismiss mid-action
       var cancelBtn = document.querySelector("._cmCancel");

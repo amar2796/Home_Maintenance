@@ -103,7 +103,7 @@
                   return '<option ' + (s === it.status ? 'selected' : '') + '>' + s + '</option>';
                 }).join('') +
               '</select>' +
-              '<button onclick="hmDeleteIssue(\'' + it.id + '\')" aria-label="Delete" style="background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:14px;padding:4px;">' +
+              '<button onclick="hmDeleteIssue(\'' + it.id + '\')" aria-label="Delete" style="background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:14px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
                 '<i class="fa-solid fa-trash"></i>' +
               '</button>' +
             '</div>' +
@@ -171,7 +171,7 @@
                 '<div style="font-size:11.5px;color:var(--ink-faint);margin-top:2px;">' + (b.amount != null ? "₹" + b.amount.toLocaleString("en-IN") : "Amount not set") + '</div>' +
               '</div>' +
               '<span style="font-size:11.5px;font-weight:600;border-radius:20px;padding:5px 10px;background:' + tagColor.bg + ';color:' + tagColor.fg + ';white-space:nowrap;">' + tag + '</span>' +
-              '<button onclick="hmDeleteBill(\'' + b.id + '\')" aria-label="Delete" style="background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:14px;padding:4px;">' +
+              '<button onclick="hmDeleteBill(\'' + b.id + '\')" aria-label="Delete" style="background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:14px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
                 '<i class="fa-solid fa-trash"></i>' +
               '</button>' +
             '</div>' +

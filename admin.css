@@ -117,12 +117,17 @@ button {
   border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
-  transition: background 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+  transition: background 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease, filter 0.15s ease;
   box-shadow: 0 4px 10px rgba(15, 118, 110, 0.3);
 }
 
-button:hover {
-  background: #d35400;
+/* Universal hover feedback — filter-based so it works no matter how the
+   button's color was set (CSS class or inline style="background:..."). An
+   inline background always wins the cascade over a background set here, so a
+   plain background swap on :hover is invisible on most buttons in this app;
+   brightness/lift are separate properties and always show through. */
+button:hover:not(:disabled):not(.btn-loading) {
+  filter: brightness(1.08);
   transform: translateY(-2px);
 }
 
@@ -228,6 +233,60 @@ button:disabled {
 .adm-drop-item.danger i { color: #e74c3c; }
 .adm-drop-item.danger:hover { background: #fff5f5; color: #e74c3c; }
 
+.adm-notif-dropdown { min-width: 340px; max-width: calc(100vw - 32px); }
+@media (max-width: 480px) {
+  .adm-notif-dropdown { min-width: calc(100vw - 32px); }
+}
+.adm-notif-list { max-height: 380px; overflow-y: auto; }
+.adm-notif-item {
+  display: flex;
+  gap: 10px;
+  padding: 11px 16px;
+  border-bottom: 1px solid #f4f5f8;
+  position: relative;
+}
+.adm-notif-item:last-child { border-bottom: none; }
+.adm-notif-item.unread { background: #F0FDFA; }
+.adm-notif-icon { font-size: 1rem; flex-shrink: 0; line-height: 1.4; }
+.adm-notif-body { min-width: 0; flex: 1; }
+.adm-notif-title { font-size: 12.5px; font-weight: 700; color: #1e293b; margin-bottom: 2px; }
+.adm-notif-title.error { color: #dc2626; }
+.adm-notif-msg {
+  font-size: 11.5px;
+  color: #64748b;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.adm-notif-meta { font-size: 10px; color: #aaa; margin-top: 3px; }
+.adm-notif-clear-all {
+  border: none;
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.adm-notif-clear-all:hover { background: rgba(255,255,255,0.22); }
+.adm-notif-item-close {
+  border: none;
+  background: none;
+  color: #cbd5e1;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+.adm-notif-item-close:hover { color: #475569; }
+.adm-notif-empty { padding: 26px 16px; text-align: center; font-size: 12.5px; color: #aaa; }
+
 .btn-green {
   background: #27ae60;
   box-shadow: none;
@@ -287,6 +346,64 @@ button:disabled {
   border-top: 4px solid #0F766E;
   margin-bottom: 20px;
   transition: box-shadow 0.25s ease;
+  min-width: 0; /* FIX: without this, a .card used as a grid/flex item refuses to
+                   shrink below its content's natural width (e.g. a non-wrapping
+                   h3 title + badge), forcing it wider than its column/track and
+                   causing the whole page to scroll horizontally on narrow screens. */
+}
+
+/* ══ ADMIN — TODAY'S BIRTHDAYS WIDGET ══════════════════════════════ */
+.adm-bday-card { padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
+.adm-bday-card:last-child { border-bottom: none; }
+.adm-bday-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.adm-bday-avatar { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 1.5px solid #f59e0b; background: #fff7ed; flex-shrink: 0; }
+.adm-bday-name { font-size: 13px; font-weight: 700; color: #334155; }
+.adm-bday-sub { font-size: 11px; color: #94a3b8; }
+.adm-bday-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.adm-bday-btn {
+  border: 1px solid rgba(15, 118, 110, 0.35);
+  background: rgba(15, 118, 110, 0.06);
+  color: #0F766E;
+  border-radius: 999px;
+  padding: 7px 12px;
+  min-height: 32px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .2s, transform .2s;
+}
+.adm-bday-btn:hover { background: rgba(15, 118, 110, 0.15); transform: translateY(-1px); }
+.adm-bday-btn:disabled { opacity: .55; cursor: default; transform: none; }
+.adm-bday-sent { font-size: 11px; font-weight: 700; color: #16a34a; padding: 7px 0; }
+.adm-bday-custom-row { display: flex; gap: 6px; margin-top: 6px; }
+.adm-bday-custom-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid rgba(15, 118, 110, 0.35);
+  border-radius: 999px;
+  padding: 7px 12px;
+  min-height: 32px;
+  font-size: 11.5px;
+  outline: none;
+}
+.adm-bday-custom-input:focus { border-color: #f59e0b; }
+.adm-bday-custom-cancel { border: none; background: none; color: #94a3b8; font-size: 15px; line-height: 1; cursor: pointer; padding: 0 6px; flex-shrink: 0; }
+.adm-bday-custom-cancel:hover { color: #334155; }
+
+body.dark-mode .adm-bday-card { border-color: rgba(255,255,255,0.08) !important; }
+body.dark-mode .adm-bday-name { color: #e2e8f0 !important; }
+body.dark-mode .adm-bday-btn { color: #e2e8f0 !important; }
+body.dark-mode .adm-bday-custom-input { color: #e2e8f0 !important; background: rgba(255,255,255,0.04) !important; }
+
+/* FIX: same issue for every ad-hoc "display:grid;grid-template-columns:1fr ..."
+   container in this file (dashboard cards, tracker paid/pending lists, email
+   automation toggles, etc). Their direct children default to min-width:auto,
+   so once real content renders (long names, buttons, badges) the child can
+   force its grid track — and the page — wider than the viewport. This applies
+   min-width:0 to every such grid's direct children so they respect their
+   assigned column width and wrap/truncate/scroll internally instead. */
+[style*="grid-template-columns:1fr"] > * {
+  min-width: 0;
 }
 
 .card h3 {
@@ -578,9 +695,8 @@ tbody tr:hover {
     font-size: 0.92rem;
   }
 
-  /* Home dashboard: collapse 2-col and 3-col to single col on mobile */
-  #home [style*="grid-template-columns:1fr 1fr"],
-  #home [style*="grid-template-columns:1fr 1fr 1fr"] {
+  /* Home dashboard: collapse 2-col grid to single col on mobile */
+  #home [style*="grid-template-columns:1fr 1fr"] {
     grid-template-columns: 1fr !important;
   }
 }
@@ -1344,15 +1460,18 @@ tbody tr.clickable-row:hover {
 }
 
 #glryCropCancelBtn {
-  background: #f0f0f0;
-  color: #555;
+  background: transparent;
+  color: #64748b;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 9px;
   box-shadow: none;
   padding: 9px 20px;
 }
 
 #glryCropCancelBtn:hover {
-  background: #e0e0e0;
-  transform: none;
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #334155;
 }
 
 #glryCropConfirmBtn {
@@ -1929,6 +2048,15 @@ body.dark-mode button:not(.sidebar li button):not(._mbtn):not(#darkModeBtn):not(
   filter: brightness(0.88) saturate(0.95);
 }
 
+/* Dark-mode hover: same scope as the dimming rule above (copied selector so
+   it can't accidentally widen to sidebar/toggle buttons), just brighter than
+   the resting dim state instead of brighter than 1.0 — keeps the same "lift +
+   brighten" feel as light mode without looking washed out on dark surfaces. */
+body.dark-mode button:not(.sidebar li button):not(._mbtn):not(#darkModeBtn):not(#langToggleBtn):not(.pg-btn):not(.gcr-ratio-btn):not(.status-tab):hover:not(:disabled):not(.btn-loading) {
+  filter: brightness(1.0) saturate(1.05);
+  transform: translateY(-2px);
+}
+
 body.dark-mode #darkModeBtn,
 body.dark-mode #langToggleBtn {
   background: rgba(255,255,255,0.07) !important;
@@ -2069,11 +2197,12 @@ body.dark-mode #glryCropRatioBar {
 body.dark-mode #glryCropFooter { border-top-color: #1e2d45 !important; }
 
 body.dark-mode #glryCropCancelBtn {
-  background: #1e2d45 !important;
+  background: transparent !important;
+  border-color: #2d3f58 !important;
   color: #94a3b8 !important;
 }
 
-body.dark-mode #glryCropCancelBtn:hover { background: #2d3f58 !important; }
+body.dark-mode #glryCropCancelBtn:hover { background: #1e2d45 !important; border-color: #475569 !important; color: #e2e8f0 !important; }
 
 body.dark-mode .gcr-ratio-btn {
   background: #0d1525 !important;
@@ -2441,27 +2570,60 @@ body.dark-mode [style*="color:#14B8A6"] { color: #99F6E4 !important; }
 
 /* view toggle */
 .ct-view-bar {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 10px; flex-wrap: wrap; gap: 8px;
+  display: flex; align-items: flex-end; justify-content: space-between;
+  margin-bottom: 0; flex-wrap: wrap; gap: 8px;
 }
+/* view toggle — connecting-border folder tabs (same technique as the
+   Contributions/Expenses switcher, single teal accent since all 3 views
+   show the same data type) */
 .ct-vtoggle {
-  display: flex; gap: 3px; background: #f1f5f9;
-  border-radius: 8px; padding: 3px;
+  display: flex;
+  position: relative;
+  z-index: 2;
 }
 .ct-vbtn {
-  padding: 5px 12px; border-radius: 6px; font-size: 11px;
-  font-weight: 600; border: none; cursor: pointer;
-  color: #64748b; background: transparent; transition: all .15s;
+  padding: 10px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  background: #f8fafc;
+  border: 2px solid transparent;
+  border-bottom: 2px solid #e2e8f0;
+  border-radius: 8px 8px 0 0;
+  margin-bottom: -2px;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+.ct-vbtn:hover:not(.active) {
+  background: #f1f5f9;
+  color: #475569;
 }
 .ct-vbtn.active {
-  background: #fff; color: #1e293b;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  background: #fff;
+  color: #0F766E;
+  border-color: #0F766E;
+  border-bottom-color: #fff;
 }
 .ct-sort-row { display: flex; align-items: center; gap: 7px; font-size: 11px; color: #64748b; }
 .ct-sort-sel {
   padding: 5px 8px; border-radius: 6px; border: 1px solid #e2e8f0;
   font-size: 11px; background: #fff; color: #334155;
 }
+
+/* Shared wrapper for whichever view is showing — picks up the same teal
+   border and continues it around the table/cards/grid content beneath
+   the tab row, same as the Contributions/Expenses panel. */
+.ct-view-panel {
+  position: relative;
+  z-index: 1;
+  background: #fff;
+  border: 2px solid #0F766E;
+  border-radius: 0 0 10px 10px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+.ct-view-panel.card { box-shadow: none; }
+.ct-view-panel.card:hover { box-shadow: none; }
 
 /* tracker table */
 .ct-tbl-wrap { overflow-x: auto; }
@@ -2629,18 +2791,27 @@ body.dark-mode .ct-sec-divider { color: #475569 !important; }
 body.dark-mode .ct-sec-divider span { background: #1e2d45 !important; }
 
 /* ── CT Tracker — view toggle bar ── */
-body.dark-mode .ct-vtoggle {
-  background: #0d1525 !important;
-}
 body.dark-mode .ct-vbtn {
   color: #64748b !important;
-  background: transparent !important;
+  background: #0d1525 !important;
+  border-bottom-color: #1e2d45 !important;
+}
+body.dark-mode .ct-vbtn:hover:not(.active) {
+  background: #131f33 !important;
+  color: #94a3b8 !important;
 }
 body.dark-mode .ct-vbtn.active {
-  background: #1e2d45 !important;
-  color: #e2e8f0 !important;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.3) !important;
+  background: #111827 !important;
+  color: #2dd4bf !important;
+  border-color: #0F766E !important;
+  border-bottom-color: #111827 !important;
 }
+body.dark-mode .ct-view-panel {
+  background: #111827 !important;
+  border-color: #0F766E !important;
+}
+body.dark-mode .ct-view-panel.card { box-shadow: none !important; }
+body.dark-mode .ct-view-panel.card:hover { box-shadow: none !important; }
 body.dark-mode .ct-sort-row { color: #64748b !important; }
 body.dark-mode .ct-sort-sel {
   background: #0d1525 !important;
@@ -2767,65 +2938,93 @@ button:focus-visible { outline: 2px solid #0F766E; outline-offset: 2px; }
 .card { transition: box-shadow 0.25s ease, transform 0.2s ease; }
 .card:hover { transform: translateY(-1px); }
 
-/* ── Dashboard Financial Tracker tabs ── */
+/* ── Dashboard Financial Tracker tabs (connecting-border folder style) ── */
 
-/* Base tab — inactive: ghost, no background */
-#dash_tab_contrib,
-#dash_tab_expense {
-  background: transparent;
-  color: #64748b;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 7px 18px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+.dash-tab-folder {
+  display: flex;
+  width: 100%;
+  position: relative;
+  z-index: 2;
+}
+
+.dash-tab-btn {
+  flex: 1;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-}
-
-#dash_tab_contrib:hover:not(.dash-tab-active),
-#dash_tab_expense:hover:not(.dash-tab-active) {
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #94a3b8;
   background: #f8fafc;
-  border-color: #cbd5e1;
-  color: #334155;
+  border-radius: 10px 10px 0 0;
+  border: 2px solid transparent;
+  border-bottom: 2px solid #e2e8f0;
+  margin-bottom: -2px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
 }
 
-/* Active tab — Contributions: green fill */
-#dash_tab_contrib.dash-tab-active {
-  background: #f0fdf4 !important;
-  color: #15803d !important;
-  border-color: #86efac !important;
-  box-shadow: 0 1px 4px rgba(34,197,94,0.15) !important;
-  font-weight: 600 !important;
+.dash-tab-btn:hover:not(.is-active) {
+  background: #f1f5f9;
+  color: #475569;
 }
 
-/* Active tab — Expenses: red fill */
-#dash_tab_expense.dash-tab-active {
-  background: #fef2f2 !important;
-  color: #dc2626 !important;
-  border-color: #fca5a5 !important;
-  box-shadow: 0 1px 4px rgba(239,68,68,0.15) !important;
-  font-weight: 600 !important;
+/* Active tab: colored border on top/left/right, bottom border matches the
+   panel background so it visually "opens" straight into the panel below —
+   the border traces around the tab and continues along the panel edge. */
+.dash-tab-btn.tab-type-contrib.is-active {
+  background: #fff;
+  color: #15803d;
+  border-color: #22c55e;
+  border-bottom-color: #fff;
 }
+.dash-tab-btn.tab-type-expense.is-active {
+  background: #fff;
+  color: #b91c1c;
+  border-color: #ef4444;
+  border-bottom-color: #fff;
+}
+
+/* Panel — picks up the same colored border as its tab, continuing the
+   outline around the KPI cards / filters / table beneath it. */
+.dash-tab-panel {
+  position: relative;
+  z-index: 1;
+  background: #fff;
+  border-radius: 0 0 10px 10px;
+  padding: 16px;
+  border: 2px solid transparent;
+}
+.dash-tab-panel.tab-type-contrib { border-color: #22c55e; }
+.dash-tab-panel.tab-type-expense { border-color: #ef4444; }
 
 /* Dark mode */
-body.dark-mode #dash_tab_contrib,
-body.dark-mode #dash_tab_expense {
-  border-color: #1e2d45;
+body.dark-mode .dash-tab-btn {
+  background: #0d1525;
+  color: #64748b;
+  border-bottom-color: #1e2d45;
+}
+body.dark-mode .dash-tab-btn:hover:not(.is-active) {
+  background: #131f33;
   color: #94a3b8;
 }
-body.dark-mode #dash_tab_contrib.dash-tab-active {
-  background: rgba(34,197,94,0.1) !important;
-  color: #4ade80 !important;
-  border-color: rgba(34,197,94,0.3) !important;
+body.dark-mode .dash-tab-btn.tab-type-contrib.is-active {
+  background: #111827;
+  color: #4ade80;
+  border-color: #22c55e;
+  border-bottom-color: #111827;
 }
-body.dark-mode #dash_tab_expense.dash-tab-active {
-  background: rgba(239,68,68,0.1) !important;
-  color: #f87171 !important;
-  border-color: rgba(239,68,68,0.3) !important;
+body.dark-mode .dash-tab-btn.tab-type-expense.is-active {
+  background: #111827;
+  color: #f87171;
+  border-color: #ef4444;
+  border-bottom-color: #111827;
+}
+body.dark-mode .dash-tab-panel {
+  background: #111827;
 }
 
 /* ── Dashboard mobile improvements ── */
@@ -2842,6 +3041,7 @@ body.dark-mode #dash_tab_expense.dash-tab-active {
   /* View toggle row */
   .ct-view-bar { flex-direction: column !important; align-items: flex-start !important; }
   .ct-vtoggle { overflow-x: auto; width: 100%; }
+  .ct-sort-row { margin-top: 10px; }
 }
 
 /* ══════════════════════════════════════════════
@@ -4159,9 +4359,11 @@ body.dark-mode .card {
     max-height: 170px !important;
   }
 
-  /* Bar chart */
+  /* Bar chart — now a scrollable 12-row month list in its own full-width
+     card (not the old horizontal flex-bar chart), so it needs real room
+     instead of the old chart's compact height. */
   #hm_bar_chart {
-    height: 78px !important;
+    max-height: 180px !important;
   }
 
   /* Quick Actions buttons */
@@ -4171,11 +4373,19 @@ body.dark-mode .card {
     font-size: 11px !important;
   }
 
-  /* Home 3-col section → 1-col (chart/alerts/actions) already handled
-     by the existing rule, but reinforce for consistency */
-  #home [style*="grid-template-columns:1fr 1fr 1fr"] {
-    grid-template-columns: 1fr !important;
+  /* Backup-status row: let it wrap on the smallest screens instead of
+     squeezing the date text and "Back up now" button onto one line */
+  #hm_backup_row {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
   }
+
+  /* Pending-₹-estimate line: smaller font so a longer estimate doesn't wrap
+     to 2-3 lines and stretch this KPI card taller than its row siblings */
+  #kpi_pending_amt {
+    font-size: 10px !important;
+  }
+
   /* Home 2-col section → 1-col */
   #home [style*="grid-template-columns:1fr 1fr"] {
     grid-template-columns: 1fr !important;
@@ -4578,20 +4788,6 @@ body.dark-mode #dash-topbar [style*="border-top: 1px solid #f1f5f9"] {
 
 /* ── Dashboard tracker header & tab pills ── */
 body.dark-mode #dash-tracker-hdr [style*="color:#1e293b"] { color: #f1f5f9 !important; }
-body.dark-mode #dash-tracker-hdr [style*="background:#f1f5f9"],
-body.dark-mode #dash-tracker-hdr [style*="background: #f1f5f9"] { background: #0d1525 !important; }
-body.dark-mode #dash_tab_contrib,
-body.dark-mode #dash_tab_expense {
-  background: transparent !important;
-  color: #64748b !important;
-  box-shadow: none !important;
-}
-body.dark-mode #dash_tab_contrib.dash-tab-active,
-body.dark-mode #dash_tab_expense.dash-tab-active {
-  background: #1e2d45 !important;
-  color: #f1f5f9 !important;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.3) !important;
-}
 
 /* ── Tracker page: summary badges ── */
 body.dark-mode #tr_summary > div:nth-child(1) { background: #052e16 !important; border-color: #14532d !important; }
