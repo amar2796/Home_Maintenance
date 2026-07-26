@@ -21,7 +21,7 @@
 //    name, location/address, receiptPrefix, emailDailyLimit,
 //    signatory, designation, tagline, thankYouMsg, version
 const CFG = {
-  version:       "2.2.0",        // SYNC with APP.version in constants.js
+  version:       "3.0.0",        // SYNC with APP.version in constants.js
    name:         "The Vishwakarma Home",
   location:      "Mungar, Sultanpur",
   address:       "Mungar, Sultanpur, Uttar Pradesh",
