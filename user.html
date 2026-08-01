@@ -1,1092 +1,858 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <title id="pageTitle">Household System</title>
-    <meta name="description" id="metaDesc" content="Household management system — contributions, expenses, members and more."/>
-    <link rel="icon" type="image/svg+xml" href="Image/logo.svg">
-    <link rel="icon" type="image/png" href="Image/logo.PNG">
-    <link rel="apple-touch-icon" href="Image/logo.PNG">
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap"
-      rel="stylesheet"
-    />
-    <!-- Font Awesome — loaded non-blocking (preload + swap to stylesheet on
-         load) so the icon library's full weight doesn't hold up first paint.
-         Icons pop in a beat after the header instead of gating it. -->
-    <link
-      rel="preload"
-      as="style"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-      onload="this.onload=null;this.rel='stylesheet'"
-    />
-    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" /></noscript>
-    <!-- Swiper — only powers a carousel further down the page, not the
-         header, so it's loaded the same non-blocking way. -->
-    <link
-      rel="preload"
-      as="style"
-      href="https://cdnjs.cloudflare.com/ajax/libs/Swiper/11.0.5/swiper-bundle.min.css"
-      onload="this.onload=null;this.rel='stylesheet'"
-    />
-    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Swiper/11.0.5/swiper-bundle.min.css" /></noscript>
-    <!-- Critical CSS — the header/banner's own rules, inlined so they don't
-         wait on the rest of index.css (which styles the whole page: hero,
-         gallery, FAQ, footer, etc). Extracted verbatim from index.css; if you
-         edit header/banner styles there, mirror the change here too. -->
-    <style id="criticalCSS">
-@keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-@keyframes bannerShimmer {
-    0%   { background-position: 0% 0; }
-    100% { background-position: 200% 0; }
-  }
-@keyframes annBell {
-    0%,100%{ transform: rotate(0); }
-    10%    { transform: rotate(12deg); }
-    20%    { transform: rotate(-10deg); }
-    30%    { transform: rotate(8deg); }
-    40%    { transform: rotate(-6deg); }
-    50%    { transform: rotate(0); }
-  }
-@keyframes slideDown {
-    from {
-      opacity: 0;
-      transform: translateY(-8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-/* ══ SITE TOP WRAPPER — banner + header stacked, fully fixed ══ */
-  #siteTop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    z-index: 1100;
-    display: flex;
-    flex-direction: column;
-  }
-/* ══ ANNOUNCEMENT BANNER ══ */
-  #announcementBanner {
-    display: none;
-    position: relative;
-    width: 100%;
-    background: linear-gradient(90deg, #4c1a6e 0%, #6b21a8 40%, #7c3aed 70%, #4c1a6e 100%);
-    background-size: 200% 100%;
-    animation: bannerShimmer 6s linear infinite, fadeIn 0.5s ease;
-    color: #fff;
-    font-family: "Poppins", sans-serif;
-    font-size: 0.82rem;
-    font-weight: 500;
-    z-index: 1100;
-    overflow: hidden;
-    border-bottom: 1px solid rgba(255,255,255,0.12);
-  }
-#announcementBanner.open { display: block; }
-.ann-inner {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    padding: 9px 52px 9px 16px;
-    min-height: 38px;
-    text-align: center;
-    flex-wrap: wrap;
-  }
-.ann-icon {
-    font-size: 1.1rem;
-    flex-shrink: 0;
-    animation: annBell 2s ease-in-out infinite;
-  }
-.ann-text {
-    line-height: 1.45;
-    letter-spacing: 0.1px;
-  }
-.ann-badge {
-    display: inline-block;
-    background: rgba(255,255,255,0.2);
-    border: 1px solid rgba(255,255,255,0.35);
-    border-radius: 20px;
-    padding: 2px 10px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    color: #fff;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-.ann-close {
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    color: rgba(255,255,255,0.7);
-    font-size: 1rem;
-    cursor: pointer;
-    padding: 4px 7px;
-    border-radius: 6px;
-    line-height: 1;
-    transition: background 0.15s, color 0.15s;
-    box-shadow: none;
-  }
-.ann-close:hover {
-    background: rgba(255,255,255,0.15);
-    color: #fff;
-    transform: translateY(-50%);
-  }
-@media(max-width:600px) {
-  .ann-inner { padding: 8px 44px 8px 10px; gap: 8px; font-size: 0.78rem; }
-}
-/* ══ HEADER — Enhanced with logo ══ */
-  .header {
-    position: relative;
-    top: auto;
-    z-index: 1000;
-    /* background: linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.98) 50%, rgba(15, 23, 42, 0.98) 100%); */
-    background: linear-gradient(135deg, #0F172A 0%, #115E59 45%, #0F766E 75%, #F59E0B 100%);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    border-bottom: 1px solid rgba(15, 118, 110, 0.22);
-    box-shadow: 0 2px 0 rgba(15, 118, 110, 0.18), 0 6px 32px rgba(0,0,0,0.28);
-    color: white;
-    padding: 0 28px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-    box-sizing: border-box;
-    height: 64px;
-    animation: fadeIn 1s ease-out 1.7s both;
-    gap: 16px;
-    /* Fix Firefox scroll-linked positioning warning */
-    will-change: transform;
-    transform: translateZ(0);
-  }
-/* subtle gold top line */
-  .header::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0; height: 2px;
-    background: linear-gradient(90deg, transparent 0%, #0F766E 30%, #14B8A6 50%, #0F766E 70%, transparent 100%);
-    opacity: 0.7;
-    pointer-events: none;
-  }
-.header-brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-    flex-shrink: 1;
-    text-decoration: none;
-  }
-.header-logo {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 2px solid rgba(15, 118, 110, 0.55);
-    box-shadow: 0 0 10px rgba(15, 118, 110, 0.35);
-    flex-shrink: 0;
-    background: #334155;
-  }
-.header-brand-text {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-  }
-.header-brand-text .brand-main {
-    font-size: 1rem;
-    font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: #fff;
-    line-height: 1.15;
-    letter-spacing: 0.2px;
-  }
-.header-brand-text .brand-sub {
-    font-size: 0.68rem;
-    font-weight: 400;
-    color: rgba(247,200,100,0.8);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    letter-spacing: 0.3px;
-    line-height: 1.2;
-  }
-/* ── Desktop nav (hidden on mobile) ── */
-  .nav-links {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    flex-shrink: 0;
-  }
-.nav-links a {
-    color: rgba(255, 255, 255, 0.88);
-    text-decoration: none;
-    font-size: 0.84rem;
-    font-weight: 600;
-    padding: 7px 13px;
-    border-radius: 8px;
-    transition: background 0.2s, color 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    white-space: nowrap;
-    position: relative;
-  }
-.nav-links a:hover {
-    background: rgba(15, 118, 110, 0.18);
-    color: #99F6E4;
-  }
-.nav-links a i {
-    color: #0F766E;
-    font-size: 0.8rem;
-  }
-.nav-links a.active-link {
-    color: #99F6E4;
-  }
-.nav-links a.active-link::after {
-    content: '';
-    position: absolute; bottom: 2px; left: 13px; right: 13px;
-    height: 2px; border-radius: 2px;
-    background: #0F766E;
-  }
-.login-nav-links a{
-    text-decoration: none;
-  }
-.login-nav-links a.login-donate-btn {
-    background: linear-gradient(135deg, #FFB800 0%, #FF8A00 100%);
-    color: #fff;
-    padding: 10px 22px;
-    border-radius: 50px;
-    border: none;
-    box-shadow: 0 8px 25px rgba(255, 138, 0, .35);
-    transition: .35s ease;
-  }
-.login-nav-links a.login-donate-btn:hover {
-    transform: translateY(-3px);
-    background: linear-gradient(135deg, #FFC83D, #FF9800);
-    box-shadow: 0 14px 35px rgba(255, 138, 0, .55);
-}
-.login-nav-links a.login-btn {
-    background: rgba(255,255,255,.10);
-    backdrop-filter: blur(16px);
-    border: 1px solid rgba(255,255,255,.20);
-    color: #fff;
-    padding: 10px 22px;
-    border-radius: 50px;
-    transition: .35s;
-    box-shadow: none;
-  }
-.login-nav-links a.login-btn:hover {
-    background: rgba(255,255,255,.18);
-    border-color: #00D4FF;
-    color: #fff;
-    transform: translateY(-2px);
-  }
-.login-nav-links a.login-btn i { color: white; }
-.login-nav-links a.login-btn::after { display: none; }
-/* ── Hamburger button (hidden on desktop) ── */
-  .hamburger-btn {
-    display: none;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1.5px solid rgba(255, 255, 255, 0.25);
-    color: white;
-    font-size: 1.25rem;
-    cursor: pointer;
-    padding: 7px 11px;
-    border-radius: 8px;
-    transition: background 0.2s;
-    box-shadow: none;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    line-height: 1;
-  }
-.hamburger-btn:hover {
-    background: rgba(15, 118, 110, 0.3);
-  }
-/* ── Slide-down mobile nav menu ── */
-  .nav-menu {
-    position: fixed;
-    top: 62px;
-    right: 0;
-    left: 0;
-    background: rgba(30, 41, 59, 0.98);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    display: none;
-    flex-direction: column;
-    padding: 8px 0 12px;
-    z-index: 999;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
-    border-bottom: 2px solid rgba(15, 118, 110, 0.3);
-    animation: slideDown 0.22s ease;
-  }
-.nav-menu.open {
-    display: flex;
-  }
-.nav-menu a {
-    color: rgba(255, 255, 255, 0.9);
-    text-decoration: none;
-    font-weight: 600;
-    padding: 13px 24px;
-    font-size: 0.95rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    transition: background 0.18s, color 0.18s;
-  }
-.nav-menu a:last-child {
-    border-bottom: none;
-  }
-.nav-menu a:hover {
-    background: rgba(15, 118, 110, 0.2);
-    color: #99F6E4;
-  }
-.nav-menu a i {
-    color: #0F766E;
-    width: 20px;
-    text-align: center;
-  }
-.nav-menu a.menu-login {
-    background: rgba(15, 118, 110, 0.15);
-    color: #99F6E4;
-    font-weight: 700;
-    margin: 8px 16px 0;
-    border-radius: 10px;
-    border-bottom: none;
-    justify-content: center;
-    border: 1.5px solid rgba(15, 118, 110, 0.4);
-  }
-.nav-menu a.menu-login:hover {
-    background: #0F766E;
-    color: white;
-  }
-.nav-menu a.menu-login i {
-    color: inherit;
-    width: auto;
-  }
-@media (max-width: 880px) {
-  .header {
-      padding: 0 14px;
-      height: 56px;
-    }
-  .header-logo { width: 34px; height: 34px; }
-  .header-brand-text .brand-main { font-size: 0.88rem; }
-  .header-brand-text .brand-sub  { display: none; }
-  .nav-links { display: none; }
-  .login-nav-links { display: none; }
-  .hamburger-btn { display: flex; }
-  .nav-menu { top: 56px; }
-}
-@media (min-width: 881px) {
-  .nav-links    { display: flex; }
-  .hamburger-btn { display: none !important; }
-  .nav-menu      { display: none !important; }
-}
-@media (max-width: 768px) {
-  .header {
-      height: 52px;
-      padding: 0 12px;
-    }
-  .header-logo { width: 32px; height: 32px; }
-  .header-brand-text .brand-main { font-size: 0.84rem; }
-  .hamburger-btn {
-      flex-shrink: 0;
-      font-size: 1.2rem;
-      padding: 6px 10px;
-    }
-  /* ── Better touch targets ── */
-    .nav-menu a { padding: 15px 24px; min-height: 48px; }
-}
-@media (max-width: 480px) {
-  .header { height: 50px; padding: 0 10px; }
-  .header-logo { width: 30px; height: 30px; }
-  .header-brand-text .brand-main { font-size: 0.8rem; }
-  .nav-menu { top: 50px; }
-  /* Announcement banner */
-    .ann-inner { font-size: 0.75rem; padding: 8px 40px 8px 10px; gap: 6px; }
-}
-@media (max-width: 380px) {
-  .header-brand-text .brand-main { font-size: 0.74rem; }
-}
-@supports (padding: max(0px)) {
-  .header {
-      padding-left:  max(28px, env(safe-area-inset-left));
-      padding-right: max(28px, env(safe-area-inset-right));
-    }
-  .nav-menu {
-      padding-left:  env(safe-area-inset-left, 0px);
-      padding-right: env(safe-area-inset-right, 0px);
-    }
-}
-    </style>
-    <!-- index.css — the rest of it (everything below the header) doesn't need
-         to block first paint, so it loads the same non-blocking way as the
-         Font Awesome / Swiper stylesheets above. -->
-    <link
-      rel="preload"
-      as="style"
-      href="index.css"
-      onload="this.onload=null;this.rel='stylesheet'"
-    />
-    <noscript><link rel="stylesheet" href="index.css" /></noscript>
-    <!-- HOME FEATURES: dark mode, FAQ, contacts, quick-pay FAB (frontend-only, safe to remove) -->
-    <link rel="stylesheet" href="home-features.css">
-    <!-- Shared design tokens (also used by login.html) — additive only -->
-    <link rel="stylesheet" href="design-system.css">
-  </head>
-  <body>
-    <!-- HOME FEATURES: apply saved dark-mode preference immediately, before first paint (avoids a light-mode flash on reload) -->
-    <script>
-      (function () {
-        try {
-          if (window.localStorage.getItem('hf_dark_mode') === '1') {
-            document.body.classList.add('dark-mode');
-          }
-        } catch (e) {}
-      })();
-    </script>
-    <!-- ══ SITE TOP: banner + header stacked in one fixed wrapper ══ -->
-    <div id="siteTop">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- CSP: restricts framing and object embeds; script/style remain open for JSONP + CDN -->
+  <meta http-equiv="Content-Security-Policy" content="frame-ancestors 'self'; object-src 'none'; base-uri 'self';">
+  <!-- Favicon — fixes 404 on every page load -->
+  <link rel="icon" type="image/svg+xml" href="Image/logo.svg">
+  <link rel="icon" href="Image/logo.PNG" type="image/png" />
+  <link rel="apple-touch-icon" href="Image/logo.PNG">
+  <!-- DNS prefetch + preconnect declared once each (was duplicated) -->
+  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com" />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+  <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <!-- Preload local JS files so browser fetches them early while HTML parses -->
+  <link rel="preload" href="constants.js" as="script" />
+  <link rel="preload" href="config.js" as="script" />
+  <link rel="preload" href="app.js" as="script" />
 
-    <!-- ══ ANNOUNCEMENT BANNER (loaded from API) ══ -->
-    <div id="announcementBanner">
-      <div class="ann-inner">
-        <span class="ann-icon">🔔</span>
-        <span class="ann-text" id="annText"></span>
-        <span class="ann-badge" id="annBadge" style="display:none;"></span>
-      </div>
-      <button class="ann-close" onclick="dismissBanner()" aria-label="Close">✕</button>
-    </div>
+  <title>My Dashboard</title>
+  <!-- Browser chrome color matches app theme -->
+  <meta name="theme-color" content="#ffffff" id="metaThemeColor">
+  <meta name="color-scheme" content="light dark"><!-- Title is set dynamically via APP.name in _setUserVersion() -->
+  <!-- Google Fonts: async load (non-render-blocking) -->
+  <link rel="preload"
+    href="https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap"
+    as="style" onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript>
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" />
+  </noscript>
+  <!-- Font Awesome: preload then load both sheets together -->
+  <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/fontawesome.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/solid.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/fontawesome.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/solid.min.css" />
+  </noscript>
 
-    <!-- Header: desktop inline nav + mobile hamburger -->
-    <div class="header" id="mainHeader">
-      <div>
-        <a class="header-brand" href="#home">
-          <img src="Image/logo.PNG" alt="Home Logo" class="header-logo"
-            onerror="this.style.display='none';document.getElementById('hdrIcon').style.display='inline';">
-          <i id="hdrIcon" class="fa-solid fa-house"
-            style="display:none;color:#0F766E;font-size:1.4rem;filter:drop-shadow(0 0 6px rgba(15, 118, 110,0.6));"></i>
-          <div class="header-brand-text">
-            <span class="brand-main" id="hdrBrandName">…</span>
-            <span class="brand-sub" id="hdrBrandSub">…</span>
-          </div>
-        </a>
-      </div>
-      <!-- Desktop nav -->
-       <div>
-        <nav class="nav-links">
-          <a href="#hero">Home</a>
-          <a href="#about">About</a>
-          <a href="#gallery">Gallery</a>
-          <!-- FINANCES NAV LINK — disabled until Household Finances section is re-enabled
-          <a href="#financesSection">Finances</a>
-          -->
-          <a href="#hfFaq">FAQ</a>
-          <a href="#feedbackSection">Feedback</a>
-         
-        </nav>
-       </div>
-       <div class="login-nav-links">
-        <!-- HOME FEATURES: dark mode toggle -->
-        <button class="hf-dark-toggle" id="hfDarkToggle" onclick="hfToggleDarkMode()" aria-label="Switch to dark mode">
-          <i class="fa-solid fa-moon"></i>
-        </button>
-        <!-- <a href="#" onclick="openPayModal();return false;" class="login-donate-btn"><i class="fa-solid fa-hand-holding-heart"></i> Pay</a> -->
-        <a href="login.html" class="login-btn"><i class="fa-solid fa-right-to-bracket"></i> Login</a>
-       </div>
-      
-      <!-- Mobile hamburger -->
-      <button class="hamburger-btn" id="hamburgerBtn" onclick="toggleNavMenu()" aria-label="Menu">
-        <i class="fa-solid fa-bars" id="hamburgerIcon"></i>
-      </button>
-    </div>
+  <link rel="stylesheet" href="user.css">
+  <!-- ── Anti-FOUC: apply dark class BEFORE first paint to prevent white flash ── -->
+  <script>
+    (function() {
+      try {
+        // Set language immediately from stored preference so lang attr is correct before paint
+        var storedLang = localStorage.getItem('mandir_lang');
+        if (storedLang === 'HI') document.documentElement.lang = 'hi';
 
-    </div><!-- /#siteTop -->
-
-    <!-- Mobile slide-down nav menu -->
-    <div class="nav-menu" id="navMenu">
-      <a href="#hero" onclick="closeNavMenu()">
-        <i class="fa-solid fa-house"></i>
-         Home
-         </a
-      >
-      <a href="#about" onclick="closeNavMenu()">
-        <i class="fa-solid fa-info-circle"></i>
-         About</a
-      >
-      <a href="#gallery" onclick="closeNavMenu()">
-        <i class="fa-solid fa-images"></i> 
-        Gallery</a
-      >
-      <a href="#hfFaq" onclick="closeNavMenu()">
-        <i class="fa-solid fa-circle-question"></i> 
-        FAQ</a
-      >
-      <a href="#feedbackSection" onclick="closeNavMenu()">
-        <i class="fa-solid fa-comment-dots"></i> 
-        Feedback</a
-      >
-      <!-- FINANCES NAV LINK — disabled until Household Finances section is re-enabled
-      <a href="#financesSection" onclick="closeNavMenu()">
-        <i class="fa-solid fa-scale-balanced"></i> Finances
-      </a>
-      -->
-      <a href="#" onclick="closeNavMenu();openPayModal();return false;">
-        <i class="fa-solid fa-hand-holding-heart"></i>
-        Donate / Pay</a
-      >
-      <a href="login.html" class="menu-login"
-        ><i class="fa-solid fa-right-to-bracket"></i> Login</a
-      >
-    </div>
-
-    <div class="hero" id="hero">
-      <div class="hero-particles" aria-hidden="true">
-        <span></span><span></span><span></span><span></span>
-        <span></span><span></span><span></span><span></span>
-      </div>
-      <svg class="hero-illustration" viewBox="0 0 300 340" fill="none" aria-hidden="true" focusable="false">
-        <!-- Roof -->
-        <path class="hi-draw hi-1" d="M50,180 L150,90 L250,180" stroke="rgba(255,255,255,0.28)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="270" stroke-dashoffset="270"/>
-        <!-- Walls -->
-        <path class="hi-draw hi-2" d="M70,180 L70,300 M230,180 L230,300" stroke="rgba(255,255,255,0.28)" stroke-width="2" stroke-linecap="round" stroke-dasharray="240" stroke-dashoffset="240"/>
-        <!-- Door -->
-        <path class="hi-draw hi-3" d="M130,300 L130,246 Q150,224 170,246 L170,300" stroke="rgba(255,255,255,0.28)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="160" stroke-dashoffset="160"/>
-        <!-- Spire -->
-        <path class="hi-draw hi-4" d="M150,90 L150,54" stroke="rgba(252,211,77,0.55)" stroke-width="2" stroke-linecap="round" stroke-dasharray="40" stroke-dashoffset="40"/>
-        <circle class="hi-draw hi-5" cx="150" cy="45" r="7" stroke="rgba(252,211,77,0.55)" stroke-width="2" stroke-dasharray="44" stroke-dashoffset="44"/>
-        <!-- Sparkle that twinkles once the spire finishes drawing -->
-        <g class="hi-sparkle" transform="translate(150,45)" aria-hidden="true">
-          <path d="M0,-9 L0,9 M-9,0 L9,0" stroke="#FCD34D" stroke-width="1.4" stroke-linecap="round"/>
-        </g>
-        <!-- Dimension line -->
-        <path class="hi-draw hi-6" d="M50,322 L250,322 M50,315 L50,329 M250,315 L250,329" stroke="rgba(255,255,255,0.22)" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="230" stroke-dashoffset="230"/>
-        <!-- Drafting compass rosette -->
-        <g transform="translate(256,66)">
-          <circle class="hi-draw hi-7" cx="0" cy="0" r="15" stroke="rgba(252,211,77,0.4)" stroke-width="1.5" stroke-dasharray="95" stroke-dashoffset="95"/>
-          <line class="hi-compass-needle" x1="0" y1="0" x2="0" y2="-12" stroke="rgba(252,211,77,0.65)" stroke-width="1.5" stroke-linecap="round"/>
-        </g>
-      </svg>
-      <div class="hero-box">
-        <span class="hero-kicker"><i class="fa-solid fa-hands-praying" aria-hidden="true"></i>Welcome to</span>
-        <h1 id="heroHeading">The Vishwakarma Home</h1>
-        <span class="hero-underline" aria-hidden="true"></span>
-        <p class="hero-sub" id="heroSub">Every contribution, tracked together</p>
-        <div class="hero-cta-row">
-          <a href="#" class="hero-btn hero-btn-primary" onclick="openPayModal();return false;">
-            <i class="fa-solid fa-hand-holding-heart" aria-hidden="true"></i> Contribute Now
-          </a>
-        </div>
-      </div>
-      <a href="#about" class="hero-scroll-cue" aria-label="Scroll to learn more">
-        <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
-      </a>
-    </div>
-
-    <div class="section reveal" id="about">
-      <h2>About Our Household</h2>
-      <p>
-        This digital portal helps manage household contributions, track
-        expenses, and maintain the yearly financial balance in a highly secure
-        and transparent manner.
-      </p>
-    </div>
-
-    <div class="section reveal" id="gallery">
-      <h2>Gallery</h2>
-      <p>Moments from our home's moments and milestones</p>
-
-      <!-- Loading state — skeleton shimmer cards -->
-      <div class="gallery-loading-msg" id="galleryLoading">
-        <div class="gallery-skeleton-row">
-          <div class="gallery-skeleton-card"></div>
-          <div class="gallery-skeleton-card"></div>
-          <div class="gallery-skeleton-card"></div>
-        </div>
-      </div>
-
-      <!-- Empty state -->
-      <div class="gallery-empty-msg" id="galleryEmpty">
-        <i class="fa-solid fa-images" style="font-size:2rem;color:#0F766E;display:block;margin-bottom:10px;"></i>
-        No photos yet. Check back soon! 🙏
-      </div>
-
-      <!-- Swiper Gallery -->
-      <div class="gallery-swiper-section" id="galleryCarouselWrap" style="display:none;">
-        <button class="swiper-button-prev-custom" id="gcPrev" aria-label="Previous">
-          <i class="fa-solid fa-chevron-left"></i>
-        </button>
-        <button class="swiper-button-next-custom" id="gcNext" aria-label="Next">
-          <i class="fa-solid fa-chevron-right"></i>
-        </button>
-        <div class="swiper swiper-gallery" id="gallerySwiper">
-          <div class="swiper-wrapper" id="galleryCarousel"></div>
-        </div>
-        <div class="swiper-pagination swiper-pagination-gallery" id="gcDots"></div>
-      </div>
-
-      <!-- Lightbox: click outside image area closes it -->
-      <div class="gc-lightbox" id="gcLightbox" onclick="_lbOutsideClick(event)">
-        <div class="gc-lb-backdrop"></div>
-        <!-- Top bar always visible -->
-        <div class="gc-lb-topbar">
-          <span class="gc-lb-counter" id="gcLbCounter"></span>
-          <button class="gc-lightbox-close" onclick="closeLightbox()"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <!-- Image panel — clicking the panel bg closes; clicking the frame/img does NOT -->
-        <div class="gc-lb-panel" id="gcLbPanel">
-          <div class="gc-lb-frame" id="gcLbFrame">
-            <img id="gcLightboxImg" src="" alt="">
-            <button class="gc-lb-prev" onclick="event.stopPropagation();lbNav(-1)"><i class="fa-solid fa-chevron-left"></i></button>
-            <button class="gc-lb-next" onclick="event.stopPropagation();lbNav(1)"><i class="fa-solid fa-chevron-right"></i></button>
-          </div>
-          <div id="gcLbCaption" style="display:none;"></div>
-        </div>
-      </div>
-    </div>
-
-
-
-       <!-- ══ Household Finances SECTION — DISABLED
-         To re-enable: remove this HTML comment block wrapper,
-         and also uncomment the CSS block and JS block marked the same way.
-    <div class="section-divider reveal">
-      <div class="sd-line"></div>
-      <div class="sd-center">
-        <div class="sd-petal"></div>
-        <div class="sd-dot"></div>
-        <div class="sd-symbol">🙏</div>
-        <div class="sd-dot"></div>
-        <div class="sd-petal"></div>
-      </div>
-      <div class="sd-line"></div>
-    </div>
-     
-    <div class="transparency-section reveal" id="financesSection">
-     
-      <h2><i class="fa-solid fa-scale-balanced" style="color:#0F766E;margin-right:10px;"></i>Household Finances</h2>
-      <p class="tr-subtitle">
-        पारदर्शिता हमारी प्राथमिकता है — We believe in complete transparency.<br>
-        All funds collected are used solely for household maintenance and expenses.
-      </p>
-      <div class="tr-updated" id="tr_updated"></div>
-     
-      <div class="tr-cards" id="tr_cards">
-        <div class="tr-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>
-      </div>
-     
-      <div class="tr-table-wrap" id="tr_table_wrap" style="display:none;">
-        <table class="tr-table">
-          <thead>
-            <tr>
-              <th style="text-align:center;">Year</th>
-              <th>Opening Balance</th>
-              <th>Collection</th>
-              <th>Expenses</th>
-              <th>Closing Balance</th>
-            </tr>
-          </thead>
-          <tbody id="tr_tbody"></tbody>
-          <tfoot id="tr_tfoot"></tfoot>
-        </table>
-      </div>
-     
-      <div class="tr-goals" id="tr_goals" style="display:none;">
-        <div class="tr-goals-title">
-          <i class="fa-solid fa-bullseye" style="color:#0F766E;margin-right:6px;"></i>
-          Active Fundraising Goals
-        </div>
-        <div id="tr_goals_list"></div>
-      </div>
-     
-      <p class="tr-privacy-note">
-        Individual donor names and amounts are never shown publicly.
-        Only aggregated totals are displayed here.
-      </p>
-     
-    </div>
-    ══ END Household Finances HTML ══ -->
-
-    <!-- ══ FAQ SECTION — built by home-features.css/js but never wired into
-         a page before now; the nav's "FAQ" link (#hfFaq) pointed at nothing. ══ -->
-    <div class="hf-faq-section reveal" id="hfFaq">
-      <h2><i class="fa-solid fa-circle-question" style="color:#0F766E;margin-right:8px;"></i>Frequently Asked Questions</h2>
-      <div class="hf-faq-list">
-        <div class="hf-faq-item">
-          <button class="hf-faq-q" onclick="hfToggleFaq(this)" aria-expanded="false">
-            How do I register as a member?
-            <i class="fa-solid fa-chevron-down"></i>
-          </button>
-          <div class="hf-faq-a">Tap <b>Register</b> on the login page, fill in your details, and verify your email with a one-time code. Your request then goes to the household admin for approval — you'll get an email once your account is activated.</div>
-        </div>
-        <div class="hf-faq-item">
-          <button class="hf-faq-q" onclick="hfToggleFaq(this)" aria-expanded="false">
-            How do I make a contribution or payment?
-            <i class="fa-solid fa-chevron-down"></i>
-          </button>
-          <div class="hf-faq-a">Use the <b>Pay</b> button to see our bank account and UPI details. After paying, your contribution is recorded by the admin and a receipt is emailed to you.</div>
-        </div>
-        <div class="hf-faq-item">
-          <button class="hf-faq-q" onclick="hfToggleFaq(this)" aria-expanded="false">
-            I forgot my password — what now?
-            <i class="fa-solid fa-chevron-down"></i>
-          </button>
-          <div class="hf-faq-a">On the login page, select <b>Forgot password?</b> and enter your registered mobile number. We'll send a one-time code to your registered email so you can set a new password.</div>
-        </div>
-        <div class="hf-faq-item">
-          <button class="hf-faq-q" onclick="hfToggleFaq(this)" aria-expanded="false">
-            Can other members see my contribution details?
-            <i class="fa-solid fa-chevron-down"></i>
-          </button>
-          <div class="hf-faq-a">No. Your contribution history and personal details are private to you and the admin. Only aggregated totals are ever shown publicly.</div>
-        </div>
-        <div class="hf-faq-item">
-          <button class="hf-faq-q" onclick="hfToggleFaq(this)" aria-expanded="false">
-            Who do I contact if I have an issue?
-            <i class="fa-solid fa-chevron-down"></i>
-          </button>
-          <div class="hf-faq-a">Reach out using the contact details just below, or use the <b>Feedback</b> form further down this page — the admin reviews every message.</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ══ CONTACTS SECTION — same status as FAQ above: styled, never placed.
-         Populated from constants.js (APP.phone / APP.email) below. ══ -->
-    <div class="hf-contacts-section reveal">
-      <h2><i class="fa-solid fa-address-book" style="color:#0F766E;margin-right:8px;"></i>Get in Touch</h2>
-      <div class="hf-contacts-grid">
-        <div class="hf-contact-card">
-          <div class="hf-contact-icon"><i class="fa-solid fa-phone"></i></div>
-          <div>
-            <div class="hf-contact-name">Admin / Trustee</div>
-            <div class="hf-contact-role">For registration, payments &amp; general queries</div>
-            <a class="hf-contact-phone" id="hfContactPhone" href="#"></a>
-          </div>
-        </div>
-        <div class="hf-contact-card">
-          <div class="hf-contact-icon"><i class="fa-solid fa-envelope"></i></div>
-          <div>
-            <div class="hf-contact-name">Email Support</div>
-            <div class="hf-contact-role">Receipts, OTPs &amp; written queries</div>
-            <a class="hf-contact-phone" id="hfContactEmail" href="#"></a>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Feedback Section: Map Left + Form Right -->
-    <div class="feedback-section reveal" id="feedbackSection">
-      <h2>
-        <i class="fa-solid fa-comment-dots" style="color: #0F766E; margin-right: 8px"></i>
-        Share Your Feedback
-      </h2>
-      <p>Your suggestions help us improve the Household System for everyone. 🙏</p>
-
-      <div class="feedback-layout">
-
-        <!-- LEFT: Google Map -->
-        <div class="feedback-map-side">
-          <div class="feedback-map-header">
-            <i class="fa-solid fa-location-dot"></i>
-            <span id="mapHeaderText">…</span>
-          </div>
-          <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2941.0904556874557!2d82.20686464850839!3d26.317858966969734!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x399a79fe680ff1d7%3A0x6161b25ff92ace37!2sVishwakarma%20House!5e1!3m2!1sen!2sin!4v1784472279600!5m2!1sen!2sin" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
-        </div>
-
-        <!-- RIGHT: Feedback Form -->
-        <div class="feedback-form" id="feedbackFormBox">
-          <div class="feedback-form-title">
-            <i class="fa-solid fa-paper-plane"></i> Send Us Your Message
-          </div>
-          <div class="form-row2">
-            <div>
-              <label>Full Name <span style="color: #e74c3c">*</span></label>
-              <input id="fb_name" placeholder="Your full name" />
-              <span class="field-error-msg"></span>
-            </div>
-            <div>
-              <label>Mobile Number <span style="color: #e74c3c">*</span></label>
-              <input id="fb_mobile" placeholder="10-digit mobile" maxlength="15" inputmode="numeric" />
-              <span class="field-error-msg"></span>
-            </div>
-          </div>
-          <label>Address</label>
-          <input id="fb_address" placeholder="Village / City" />
-          <label>Your Message / Suggestion <span style="color: #e74c3c">*</span></label>
-          <textarea id="fb_message" placeholder="Share your feedback, ideas or suggestions for improvement..."></textarea>
-          <span class="field-error-msg"></span>
-          <button class="feedback-submit-btn" onclick="submitFeedback()">
-            <i class="fa-solid fa-paper-plane"></i> &nbsp; Submit Feedback
-          </button>
-          <!-- Thank you message -->
-          <div id="feedbackThanks">
-            <div class="ty-icon">🙏</div>
-            <h3>Thank You for Your Valuable Feedback!</h3>
-            <p>
-              Your message has been received. We deeply appreciate your time and<br />suggestions
-              — they help us serve our household better.<br /><br /><em id="feedbackTagline">…</em>
-            </p>
-            <div class="fb-pending-badge">
-              <i class="fa-solid fa-clock"></i> Status: Pending Review
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    <div class="footer" id="pageFooter">
-      © 2026 Household System | Built with <span>❤️</span>
-      <span class="footer-tagline" id="footerTagline">…</span>
-    </div>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Swiper/11.0.5/swiper-bundle.min.js" defer></script>
-    <script src="constants.js"></script>
-    <script>
-      // ══════════════════════════════════════════════════════════════
-      //  CONSTANTS INIT — populates every hardcoded text from APP
-      //  To switch temple: edit constants.js (and appscript CFG) only.
-      // ══════════════════════════════════════════════════════════════
-      document.addEventListener('DOMContentLoaded', function() {
-        // Runs after DOMContentLoaded because several targets below (e.g. the
-        // pay-modal's #payDeclName / #payCommittee / #donateSupportName) are
-        // defined further down in the HTML, after this <script> tag. Running
-        // immediately (as this used to) meant getElementById returned null
-        // for those and they were silently skipped — always stuck showing "…".
-        if (typeof APP === 'undefined') return;
-        var name      = APP.name      || 'Home';
-        var loc       = APP.location  || '';
-        var tagline   = APP.tagline   || '';
-        var symbol    = APP.symbol    || '🏠';
-        var committee = APP.committee || '';
-        var heroTxt   = APP.heroText  || ('|| ' + name + ' ||');
-        var heroSub   = APP.heroSub   || '';
-        var shortName = APP.shortName || name;
-
-        // Page title & meta description
-        document.title = name + (loc ? ', ' + loc : '');
-        var md = document.getElementById('metaDesc');
-        if (md) md.setAttribute('content', name + ' — household management system for contributions, expenses, and members.');
-
-        // Header brand
-        var bn = document.getElementById('hdrBrandName'); if (bn) bn.textContent = name;
-        var bs = document.getElementById('hdrBrandSub');  if (bs) bs.textContent = loc;
-
-        // Hero
-        var hh = document.getElementById('heroHeading');
-        if (hh) { hh.childNodes[0].textContent = heroTxt; }
-        var hs = document.getElementById('heroSub'); if (hs) hs.textContent = heroSub;
-
-        // Members section subtitle
-        var ms = document.getElementById('membersSubtitle');
-        if (ms) ms.textContent = 'the family members who keep ' + name + ' — serving the community with faith, love, and dedication.';
-
-        // Member card location tags (all .member-title elements)
-        document.querySelectorAll('.member-title').forEach(function(el) {
-          el.textContent = name + (loc ? ', ' + loc : '');
-        });
-
-        // Community stats sublabel
-        var csSub = document.querySelector('.cs-sublabel');
-        if (csSub) csSub.textContent = name + ' family';
-
-        // Donate modal sub-text
-        var ps = document.querySelector('.pay-section-sub');
-        if (ps) ps.textContent = 'Support ' + name + ' — your contribution helps maintain the home, cover household expenses, and support the family.';
-
-        // Donate declaration name & committee
-        var pd = document.getElementById('payDeclName');    if (pd) pd.textContent = name + (loc ? ', ' + loc : '');
-        var pc = document.getElementById('payCommittee');   if (pc && committee) pc.textContent = committee;
-
-        // Map header
-        var mh = document.getElementById('mapHeaderText');
-        if (mh) mh.textContent = name + (loc ? ', ' + loc : '') + ' — Find Us Here';
-
-        // Map embed iframe src and title from APP constants
-        var mf = document.getElementById('mapEmbedFrame');
-        if (mf) {
-          if (APP.mapEmbedUrl) mf.src = APP.mapEmbedUrl;
-          mf.title = name + (loc ? ', ' + loc : '') + ' — Google Maps';
+        var stored = localStorage.getItem('mandir_user_dark');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (stored === '1' || (stored === null && prefersDark)) {
+          document.documentElement.classList.add('user-dark-init');
+          document.body && document.body.classList.add('user-dark');
+          // Also set body style directly as body may not exist yet
+          var s = document.createElement('style');
+          s.textContent = 'body{background:#08090f!important;color:#e2e8f0!important;}';
+          s.id = '_dark_fouc';
+          document.head.appendChild(s);
         }
+      } catch(e) {}
+    })();
+  </script>
+</head>
 
-        // Feedback thanks tagline
-        var ft = document.getElementById('feedbackTagline');
-        if (ft) ft.textContent = tagline + ' ' + symbol;
+<body>
 
-        // About section mandir name
-        var amn = document.getElementById('aboutMandirName');
-        if (amn) amn.textContent = name;
+  <!-- _initialsAvatar defined early so onerror on avatar <img> tags can call it
+       before app.js and the main inline <script> block have loaded. -->
+  <script>
+    function _initialsAvatar(name, size) {
+      const parts = (name || "?").trim().split(/\s+/);
+      const initials = (parts[0][0] + (parts[1] ? parts[1][0] : "")).toUpperCase();
+      const colors = ["#c2410c","#2DD4BF","#15803d","#115E59","#7c3aed","#be185d","#0f766e"];
+      const col = colors[(name || "").charCodeAt(0) % colors.length];
+      const fs = Math.round(size * 0.38);
+      return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}'><circle cx='${size/2}' cy='${size/2}' r='${size/2}' fill='${col}'/><text x='${size/2}' y='${size/2+fs*0.36}' text-anchor='middle' fill='white' font-size='${fs}' font-family='Arial' font-weight='700'>${initials}</text></svg>`)}`;
+    }
+  </script>
 
-        // Decorative symbol elements
-        var ass = document.getElementById('aboutStatSymbol');
-        if (ass) ass.textContent = symbol;
-        var sds = document.getElementById('sdSymbol');
-        if (sds) sds.textContent = symbol;
+  <!-- TOAST (pre-rendered so aria-live is registered before first message) -->
+  <div id="toast" role="status" aria-live="polite" aria-atomic="true" style="display:none;"></div>
 
-        // Community stats sublabel
-        var csl = document.getElementById('csSublabel');
-        if (csl) csl.textContent = name + ' family';
+  <!-- PAGE SCROLL PROGRESS BAR -->
+  <div id="page-progress" aria-hidden="true"></div>
 
-        // Donate modal support name
-        var dsn = document.getElementById('donateSupportName');
-        if (dsn) dsn.textContent = name;
-
-        // Footer tagline span
-        var ftl = document.getElementById('footerTagline');
-        if (ftl) ftl.textContent = '॥ ' + tagline + ' ॥ — Serving the community with faith & devotion';
-
-        // Footer full line
-        var pf = document.getElementById('pageFooter');
-        if (pf) pf.innerHTML = '&copy; ' + new Date().getFullYear() + ' ' + shortName + ' | Built with <span>&#10084;&#65039;</span><span class="footer-tagline" id="footerTagline">॥ ' + tagline + ' ॥ — Serving the community with faith &amp; devotion</span>';
-
-        // Contacts section (phone / email)
-        var cp = document.getElementById('hfContactPhone');
-        if (cp && APP.phone) { cp.textContent = APP.phone; cp.href = 'tel:' + APP.phone; }
-        var ce = document.getElementById('hfContactEmail');
-        if (ce && APP.email) { ce.textContent = APP.email; ce.href = 'mailto:' + APP.email; }
-      });
-    </script>
-    <script src="config.js"></script>
-    <script src="app.js"></script>
-    <script src="chatbot_widget.js"></script>
-    <script src="index.js"></script>
-
-    <!-- ══ PAYMENT / DONATE MODAL ══ -->
-    <div class="pay-modal" id="payModal" role="dialog" aria-modal="true" aria-label="Donation Payment Details">
-      <div class="pay-modal-backdrop" onclick="closePayModal()"></div>
-      <!-- Floating ambient orbs -->
-      <div class="pay-orb pay-orb-1"></div>
-      <div class="pay-orb pay-orb-2"></div>
-      <div class="pay-orb pay-orb-3"></div>
-
-      <!-- Sticky top bar -->
-      <div class="pay-modal-topbar">
-        <div class="pay-modal-label">
-          <i class="fa-solid fa-hand-holding-heart"></i> Contribute / योगदान करें
+  <!-- HEADER -->
+  <header class="header" role="banner">
+    <div class="header-left">
+      <div class="hdr-icon" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top" style="cursor:pointer;">
+        <img src="Image/logo.PNG" alt="Home Logo" class="header-logo" fetchpriority="high" decoding="async" width="40" height="40"
+          onerror="this.style.display='none';document.getElementById('hdrIcon').style.display='inline';">
+        <i id="hdrIcon" class="fa-solid fa-house"
+          style="display:none;color:#0F766E;font-size:1.4rem;filter:drop-shadow(0 0 6px rgba(15, 118, 110,0.6));"></i>
+      </div>
+      <div class="hdr-text" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top" style="cursor:pointer;">
+        <div class="hdr-welcome">Welcome back,</div>
+        <span class="hdr-name" id="hdr_name">Loading…</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <!-- Dark mode toggle switch -->
+      <div class="dm-toggle" id="userDarkBtn" onclick="toggleUserDarkMode()" role="button" tabindex="0" title="Toggle dark mode"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleUserDarkMode();}">
+        <span class="dm-icon dm-icon-sun">☀️</span>
+        <span class="dm-knob"></span>
+        <span class="dm-icon dm-icon-moon">🌙</span>
+      </div>
+      <div class="hdr-avatar-wrap">
+        <img id="hdr_photo" class="hdr-avatar" src="Image/logo.PNG" loading="eager" decoding="async"
+          onerror="this.onerror=null;this.src='Image/logo.PNG';"
+          onclick="toggleUserDropdown()" title="Account" alt="User avatar" role="button" aria-haspopup="true" aria-expanded="false" aria-controls="userDropdown" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleUserDropdown();}" />
+        <div id="userDropdown" class="hdr-dropdown" role="menu" aria-label="Account menu">
+          <div class="hdr-drop-head">
+            <img id="hdr_drop_photo" src="data:," loading="lazy" decoding="async"
+              onerror="this.onerror=null;this.src='Image/logo.PNG';"
+              alt="" />
+            <div>
+              <div class="hdr-drop-head-name" id="hdr_drop_name">—</div>
+              <div class="hdr-drop-head-sub" id="hdr_drop_role">Member</div>
+            </div>
+          </div>
+          <div class="hdr-drop-item" onclick="closeDropdown();openMyProfile()" role="menuitem" tabindex="0" onkeydown="if(event.key==='Enter'){closeDropdown();openMyProfile();}">
+            <i class="fa-solid fa-id-card"></i> My Profile
+          </div>
+          <div class="hdr-drop-item" onclick="closeDropdown();openEditProfileDirect()" role="menuitem" tabindex="0" onkeydown="if(event.key==='Enter'){closeDropdown();openEditProfileDirect();}">
+            <i class="fa-solid fa-pen-to-square"></i> Edit Profile
+          </div>
+          <div class="hdr-drop-item" id="hdr_idcard_btn" onclick="closeDropdown();_btnLoad(this);downloadMemberIDCard().finally(()=>_btnDone(document.getElementById('hdr_idcard_btn')))" role="menuitem" tabindex="0" onkeydown="if(event.key==='Enter'){closeDropdown();_btnLoad(this);downloadMemberIDCard().finally(()=>_btnDone(document.getElementById('hdr_idcard_btn')));}">
+            <i class="fa-solid fa-address-card"></i> ID Card
+          </div>
+          <div class="hdr-drop-item danger" onclick="logout()" role="menuitem" tabindex="0" onkeydown="if(event.key==='Enter'){logout();}">
+            <i class="fa-solid fa-power-off"></i> Logout
+          </div>
         </div>
-        <button class="pay-modal-close" onclick="closePayModal()" aria-label="Close">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="main" role="main">
+
+    <!-- HERO -->
+    <div class="hero">
+    <!-- Skeleton shown while data loads -->
+    <div id="heroSkeleton" aria-hidden="true">
+        <div class="hero-row">
+          <div>
+            <!-- label line -->
+            <div class="skel" style="height:10px;width:130px;border-radius:5px;margin-bottom:10px;opacity:.45;"></div>
+            <!-- big amount -->
+            <div class="skel skel-hero-amt"></div>
+            <!-- last donation row -->
+            <div class="skel" style="height:9px;width:180px;border-radius:5px;margin-top:8px;opacity:.35;"></div>
+          </div>
+          <div style="text-align:right;">
+            <!-- pill -->
+            <div class="skel skel-hero-pill" style="margin-left:auto;"></div>
+            <!-- all time label -->
+            <div class="skel" style="height:8px;width:50px;border-radius:4px;margin:10px 0 5px auto;opacity:.3;"></div>
+            <!-- all time amount -->
+            <div class="skel" style="height:18px;width:80px;border-radius:6px;margin-left:auto;opacity:.4;"></div>
+          </div>
+        </div>
+        <div class="hero-stats">
+          <div class="skel skel-hero-stat"></div>
+          <div class="skel skel-hero-stat"></div>
+        </div>
+      </div>
+      <!-- Real content hidden until data arrives -->
+      <div id="heroContent" style="display:none;" role="region" aria-label="Your contribution summary">
+        <div class="hero-row">
+          <div>
+            <div class="hero-label">Contributed This Year (<span id="heroYearLabel">2025</span>)</div>
+            <div class="hero-amount">₹ <span id="thisYearAmount">0</span></div>
+            <div id="lastDonationRow" style="display:none;margin-top:9px;align-items:center;gap:5px;flex-wrap:wrap;background:rgba(15, 118, 110,0.10);border:1px solid rgba(15, 118, 110,0.22);border-radius:20px;padding:4px 11px;width:fit-content;">
+              <i class="fa-solid fa-clock-rotate-left" style="font-size:10px;color:var(--gold);opacity:0.85;"></i>
+              <span style="font-size:10.5px;color:var(--ink-faint);letter-spacing:.2px;">Last:</span>
+              <span id="lastDonationAmt" style="font-size:12.5px;font-weight:700;color:var(--gold-lt);font-family:var(--font-h);"></span>
+              <span style="font-size:11px;color:rgba(255,255,255,0.35);">·</span>
+              <span id="lastDonationDate" style="font-size:10.5px;color:rgba(255,255,255,0.55);"></span>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div class="hero-pill" id="heroPill" style="display:none;"></div>
+            <div style="margin-top:8px;font-size:10px;color:var(--ink-faint);letter-spacing:.5px;text-transform:uppercase;">All time</div>
+            <div style="font-family:var(--font-h);font-size:1.1rem;font-weight:700;color:rgba(255,255,255,0.6);">₹ <span id="totalAmount">0</span></div>
+          </div>
+        </div>
+        <div class="hero-stats" id="quickStats"></div>
+      </div>
+    </div>
+
+    <!-- QUICK ACTIONS -->
+    <div class="qa-row-wrap">
+    <div class="qa-row">
+      <button class="qa-btn qa-green" id="btnSubmitNewPayment"
+        onclick="_toggleAccordion('panelPayment');setTimeout(function(){var el=document.getElementById('accBtn-panelPayment');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},120);" aria-label="Submit new payment">
+        <i class="fa-solid fa-hand-holding-dollar"></i> Submit Payment
+      </button>
+      <button class="qa-btn qa-gold" id="btnAnnualReceipt"
+        onclick="_confirmPdfDownload('annual')" title="Download your annual contribution statement — useful for tax records" aria-label="Download annual receipt PDF">
+        <i class="fa-solid fa-file-invoice"></i> Annual Report
+      </button>
+      <button class="qa-btn qa-ghost" id="btnFullPDF"
+        onclick="_confirmPdfDownload('full')" aria-label="Download full contributions PDF">
+        <i class="fa-solid fa-file-pdf"></i> Complete Report
+      </button>
+    </div><!-- /.qa-row -->
+    </div><!-- /.qa-row-wrap -->
+
+    <!-- GOALS (always visible — small, injected by JS) -->
+    <div id="goalsContainer"></div>
+
+    <!-- BROADCASTS / NOTICES (always visible) -->
+    <div id="broadcastContainer"></div>
+
+    <!-- RECENT ACTIVITY -->
+    <div class="sec-lbl"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Recent Activity</div>
+    <div class="card" style="margin-bottom:14px;overflow:hidden;" role="region" aria-label="Recent activity">
+      <div class="ra-list" id="recentActivityList">
+        <div style="padding:28px 20px;text-align:center;">
+          <div style="width:36px;height:36px;border:3px solid var(--gold-dim);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px;"></div>
+          <div style="font-size:12px;color:var(--ink-faint);font-weight:500;">Loading activity…</div>
+        </div>
+      </div>
+      <div class="ra-view-all" style="cursor:default;color:var(--ink-faint);font-size:11px;font-weight:400;gap:4px;">
+        <i class="fa-solid fa-circle-info" style="font-size:10px;color:var(--ink-faint);opacity:0.7;"></i>
+        To see complete data, click <strong style="color:var(--ink-soft);font-weight:600;">My Contribution</strong> in the menu below
+      </div>
+    </div>
+
+    <!-- MENU -->
+    <div class="sec-lbl"><i class="fa-solid fa-list-ul" aria-hidden="true"></i> Menu</div>
+    <div class="menu-grid" id="mainMenu">
+
+      <!-- My Contributions -->
+      <div class="menu-acc-wrap">
+        <div class="menu-item" id="accBtn-panelRecords" onclick="_toggleAccordion('panelRecords')" tabindex="0" role="button" aria-expanded="false" aria-controls="accBody-panelRecords" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_toggleAccordion('panelRecords');}"  >
+          <div class="menu-item-left">
+            <div class="menu-icon" style="background:rgba(34,197,94,0.12);">💳</div>
+            <div>
+              <div class="menu-title">My Contributions</div>
+              <div class="menu-desc">Full history · filter by year, month, type</div>
+            </div>
+          </div>
+          <div class="menu-right">
+            <span class="menu-badge mb-green" id="menuBadgeRecords" style="display:none;"></span>
+            <span class="menu-arrow">›</span>
+          </div>
+        </div>
+        <div class="acc-body" id="accBody-panelRecords">
+          <div class="acc-body-inner" id="accInner-panelRecords"></div>
+        </div>
       </div>
 
-      <!-- Scrollable body -->
-      <div class="pay-modal-body">
+      <!-- Submit Payment -->
+      <div class="menu-acc-wrap">
+        <div class="menu-item" id="accBtn-panelPayment" onclick="_toggleAccordion('panelPayment')" tabindex="0" role="button" aria-expanded="false" aria-controls="accBody-panelPayment" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_toggleAccordion('panelPayment');}" >
+          <div class="menu-item-left">
+            <div class="menu-icon" style="background:rgba(15, 118, 110,0.12);">📋</div>
+            <div>
+              <div class="menu-title">Submit Payment</div>
+              <div class="menu-desc">Submit &amp; track your payment requests</div>
+            </div>
+          </div>
+          <div class="menu-right">
+            <span class="menu-badge mb-amber" id="menuBadgePending" style="display:none;"></span>
+            <span class="menu-arrow">›</span>
+          </div>
+        </div>
+        <div class="acc-body" id="accBody-panelPayment">
+          <div class="acc-body-inner" id="accInner-panelPayment"></div>
+        </div>
+      </div>
 
-        <!-- Diya icon + Heading -->
-        <div class="pay-diya-icon">🔧</div>
-        <h2 class="pay-section-title">Payment <span>Details</span></h2>
-        <p class="pay-section-sub">
-          Support <span id="donateSupportName">…</span> — your contribution helps maintain the home,
-          conduct yagyas, and serve the community.
-        </p>
-        <div class="pay-gold-divider"></div>
+      <!-- Statistics -->
+      <div class="menu-acc-wrap">
+        <div class="menu-item" id="accBtn-panelStats" onclick="_toggleAccordion('panelStats')" tabindex="0" role="button" aria-expanded="false" aria-controls="accBody-panelStats" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_toggleAccordion('panelStats');}" >
+          <div class="menu-item-left">
+            <div class="menu-icon" style="background:rgba(20, 184, 166,0.1);">📊</div>
+            <div>
+              <div class="menu-title">Statistics</div>
+              <div class="menu-desc">Month-wise &amp; type breakdown</div>
+            </div>
+          </div>
+          <div class="menu-right"><span class="menu-arrow">›</span></div>
+        </div>
+        <div class="acc-body" id="accBody-panelStats">
+          <div class="acc-body-inner" id="accInner-panelStats"></div>
+        </div>
+      </div>
 
-        <!-- Two cards: Bank + UPI -->
-        <div class="pay-cards-row">
+      <!-- Events & Festivals -->
+      <div class="menu-acc-wrap">
+        <div class="menu-item" id="accBtn-panelEvents" onclick="_toggleAccordion('panelEvents')" tabindex="0" role="button" aria-expanded="false" aria-controls="accBody-panelEvents" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_toggleAccordion('panelEvents');}" >
+          <div class="menu-item-left">
+            <div class="menu-icon" style="background:rgba(15, 118, 110,0.1);">📅</div>
+            <div>
+              <div class="menu-title">Events &amp; Festivals</div>
+              <div class="menu-desc">Upcoming · ongoing household events</div>
+            </div>
+          </div>
+          <div class="menu-right">
+            <span class="menu-badge mb-amber" id="menuBadgeEvents" style="display:none;"></span>
+            <span class="menu-arrow">›</span>
+          </div>
+        </div>
+        <div class="acc-body" id="accBody-panelEvents">
+          <div class="acc-body-inner" id="accInner-panelEvents"></div>
+        </div>
+      </div>
 
-          <!-- Bank Account Card -->
-          <div class="pay-card">
-            <div class="pay-card-sweep"></div>
-            <div class="pay-card-icon"><i class="fa-solid fa-building-columns"></i></div>
-            <div class="pay-card-heading">Bank Transfer</div>
-            <div class="pay-detail-row">
-              <span class="pay-detail-label">Account Name</span>
-              <span class="pay-detail-value" id="payAccName">Loading...</span>
+      <!-- Feedback -->
+      <div class="menu-acc-wrap">
+        <div class="menu-item" id="accBtn-panelFeedback" onclick="_toggleAccordion('panelFeedback')" tabindex="0" role="button" aria-expanded="false" aria-controls="accBody-panelFeedback" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_toggleAccordion('panelFeedback');}" >
+          <div class="menu-item-left">
+            <div class="menu-icon" style="background:rgba(20, 184, 166,0.1);">💬</div>
+            <div>
+              <div class="menu-title">Feedback</div>
+              <div class="menu-desc">Share suggestions with household admin</div>
             </div>
-            <div class="pay-detail-row">
-              <span class="pay-detail-label">Account No.</span>
-              <span class="pay-detail-value" id="payAccNo">Loading...</span>
+          </div>
+          <div class="menu-right"><span class="menu-arrow">›</span></div>
+        </div>
+        <div class="acc-body" id="accBody-panelFeedback">
+          <div class="acc-body-inner" id="accInner-panelFeedback"></div>
+        </div>
+      </div>
+
+      <!-- Household Contact -->
+      <div class="menu-acc-wrap">
+        <div class="menu-item" id="accBtn-panelContact" onclick="_toggleAccordion('panelContact')" tabindex="0" role="button" aria-expanded="false" aria-controls="accBody-panelContact" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_toggleAccordion('panelContact');}" >
+          <div class="menu-item-left">
+            <div class="menu-icon" style="background:rgba(34,197,94,0.1);">📞</div>
+            <div>
+              <div class="menu-title">Household Contact</div>
+              <div class="menu-desc">Phone, email &amp; address</div>
             </div>
-            <div class="pay-detail-row">
-              <span class="pay-detail-label">IFSC Code</span>
-              <span class="pay-detail-value" id="payIfsc">Loading...</span>
+          </div>
+          <div class="menu-right"><span class="menu-arrow">›</span></div>
+        </div>
+        <div class="acc-body" id="accBody-panelContact">
+          <div class="acc-body-inner" id="accInner-panelContact"></div>
+        </div>
+      </div>
+
+    </div><!-- /menu-grid -->
+
+    <!-- ═══ SECTION PANELS (hidden, revealed on menu tap) ═══ -->
+
+    <!-- PANEL: Records + Filter -->
+    <div class="sec-panel" id="panelRecords">
+      <button class="sec-panel-back" onclick="_closeMenuSection('panelRecords')">
+        <i class="fa-solid fa-arrow-left"></i> Back
+      </button>
+      <div class="sec-lbl" id="filterSection" style="cursor:pointer;" onclick="_toggleFilter()">
+        <i class="fa-solid fa-filter"></i> Filter & Search
+        <span id="filterToggleIcon" style="margin-left:auto;font-size:13px;color:var(--gold);font-family:var(--font-b);font-weight:700;">▾</span>
+      </div>
+      <div id="filterBody" class="card" style="margin-bottom:14px;">
+        <div class="card-body">
+          <div class="f-grid">
+            <div class="f-grp"><label>Year</label><select id="filterYear" onchange="applyFilter()"></select></div>
+            <div class="f-grp"><label>Month</label><select id="filterMonth" onchange="applyFilter()"></select></div>
+            <div class="f-grp"><label>Type</label><select id="filterType" onchange="applyFilter()"></select></div>
+            <div class="f-grp"><label>Search</label><input type="text" id="searchInput" placeholder="Amount, …" onkeyup="searchData()" /></div><!-- placeholder set from APP.receiptPrefix in _setUserVersion() -->
+          </div>
+          <div class="f-actions">
+            <button class="btn-secondary btn-sm" onclick="applyFilter()"><i class="fa-solid fa-magnifying-glass"></i> Apply</button>
+            <button class="btn-ghost btn-sm" onclick="resetFilter()"><i class="fa-solid fa-rotate-right"></i> Reset</button>
+          </div>
+        </div>
+      </div>
+      <div class="sec-lbl"><i class="fa-solid fa-list-ul"></i> Contribution Records</div>
+      <div class="card">
+        <div class="card-hdr">
+          <div class="card-title"><i class="fa-solid fa-receipt"></i> Records <span class="c-badge" id="recordsCount">0</span></div>
+          <span style="font-size:11.5px;color:var(--ink-faint);">Tap row for receipt</span>
+        </div>
+        <div class="card-body" style="padding:0;">
+          <div class="t-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Amount (₹)</th>
+                  <th>Month</th>
+                  <th class="col-year">Year</th>
+                  <th>Tracking / Type</th>
+                  <th>Date</th>
+                  <th class="col-rcpt">Receipt</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+          <div class="mob-card-list" id="mobCardList"></div>
+          <div id="paginationBar"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL: Stats -->
+    <div class="sec-panel" id="panelStats">
+      <button class="sec-panel-back" onclick="_closeMenuSection('panelStats')">
+        <i class="fa-solid fa-arrow-left"></i> Back
+      </button>
+      <div class="sec-lbl"><i class="fa-solid fa-chart-bar"></i> Statistics</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-hdr" style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="card-title"><i class="fa-solid fa-calendar-days"></i> Month-wise</div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <label for="summaryYear" style="font-size:12px; font-weight:700; color:var(--ink-soft);">Select Year:</label>
+              <div style="position:relative;">
+                <select id="summaryYear" class="inl-sel" onchange="renderSummaries()" 
+                        style="padding:6px 24px 6px 10px; border:2px solid var(--gold); background:#fff; font-weight:bold;">
+                </select>
+                <i class="fa-solid fa-caret-down" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); pointer-events:none; color:var(--gold);"></i>
+              </div>
             </div>
-            <div class="pay-detail-row">
-              <span class="pay-detail-label">Bank Name</span>
-              <span class="pay-detail-value" id="payBankName">Loading...</span>
+          </div>
+          <div class="card-body" style="padding-top:10px;padding-bottom:8px;">
+            <div id="monthSummary"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hdr">
+            <div class="card-title"><i class="fa-solid fa-chart-pie"></i> By Type</div>
+            <span style="font-size:11px;color:var(--ink-faint);">same year</span>
+          </div>
+          <div class="card-body" style="padding-top:10px;padding-bottom:8px;">
+            <div id="typeSummary"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL: Events -->
+    <div class="sec-panel" id="panelEvents">
+      <button class="sec-panel-back" onclick="_closeMenuSection('panelEvents')">
+        <i class="fa-solid fa-arrow-left"></i> Back
+      </button>
+      <div class="sec-lbl"><i class="fa-solid fa-calendar-star"></i> Upcoming Events</div>
+      <div id="eventsContainer">
+        <div class="card" style="text-align:center;color:var(--ink-faint);padding:24px;font-size:13px;">
+          <i class="fa-solid fa-spinner fa-spin"></i> Loading events…
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL: Payment + My Requests -->
+    <div class="sec-panel" id="panelPayment">
+      <button class="sec-panel-back" onclick="_closeMenuSection('panelPayment')">
+        <i class="fa-solid fa-arrow-left"></i> Back
+      </button>
+
+      <!-- Section header -->
+      <div class="sec-lbl" id="submitPaymentSection"><i class="fa-solid fa-hand-holding-dollar"></i> Submit Payment Request</div>
+
+      <!-- Info banner -->
+      <div style="background:linear-gradient(135deg,#F0FDFA,#F8FAFC);border:1.5px solid rgba(15, 118, 110,0.28);border-radius:14px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:flex-start;gap:11px;">
+        <div style="width:34px;height:34px;background:rgba(15, 118, 110,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">
+          <i class="fa-solid fa-circle-info" style="color:#0F766E;font-size:0.95rem;"></i>
+        </div>
+        <div>
+          <div style="font-size:12.5px;font-weight:700;color:#115E59;margin-bottom:2px;">Already paid? Submit for verification</div>
+          <div style="font-size:11.5px;color:#64748b;line-height:1.55;">Paid via UPI or Cash? Submit your payment details below — household admin will verify and record it officially.</div>
+        </div>
+      </div>
+
+      <!-- Payment form card -->
+      <div class="card" style="margin-bottom:14px;border-radius:16px;overflow:hidden;box-shadow:var(--sh-md);">
+
+        <!-- Card gradient header -->
+        <div style="background:linear-gradient(135deg,#1E1B4B 0%,#312E81 60%,#1E1B4B 100%);padding:14px 16px;display:flex;align-items:center;gap:10px;border-bottom:2px solid rgba(15, 118, 110,0.35);">
+          <div style="width:30px;height:30px;background:rgba(15, 118, 110,0.18);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <i class="fa-solid fa-receipt" style="color:#0F766E;font-size:0.85rem;"></i>
+          </div>
+          <span style="font-family:var(--font-h);font-weight:700;font-size:14px;color:#fff;">Payment Details</span>
+        </div>
+
+        <div class="card-body" style="padding:16px;">
+
+          <!-- Row 1: Month + Amount side by side -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+            <div>
+              <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:5px;margin-bottom:5px;">
+                <i class="fa-solid fa-calendar-days" class="_u-gold-icon-xs"></i> Month <span style="color:#ef4444;">*</span>
+              </label>
+              <select id="pr_month" class="f-input-gold" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;background:var(--bg);color:var(--ink);font-family:var(--font-b);transition:border-color .2s;">
+                <option value="">Select Month</option>
+              </select>
             </div>
-            <div class="pay-detail-row">
-              <span class="pay-detail-label">Branch</span>
-              <span class="pay-detail-value" id="payBranch">Loading...</span>
+            <div>
+              <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:5px;margin-bottom:5px;">
+                <i class="fa-solid fa-calendar" class="_u-gold-icon-xs"></i> Year <span style="color:#ef4444;">*</span>
+              </label>
+              <select id="pr_year" class="f-input-gold" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;background:var(--bg);color:var(--ink);font-family:var(--font-b);transition:border-color .2s;">
+              </select>
             </div>
-            <div class="pay-detail-row">
-              <span class="pay-detail-label">Account Type</span>
-              <span class="pay-detail-value" id="payAccType">Loading...</span>
+          </div>
+          <div style="margin-bottom:12px;">
+            <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:5px;margin-bottom:5px;">
+              <i class="fa-solid fa-indian-rupee-sign" class="_u-gold-icon-xs"></i> Amount <span style="color:#ef4444;">*</span>
+            </label>
+            <div style="position:relative;">
+              <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;font-weight:700;color:#115E59;">₹</span>
+              <input type="number" id="pr_amount" placeholder="0" min="1" class="f-input-gold"
+                style="width:100%;padding:10px 12px 10px 26px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;font-weight:700;outline:none;background:var(--bg);color:var(--ink);font-family:var(--font-b);transition:border-color .2s;box-sizing:border-box;"/>
             </div>
-            <button class="pay-copy-btn" id="copyBankBtn" onclick="copyBankDetails()">
-              <i class="fa-regular fa-copy"></i> Copy Details
-            </button>
           </div>
 
-          <!-- UPI Card -->
-          <div class="pay-card">
-            <div class="pay-card-sweep"></div>
-            <div class="pay-card-icon"><i class="fa-solid fa-mobile-screen-button"></i></div>
-            <div class="pay-card-heading">UPI / QR Code</div>
-            <div class="pay-qr-wrap">
-              <div class="pay-qr-ring-wrap">
-                <div class="pay-qr-box" id="payQrBox">
-                  <div class="pay-qr-placeholder" id="qrFallback">
-                    <i class="fa-solid fa-qrcode"></i>
-                    <span>Generating<br>QR Code...</span>
-                  </div>
+          <!-- Row 2: Payment Mode — pill selector -->
+          <div style="margin-bottom:12px;">
+            <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:5px;margin-bottom:8px;">
+              <i class="fa-solid fa-wallet" class="_u-gold-icon-xs"></i> Payment Mode
+            </label>
+            <select id="pr_mode" class="f-input-gold" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;background:var(--bg);color:var(--ink);font-family:var(--font-b);transition:border-color .2s;">
+            </select>
+          </div>
+
+          <!-- Row 3: UTR Reference -->
+          <div style="margin-bottom:12px;">
+            <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:5px;margin-bottom:5px;">
+              <i class="fa-solid fa-hashtag" class="_u-gold-icon-xs"></i> UTR / Reference No.
+              <span style="font-size:10px;color:#94a3b8;font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span>
+            </label>
+            <input type="text" id="pr_utr" placeholder="UPI transaction ID or cheque number" class="f-input-gold"
+              style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;background:var(--bg);color:var(--ink);font-family:var(--font-b);transition:border-color .2s;box-sizing:border-box;"/>
+          </div>
+
+          <!-- Row 4: Note -->
+          <div style="margin-bottom:14px;">
+            <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:5px;margin-bottom:5px;">
+              <i class="fa-solid fa-pen-to-square" class="_u-gold-icon-xs"></i> Note
+              <span style="font-size:10px;color:#94a3b8;font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span>
+            </label>
+            <input type="text" id="pr_note" placeholder="Any additional info for admin..." maxlength="200" class="f-input-gold"
+              style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;background:var(--bg);color:var(--ink);font-family:var(--font-b);transition:border-color .2s;box-sizing:border-box;"/>
+          </div>
+
+          <!-- Row 5: Payment Slip upload -->
+          <div style="margin-bottom:16px;">
+            <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:5px;margin-bottom:6px;">
+              <i class="fa-solid fa-image" class="_u-gold-icon-xs"></i> Payment Slip / Screenshot
+              <span style="font-size:10px;color:#94a3b8;font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span>
+            </label>
+            <div onclick="document.getElementById('pr_slip').click()"
+              style="border:2px dashed rgba(15, 118, 110,0.4);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;background:var(--bg);cursor:pointer;transition:border-color .2s,background .2s;"
+              onmouseover="this.style.borderColor='var(--gold)';this.style.background=document.body.classList.contains('user-dark')?'rgba(15, 118, 110,0.09)':' #F8FAFC'" onmouseout="this.style.borderColor='rgba(15, 118, 110,0.4)';this.style.background='var(--bg)'">
+              <div style="width:38px;height:38px;background:rgba(15, 118, 110,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="fa-solid fa-cloud-arrow-up" style="color:#0F766E;font-size:1.1rem;"></i>
+              </div>
+              <div class="_u-flex-1">
+                <div id="pr_slip_name" style="font-size:13px;color:#64748b;font-weight:500;">Tap to attach payment slip</div>
+                <div style="font-size:10.5px;color:#94a3b8;margin-top:1px;">JPG, PNG · Max 5 MB</div>
+                <div id="pr_slip_preview_wrap" style="display:none;margin-top:6px;">
+                  <img id="pr_slip_preview" style="max-height:60px;border-radius:6px;border:1px solid #e2e8f0;" src="data:," />
                 </div>
               </div>
-              <div class="pay-upi-id" id="payUpiId">Loading...</div>
-              <button class="pay-copy-btn" id="copyUpiBtn" onclick="copyUpiId()" style="margin-top:0;">
-                <i class="fa-regular fa-copy"></i> Copy UPI ID
-              </button>
+              <input type="file" id="pr_slip" accept="image/*" style="display:none;" onchange="handlePrSlip(this)" />
             </div>
           </div>
 
-        </div><!-- /pay-cards-row -->
+          <!-- Submit button -->
+          <button id="btnSubmitPayment"
+            onclick="_btnLoad(this);submitPaymentRequest().finally(()=>_btnDone(document.getElementById('btnSubmitPayment')))"
+            style="width:100%;padding:13px;background:linear-gradient(135deg,#0F766E,#F59E0B);color:#fff;border:none;border-radius:11px;font-family:var(--font-b);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(15, 118, 110,0.4);transition:opacity .2s,transform .2s;letter-spacing:.2px;">
+            <i class="fa-solid fa-paper-plane"></i> Submit to Admin for Verification
+          </button>
 
-        <!-- Declaration -->
-        <div class="pay-declaration">
-          <p>
-            <strong>Declaration:</strong> All donations made to <strong id="payDeclName">…</strong>
-            are used exclusively for household maintenance, bills, and family welfare.
-            This institution is managed by the <strong id="payCommittee">…</strong>.
-            Please retain your payment receipt for records. For any queries, contact the household admin.
-            <strong>योगदान का उपयोग घर के रखरखाव एवं खर्चों में किया जाता है।</strong>
-          </p>
+          <!-- Status message -->
+          <div id="prMsg" style="font-size:12.5px;margin:10px 0 0;display:none;padding:11px 14px;border-radius:9px;border-left:3px solid;font-weight:600;"></div>
+
         </div>
+      </div>
 
-        <div class="pay-help">
-          Need help? Contact us at <a href="#feedbackSection" onclick="closePayModal()">Feedback</a>
-          &nbsp;·&nbsp; Thank you for your generous support 🙏
+      <!-- My Requests section -->
+      <div id="myContribRequestsSection" style="display:none;">
+        <div class="sec-lbl"><i class="fa-solid fa-clock-rotate-left"></i> My Payment Requests</div>
+        <div id="myContribRequestsList"></div>
+      </div>
+    </div>
+
+    <!-- PANEL: Maintenance & Bills -->
+    <div class="sec-panel" id="panelMaintenance">
+      <button class="sec-panel-back" onclick="_closeMenuSection('panelMaintenance')">
+        <i class="fa-solid fa-arrow-left"></i> Back
+      </button>
+      <div class="sec-lbl"><i class="fa-solid fa-screwdriver-wrench"></i> Repair &amp; Maintenance Log</div>
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-body">
+          <div class="f-grid" style="grid-template-columns:1fr;gap:10px;">
+            <div class="f-grp">
+              <label>What needs attention?</label>
+              <input type="text" id="mtIssueTitle" placeholder="e.g. Kitchen tap leaking" maxlength="120" />
+            </div>
+            <div style="display:flex;gap:10px;">
+              <div class="f-grp" style="flex:1;">
+                <label>Category</label>
+                <select id="mtIssueCategory" style="width:100%;height:38px;border:1.5px solid #e2e8f0;border-radius:10px;padding:0 10px;font-family:var(--font-b);font-size:13px;">
+                  <option>Plumbing</option>
+                  <option>Electrical</option>
+                  <option>Appliance</option>
+                  <option>Cleaning</option>
+                  <option>Structural</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div class="f-grp" style="flex:1;">
+                <label>Status</label>
+                <select id="mtIssueStatus" style="width:100%;height:38px;border:1.5px solid #e2e8f0;border-radius:10px;padding:0 10px;font-family:var(--font-b);font-size:13px;">
+                  <option>Open</option>
+                  <option>In progress</option>
+                  <option>Resolved</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <button id="btnAddMtIssue" onclick="hmAddIssue()" style="background:var(--gold);color:#fff;border:none;padding:10px 24px;border-radius:10px;font-family:var(--font-b);font-size:13px;font-weight:600;cursor:pointer;margin-top:12px;">
+            <i class="fa-solid fa-plus"></i> Add to log
+          </button>
         </div>
+      </div>
+      <div id="hmIssueList" style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px;"></div>
 
-      </div><!-- /pay-modal-body -->
-    </div><!-- /payModal -->
+      <div class="sec-lbl"><i class="fa-solid fa-bell"></i> Bill Reminders</div>
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-body">
+          <div class="f-grid" style="grid-template-columns:1fr;gap:10px;">
+            <div class="f-grp">
+              <label>Bill name</label>
+              <input type="text" id="mtBillName" placeholder="e.g. Electricity bill" maxlength="80" />
+            </div>
+            <div style="display:flex;gap:10px;">
+              <div class="f-grp" style="flex:1;">
+                <label>Due date</label>
+                <input type="date" id="mtBillDue" style="width:100%;height:38px;border:1.5px solid #e2e8f0;border-radius:10px;padding:0 10px;font-family:var(--font-b);font-size:13px;" />
+              </div>
+              <div class="f-grp" style="flex:1;">
+                <label>Amount (₹)</label>
+                <input type="number" id="mtBillAmount" placeholder="e.g. 1500" min="0" style="width:100%;height:38px;border:1.5px solid #e2e8f0;border-radius:10px;padding:0 10px;font-family:var(--font-b);font-size:13px;box-sizing:border-box;" />
+              </div>
+            </div>
+          </div>
+          <button id="btnAddMtBill" onclick="hmAddBill()" style="background:var(--gold);color:#fff;border:none;padding:10px 24px;border-radius:10px;font-family:var(--font-b);font-size:13px;font-weight:600;cursor:pointer;margin-top:12px;">
+            <i class="fa-solid fa-plus"></i> Add reminder
+          </button>
+        </div>
+      </div>
+      <div id="hmBillList" style="display:flex;flex-direction:column;gap:10px;"></div>
+      <div style="font-size:11px;color:var(--ink-faint);margin-top:10px;">
+        <i class="fa-solid fa-circle-info"></i> Saved on this device only — not synced to the shared household ledger.
+      </div>
+    </div>
 
-    <!-- HOME FEATURES: quick-pay floating action button (reuses existing openPayModal) -->
-    <button class="hf-pay-fab" id="hfPayFab" onclick="openPayModal()">
-      <i class="fa-solid fa-hand-holding-heart"></i> Quick Pay
-    </button>
+    <!-- PANEL: Feedback -->
+    <div class="sec-panel" id="panelFeedback">
+      <button class="sec-panel-back" onclick="_closeMenuSection('panelFeedback')">
+        <i class="fa-solid fa-arrow-left"></i> Back
+      </button>
+      <div class="sec-lbl"><i class="fa-solid fa-comment-dots"></i> Submit Feedback</div>
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-body">
+          <div style="font-size:12px;color:var(--ink-soft);margin-bottom:12px;">Share your suggestions or concerns with the household admin.</div>
+          <div class="f-grid" style="grid-template-columns:1fr;gap:10px;">
+            <div class="f-grp">
+              <label>Subject</label>
+              <input type="text" id="fb_subject" placeholder="e.g. Suggestion about monthly billing" maxlength="200" />
+            </div>
+            <div class="f-grp">
+              <label>Message</label>
+              <textarea id="fb_message" placeholder="Write your feedback here…" maxlength="1000" class="f-input-gold" style="width:100%;min-height:80px;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:var(--font-b);font-size:13px;resize:vertical;outline:none;box-sizing:border-box;"></textarea>
+            </div>
+          </div>
+          <div id="fbMsg" style="font-size:12px;margin:8px 0;display:none;"></div>
+          <button id="btnSubmitFeedback" onclick="_btnLoad(this);submitFeedback().finally(()=>_btnDone(document.getElementById('btnSubmitFeedback')))" style="background:var(--gold);color:#fff;border:none;padding:10px 24px;border-radius:10px;font-family:var(--font-b);font-size:13px;font-weight:600;cursor:pointer;margin-top:6px;">
+            <i class="fa-solid fa-paper-plane"></i> Submit Feedback
+          </button>
+        </div>
+      </div>
+    </div>
 
-    <!-- HOME FEATURES: frontend-only additions, safe to remove -->
-    <script src="home-features.js"></script>
+    <!-- PANEL: Contact -->
+    <div class="sec-panel" id="panelContact">
+      <button class="sec-panel-back" onclick="_closeMenuSection('panelContact')">
+        <i class="fa-solid fa-arrow-left"></i> Back
+      </button>
+      <div class="sec-lbl"><i class="fa-solid fa-phone"></i> Household Contact</div>
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-body" style="padding:14px 16px;">
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <i class="fa-solid fa-phone" style="color:var(--gold);font-size:1.2rem;width:22px;text-align:center;"></i>
+              <div>
+                <div style="font-size:11px;color:var(--ink-faint);font-weight:600;text-transform:uppercase;letter-spacing:.4px;">Phone</div>
+                <a id="homePhone" href="" style="font-size:14px;font-weight:600;color:var(--gold);text-decoration:none;"></a>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <i class="fa-solid fa-envelope" style="color:var(--gold);font-size:1.2rem;width:22px;text-align:center;"></i>
+              <div>
+                <div style="font-size:11px;color:var(--ink-faint);font-weight:600;text-transform:uppercase;letter-spacing:.4px;">Email</div>
+                <a id="homeEmail" href="" style="font-size:14px;font-weight:600;color:var(--gold);text-decoration:none;"></a>
+              </div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:12px;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <i class="fa-solid fa-location-dot" style="color:var(--gold); font-size:1.2rem; width:22px; text-align:center;"></i>
+                <div>
+                  <div style="font-size:11px; color:var(--ink-faint); font-weight:600; text-transform:uppercase;">Address</div>
+                  <div id="homeAddressText" style="font-size:13px; color:var(--ink-mid); font-weight:500;"></div>
+                </div>
+              </div>
+            
+              <div class="map-container" style="width:100%; border-radius:12px; overflow:hidden; border:1.5px solid var(--gold-dim); box-shadow:var(--sh-sm); height:220px; position:relative; background:#eee;">
+                <!-- Map iframe injected lazily when Contact panel opens — see _lazyLoadPanel -->
+                <div id="mapPlaceholder" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;gap:8px;">
+                  <i class="fa-solid fa-map-location-dot" style="color:var(--gold);"></i> Map loads on open…
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-  </body>
+    <!-- VERSION FOOTER -->
+    <div id="userVersionFooter" style="text-align:center;font-size:10px;color:var(--ink-faint);padding:8px 0 20px;"></div>
+
+  </div><!-- /main -->
+
+  <!-- ═══ BOTTOM SHEET ═══ -->
+  <div class="bs-overlay" id="bsOverlay" onclick="_closeSheet()" aria-hidden="true"></div>
+  <div class="bs-sheet" id="bsSheet" role="dialog" aria-modal="true" aria-labelledby="bsTitle">
+    <div class="bs-handle-bar" id="bsHandle" aria-hidden="true"></div>
+    <div class="bs-header">
+      <div class="bs-title" id="bsTitle"><i class="fa-solid fa-list-ul"></i> Menu</div>
+      <button class="bs-close" onclick="_closeSheet()" title="Close" aria-label="Close panel">✕</button>
+    </div>
+    <div class="bs-body" id="bsBody">
+      <!-- panel content injected here dynamically -->
+    </div>
+  </div>
+
+  <!-- ══ Full-page loading / error overlay ══
+       Shown during init(), transitions to error state on failure.
+       _doUserRetry() is defined in the retry engine below. -->
+  <div id="userLoadingOverlay" role="status" aria-live="polite">
+    <div class="ulo-inner">
+      <!-- Normal loading state — Home Ledger -->
+      <div id="ulo_loading">
+        <!-- Body -->
+        <div class="ulo-card-body">
+          <!-- Double-ring arc spinner -->
+          <div class="ulo-arc-wrap">
+            <svg viewBox="0 0 76 76" xmlns="http://www.w3.org/2000/svg">
+              <circle class="ulo-arc-track-outer" cx="38" cy="38" r="34"/>
+              <circle class="ulo-arc-fill-outer"  cx="38" cy="38" r="34" transform="rotate(-90 38 38)"/>
+              <circle class="ulo-arc-track-inner" cx="38" cy="38" r="24"/>
+              <circle class="ulo-arc-fill-inner"  cx="38" cy="38" r="24" transform="rotate(90 38 38)"/>
+            </svg>
+            <div class="ulo-namaskar">🙏</div>
+          </div>
+          <!-- Step label -->
+          <div class="ulo-loading-label" id="ulo_step_label">Connecting…</div>
+          <!-- Pill-style step indicators -->
+          <div class="ulo-steps-dots" id="ulo_step_dots">
+            <div class="ulo-sdot active" data-step="0"></div>
+            <div class="ulo-sdot" data-step="1"></div>
+            <div class="ulo-sdot" data-step="2"></div>
+            <div class="ulo-sdot" data-step="3"></div>
+            <div class="ulo-sdot" data-step="4"></div>
+            <div class="ulo-sdot" data-step="5"></div>
+          </div>
+          <!-- Progress track — enhanced with border + inner highlight -->
+          <div class="ulo-progress-wrap">
+            <div class="ulo-progress-bar active" id="ulo_prog_bar"></div>
+          </div>
+          <!-- Counter row -->
+          <div class="ulo-step-row">
+            <span class="ulo-step-done"   id="ulo_step_done">0 of 6 done</span>
+            <span class="ulo-pct-badge"   id="ulo_pct_badge">0%</span>
+            <span class="ulo-step-remain" id="ulo_step_remain">6 remaining</span>
+          </div>
+        </div>
+      </div>
+      <!-- Error / retry state (hidden until an error occurs) -->
+      <div id="ulo_error">
+        <!-- Coloured header strip -->
+        <div class="ulo-err-header">
+          <div class="ulo-err-icon-wrap" id="ulo_err_icon">⚠️</div>
+          <div class="ulo-err-hdr-text">
+            <div class="ulo-err-title" id="ulo_err_title">Could Not Load Data</div>
+            <div class="ulo-err-subtitle" id="ulo_err_subtitle">Tap Retry to try again</div>
+          </div>
+        </div>
+        <!-- Body -->
+        <div class="ulo-err-body">
+          <!-- Attempt badge + history dots -->
+          <div class="ulo-err-meta">
+            <span id="ulo_attempt_pill">
+              <span class="ulo-err-dot"></span>
+              <span id="ulo_pill_text">Attempt 1 failed</span>
+            </span>
+            <div id="ulo_attempt_dots"></div>
+          </div>
+          <!-- Error detail box -->
+          <div id="ulo_reason">Checking connection…</div>
+          <!-- Auto-retry countdown bar -->
+          <div class="ulo-countdown-wrap" id="ulo_countdown_wrap">
+            <div class="ulo-countdown-label">
+              <span>Auto-retrying…</span>
+              <span id="ulo_countdown_txt">5s</span>
+            </div>
+            <div class="ulo-countdown-track">
+              <div class="ulo-countdown-bar" id="ulo_countdown_bar"></div>
+            </div>
+          </div>
+          <!-- Action buttons -->
+          <div style="display:flex;flex-direction:column;gap:8px;width:100%;margin-top:2px;">
+            <button class="ulo-retry-btn" id="ulo_retryBtn" onclick="_doUserRetry(this)">
+              <i class="fa-solid fa-rotate-right"></i> Retry Now
+            </button>
+            <button class="ulo-login-btn" onclick="_doBackToLogin()">
+              <i class="fa-solid fa-right-to-bracket"></i> Back to Login
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pull to refresh indicator -->
+  <div id="ptr-indicator" aria-hidden="true">
+    <div class="ptr-spin" id="ptrSpinner"></div>
+    <span id="ptrText">Pull to refresh</span>
+  </div>
+
+  <!-- Scroll to top button -->
+  <button id="scrollTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top" aria-label="Scroll back to top">
+    <i class="fa-solid fa-chevron-up"></i>
+  </button>
+
+
+  <script src="constants.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+  <script src="user.js"></script>
+  <script src="household-features.js"></script>
+</body>
+
 </html>
