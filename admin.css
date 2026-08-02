@@ -919,6 +919,27 @@ tbody tr:hover {
     gap: 12px !important;
   }
 
+  /* Hide inactive checkbox - use absolute positioning to prevent overflow */
+  .tr-toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+    position: relative;
+  }
+
+  .tr-toolbar .tr-hide-chk {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    margin-left: 0 !important;
+    white-space: nowrap;
+    font-size: 10px !important;
+    padding: 0 !important;
+  }
+
+  .tr-toolbar .tr-hide-chk input {
+    margin-right: 3px;
+  }
+
   /* Better spacing and alignment for paid/pending list items on mobile */
   .tr-member-row {
     display: flex !important;
@@ -965,26 +986,66 @@ tbody tr:hover {
     padding: 8px 10px !important;
   }
 
-  /* Year summary cards 2-column grid on mobile */
+  /* Year summary cards - equal size 2x2 grid on mobile */
   #tr_year_summary {
+    display: grid !important;
     grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  #tr_year_summary > div {
+    flex: none !important;
+    width: auto !important;
+    min-width: 0 !important;
+    padding: 10px !important;
+    white-space: normal !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    min-height: 85px !important;
+    text-align: center;
+  }
+
+  #tr_year_summary > div div:first-child {
+    font-size: 1.2rem !important;
+    margin-bottom: 4px;
+  }
+
+  #tr_year_summary > div div:not(:first-child) {
+    font-size: 10px !important;
+    line-height: 1.3;
+  }
+
+  /* Target badges (shortfall) - match the equal size boxes */
+  #tr_target_badges {
+    display: contents;
+  }
+
+  #tr_target_badges > div {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 85px;
+    text-align: center;
+    padding: 10px;
+  }
+
+  #tr_target_badges div div:first-child {
+    font-size: 1.2rem !important;
+    margin-bottom: 4px;
+  }
+
+  #tr_target_badges div div:not(:first-child) {
+    font-size: 10px !important;
+    line-height: 1.3;
   }
 
   /* Reduce button sizes on mobile */
   #tr_lists button {
     padding: 6px 10px !important;
     font-size: 11px !important;
-  }
-
-  /* Hide inactive checkbox - ensure it doesn't overflow */
-  .tr-toolbar {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .tr-toolbar .tr-hide-chk {
-    margin-left: 0 !important;
-    white-space: normal;
   }
 }
 
@@ -1025,6 +1086,7 @@ tbody tr:hover {
     padding: 8px !important;
     gap: 8px !important;
     flex-wrap: wrap;
+    position: relative;
   }
 
   .tr-toolbar select {
@@ -1033,9 +1095,58 @@ tbody tr:hover {
   }
 
   .tr-toolbar .tr-hide-chk {
+    position: absolute;
+    right: 6px;
+    bottom: 6px;
     margin-left: 0 !important;
-    white-space: normal;
-    flex: 1 1 100%;
+    white-space: nowrap;
+    font-size: 9px !important;
+    padding: 0 !important;
+  }
+
+  .tr-toolbar .tr-hide-chk input {
+    margin-right: 2px;
+  }
+
+  /* Year summary boxes equal size on extra small screens */
+  #tr_year_summary {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+  }
+
+  #tr_year_summary > div {
+    padding: 8px !important;
+    min-height: 75px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center;
+  }
+
+  #tr_year_summary > div div:first-child {
+    font-size: 1rem !important;
+    margin-bottom: 3px;
+  }
+
+  #tr_target_badges {
+    display: contents;
+  }
+
+  #tr_target_badges > div {
+    padding: 8px;
+    min-height: 75px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+
+  #tr_target_badges div div:first-child {
+    font-size: 1rem !important;
+    margin-bottom: 3px;
   }
 
   /* Extra small phone member row improvements */
