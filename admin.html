@@ -1957,11 +1957,12 @@
               #tr_year_summary > div { padding:12px 14px; }
             }
             @media (max-width:640px) {
-              .tr-toolbar { padding:10px; gap:8px; }
+              .tr-toolbar { padding:10px 8px; gap:8px; flex-wrap:wrap; }
               .tr-toolbar .tr-field { flex:1 1 100%; }
               .tr-toolbar select { width:100%; font-size:12px; }
               .tr-toolbar label { font-size:10px; }
-              .tr-toolbar .tr-hide-chk { padding-bottom:0; margin-left:0; flex:1 1 100%; justify-content:flex-start; font-size:11px; }
+              .tr-toolbar .tr-hide-chk { padding-bottom:0; margin-left:0 !important; flex:1 1 100%; justify-content:flex-start; font-size:11px; white-space:normal; }
+              .tr-toolbar .tr-hide-chk input { margin-right:4px; }
               .tr-focus-bar { flex-direction:column; align-items:stretch; padding:8px 10px; }
               .tr-focus-bar select { width:100%; font-size:12px; }
               .tr-legend-chip { font-size:10px; padding:3px 8px; }
@@ -1983,12 +1984,20 @@
               #tr_year_summary > div div:first-child { font-size:1rem !important; }
               #tr_year_summary > div div:not(:first-child), #tr_target_badges div div:not(:first-child) { font-size:9px !important; line-height:1.2; }
               #tr_lists { grid-template-columns:1fr !important; gap:10px !important; }
-              #tr_lists button { padding:4px 8px !important; font-size:10px !important; }
+              #tr_lists button { padding:6px 10px !important; font-size:11px !important; }
+              /* Paid/Pending member list improvements */
+              .tr-member-row { display:flex !important; justify-content:space-between !important; align-items:flex-start !important; padding:10px !important; min-height:45px !important; gap:8px !important; }
+              .tr-member-row > div:first-child { display:flex; align-items:center; gap:8px; flex:1; min-width:0; }
+              .tr-member-row > div:first-child > div { min-width:0; }
+              .tr-member-row > div:first-child span { font-size:12px; font-weight:600; }
+              .tr-member-row > div:last-child { font-size:10px; }
+              .tr-member-row > span { flex-shrink:0; font-size:11px; font-weight:700; padding:4px 9px; border-radius:18px; }
             }
             @media (max-width:380px) {
-              .tr-toolbar { padding:8px; gap:6px; }
+              .tr-toolbar { padding:8px; gap:6px; flex-wrap:wrap; }
               .tr-toolbar select { font-size:11px; height:30px; }
               .tr-toolbar label { font-size:9px; }
+              .tr-toolbar .tr-hide-chk { margin-left:0 !important; white-space:normal; flex:1 1 100%; }
               #tr_grid_table { font-size:8.5px !important; }
               #tr_grid_table th, #tr_grid_table td { padding:2px 3px !important; font-size:8px !important; }
               #tr_grid_table td:first-child { max-width:70px; padding:4px 4px !important; }
@@ -1999,7 +2008,8 @@
               #tr_year_summary > div div:first-child { font-size:0.9rem !important; }
               #tr_summary > div { padding:6px 8px; font-size:10px; }
               #tr_summary > div > div:first-child { font-size:1rem !important; }
-              .tr-member-row { padding:6px 8px !important; }
+              .tr-member-row { display:flex !important; justify-content:space-between !important; align-items:flex-start !important; padding:8px !important; min-height:40px !important; gap:6px !important; }
+              .tr-member-row > span { font-size:10px !important; padding:3px 8px !important; }
             }
           </style>
 

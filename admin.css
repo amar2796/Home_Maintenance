@@ -919,10 +919,43 @@ tbody tr:hover {
     gap: 12px !important;
   }
 
-  /* Better spacing for paid/pending list items on mobile */
+  /* Better spacing and alignment for paid/pending list items on mobile */
   .tr-member-row {
-    padding: 8px 10px !important;
-    min-height: 40px !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+    padding: 10px !important;
+    min-height: 45px !important;
+    gap: 8px !important;
+  }
+
+  .tr-member-row > div:first-child {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .tr-member-row > div:first-child > div {
+    min-width: 0;
+  }
+
+  .tr-member-row > div:first-child span {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .tr-member-row > div:last-child {
+    font-size: 10px;
+  }
+
+  .tr-member-row > span {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 9px;
+    border-radius: 18px;
   }
 
   /* Summary cards better spacing on mobile */
@@ -939,8 +972,19 @@ tbody tr:hover {
 
   /* Reduce button sizes on mobile */
   #tr_lists button {
-    padding: 4px 8px !important;
-    font-size: 10px !important;
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+  }
+
+  /* Hide inactive checkbox - ensure it doesn't overflow */
+  .tr-toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .tr-toolbar .tr-hide-chk {
+    margin-left: 0 !important;
+    white-space: normal;
   }
 }
 
@@ -980,11 +1024,29 @@ tbody tr:hover {
   .tr-toolbar {
     padding: 8px !important;
     gap: 8px !important;
+    flex-wrap: wrap;
   }
 
   .tr-toolbar select {
     font-size: 12px !important;
     height: 32px !important;
+  }
+
+  .tr-toolbar .tr-hide-chk {
+    margin-left: 0 !important;
+    white-space: normal;
+    flex: 1 1 100%;
+  }
+
+  /* Extra small phone member row improvements */
+  .tr-member-row {
+    padding: 8px !important;
+    min-height: 40px !important;
+  }
+
+  .tr-member-row > span {
+    font-size: 10px !important;
+    padding: 3px 8px !important;
   }
 }
 
