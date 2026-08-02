@@ -43,15 +43,32 @@
   </noscript>
 
   <link rel="stylesheet" href="user.css">
+  <!-- constants.js loaded here (not just preloaded) so APP is available to the
+       anti-FOUC script below, which needs APP.shortName to build the same
+       tenant-prefixed storage key user.js uses. Previously this script
+       hardcoded 'mandir_user_dark' / 'mandir_lang' regardless of the actual
+       tenant prefix (APP.shortName = "TVH" → real keys are 'tvh_user_dark' /
+       'tvh_lang'), so the flash-prevention silently never matched and every
+       page load flashed light mode before user.js corrected it moments later. -->
+  <script src="constants.js"></script>
   <!-- ── Anti-FOUC: apply dark class BEFORE first paint to prevent white flash ── -->
   <script>
     (function() {
       try {
+        var prefix = (typeof APP !== 'undefined' && APP.shortName) ? APP.shortName.toLowerCase() : 'mandir';
+
         // Set language immediately from stored preference so lang attr is correct before paint
-        var storedLang = localStorage.getItem('mandir_lang');
+        var storedLang = localStorage.getItem(prefix + '_lang');
         if (storedLang === 'HI') document.documentElement.lang = 'hi';
 
-        var stored = localStorage.getItem('mandir_user_dark');
+        var stored = localStorage.getItem(prefix + '_user_dark');
+        if (stored === null) {
+          // No explicit dashboard preference yet — fall back to the landing
+          // page's toggle (if this visitor already set one there) so the
+          // choice carries across the site instead of resetting per page.
+          var cross = localStorage.getItem('hf_dark_mode');
+          if (cross !== null) stored = cross;
+        }
         var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
         if (stored === '1' || (stored === null && prefersDark)) {
           document.documentElement.classList.add('user-dark-init');
@@ -103,6 +120,27 @@
       </div>
     </div>
     <div class="header-right">
+      <!-- Notification bell — opens a dropdown tray (same pattern as the
+           account menu). Populated from broadcasts today; pushNotification()
+           in user.js lets any future feature (errors, system alerts, etc.)
+           add its own items to this same tray without new UI work. -->
+      <div class="hdr-bell-wrap" id="hdrBellWrap">
+        <div id="hdrBellBtn" onclick="toggleNotifDropdown()" role="button" tabindex="0" title="Notifications"
+          aria-label="Notifications" aria-haspopup="true" aria-expanded="false" aria-controls="notifDropdown"
+          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleNotifDropdown();}">
+          <i class="fa-solid fa-bell"></i>
+          <span id="hdrBellBadge" class="hdr-bell-badge" style="display:none;">0</span>
+        </div>
+        <div id="notifDropdown" class="hdr-dropdown notif-dropdown" role="menu" aria-label="Notifications">
+          <div class="hdr-drop-head notif-drop-head">
+            <span>Notifications</span>
+            <button type="button" class="notif-clear-all" onclick="event.stopPropagation();_clearAllNotifs()" title="Clear all">Clear all</button>
+          </div>
+          <div id="notifDropdownList" class="notif-drop-list">
+            <div class="notif-empty">No notifications yet</div>
+          </div>
+        </div>
+      </div>
       <!-- Dark mode toggle switch -->
       <div class="dm-toggle" id="userDarkBtn" onclick="toggleUserDarkMode()" role="button" tabindex="0" title="Toggle dark mode"
         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleUserDarkMode();}">
@@ -644,7 +682,7 @@
               </div>
               <div class="f-grp" style="flex:1;">
                 <label>Amount (₹)</label>
-                <input type="number" id="mtBillAmount" placeholder="e.g. 1500" min="0" style="width:100%;height:38px;border:1.5px solid #e2e8f0;border-radius:10px;padding:0 10px;font-family:var(--font-b);font-size:13px;box-sizing:border-box;" />
+                <input type="number" id="mtBillAmount" placeholder="e.g. 1500" min="0" inputmode="decimal" style="width:100%;height:38px;border:1.5px solid #e2e8f0;border-radius:10px;padding:0 10px;font-family:var(--font-b);font-size:13px;box-sizing:border-box;" />
               </div>
             </div>
           </div>
@@ -848,7 +886,6 @@
   </button>
 
 
-  <script src="constants.js"></script>
   <script src="config.js"></script>
   <script src="app.js"></script>
   <script src="user.js"></script>
