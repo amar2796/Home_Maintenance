@@ -856,6 +856,136 @@ tbody tr:hover {
     align-items: flex-start;
     gap: 4px;
   }
+
+  /* ── Tracker Grid Table Mobile Improvements ── */
+  #tr_grid_table {
+    font-size: 10px !important;
+    min-width: 100% !important;
+  }
+
+  #tr_grid_table th,
+  #tr_grid_table td {
+    padding: 4px 5px !important;
+  }
+
+  #tr_grid_table th {
+    font-weight: 600 !important;
+    font-size: 9px !important;
+    text-align: center;
+  }
+
+  #tr_grid_table td {
+    text-align: center !important;
+    font-size: 9px !important;
+  }
+
+  /* Member name column — crop names on mobile */
+  #tr_grid_table td:first-child {
+    text-align: left !important;
+    padding: 6px 6px !important;
+    font-size: 10px !important;
+    max-width: 100px;
+    overflow: hidden;
+  }
+
+  /* Crop member name text specifically */
+  #tr_grid_table td:first-child > div {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #tr_grid_table td:first-child span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+    max-width: 70px;
+  }
+
+  #tr_grid_table th:first-child {
+    text-align: left !important;
+  }
+
+  /* Grid wrap better mobile handling */
+  #tr_grid_wrap {
+    margin: 0 -8px !important;
+    border-radius: 0 !important;
+  }
+
+  /* Tracker lists full width on mobile */
+  #tr_lists {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  /* Better spacing for paid/pending list items on mobile */
+  .tr-member-row {
+    padding: 8px 10px !important;
+    min-height: 40px !important;
+  }
+
+  /* Summary cards better spacing on mobile */
+  #tr_summary > div {
+    flex: 1 1 calc(50% - 4px) !important;
+    min-width: auto !important;
+    padding: 8px 10px !important;
+  }
+
+  /* Year summary cards 2-column grid on mobile */
+  #tr_year_summary {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* Reduce button sizes on mobile */
+  #tr_lists button {
+    padding: 4px 8px !important;
+    font-size: 10px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  /* Extra small phone adjustments */
+  #tr_grid_table {
+    font-size: 9px !important;
+  }
+
+  #tr_grid_table th,
+  #tr_grid_table td {
+    padding: 3px 3px !important;
+  }
+
+  #tr_grid_table td:first-child {
+    max-width: 70px;
+    padding: 4px 4px !important;
+    font-size: 9px !important;
+    overflow: hidden;
+  }
+
+  #tr_grid_table td:first-child > div {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #tr_grid_table td:first-child span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+    max-width: 50px;
+  }
+
+  /* More compact tracker layout on very small screens */
+  .tr-toolbar {
+    padding: 8px !important;
+    gap: 8px !important;
+  }
+
+  .tr-toolbar select {
+    font-size: 12px !important;
+    height: 32px !important;
+  }
 }
 
 /* ── SIDEBAR BRAND HEADER ── */
