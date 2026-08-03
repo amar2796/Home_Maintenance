@@ -919,28 +919,160 @@ tbody tr:hover {
     gap: 12px !important;
   }
 
-  /* Hide inactive checkbox - use absolute positioning to prevent overflow */
+  /* Tracker toolbar fixes */
   .tr-toolbar {
     flex-wrap: wrap;
     gap: 8px;
-    position: relative;
+  }
+
+  .tr-toolbar .tr-field {
+    flex: 1 1 auto;
+    min-width: 45%;
+  }
+
+  .tr-toolbar select {
+    width: 100%;
+    font-size: 12px;
   }
 
   .tr-toolbar .tr-hide-chk {
-    position: absolute;
-    right: 8px;
-    bottom: 8px;
-    margin-left: 0 !important;
-    white-space: nowrap;
+    margin-left: auto !important;
+    padding-bottom: 0;
     font-size: 10px !important;
-    padding: 0 !important;
+    white-space: nowrap;
   }
 
   .tr-toolbar .tr-hide-chk input {
     margin-right: 3px;
   }
 
-  /* Better spacing and alignment for paid/pending list items on mobile */
+  /* Tracker grid table fixes */
+  #tr_grid_table {
+    font-size: 10px !important;
+    min-width: 100% !important;
+  }
+
+  #tr_grid_table th {
+    font-size: 9px !important;
+    padding: 3px 4px !important;
+  }
+
+  #tr_grid_table td {
+    font-size: 9px !important;
+    padding: 3px 4px !important;
+  }
+
+  #tr_grid_table td:first-child {
+    text-align: left !important;
+    padding: 6px 6px !important;
+    max-width: 100px;
+    overflow: hidden;
+  }
+
+  #tr_grid_table td:first-child > div,
+  #tr_grid_table td:first-child span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #tr_grid_table td:first-child span {
+    display: block;
+    max-width: 70px;
+  }
+
+  #tr_grid_wrap {
+    margin: 0 -8px !important;
+    border-radius: 0 !important;
+  }
+
+  /* Year overview - 2x2 grid with all boxes equal size */
+  #tr_year_summary {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    width: 100%;
+  }
+
+  #tr_year_summary > div {
+    padding: 10px !important;
+    min-height: 80px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center;
+  }
+
+  #tr_year_summary div div:first-child {
+    font-size: 1.1rem !important;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  #tr_year_summary div div:not(:first-child) {
+    font-size: 10px !important;
+    line-height: 1.2;
+  }
+
+  /* Target badges (shortfall) - use display:contents to be grid items */
+  #tr_target_badges {
+    display: contents;
+  }
+
+  #tr_target_badges > div {
+    padding: 10px !important;
+    min-height: 80px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center;
+  }
+
+  #tr_target_badges div div:first-child {
+    font-size: 1.1rem !important;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  #tr_target_badges div div:not(:first-child) {
+    font-size: 10px !important;
+    line-height: 1.2;
+  }
+
+  /* Summary cards */
+  #tr_summary {
+    gap: 6px;
+  }
+
+  #tr_summary > div {
+    flex: 1 1 auto;
+    min-width: auto;
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  #tr_summary > div > div:first-child {
+    font-size: 1.2rem !important;
+  }
+
+  #tr_summary > div > div:not(:first-child) {
+    font-size: 9px !important;
+  }
+
+  /* Lists and buttons */
+  #tr_lists {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  #tr_lists button {
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+  }
+
+  /* Member rows */
   .tr-member-row {
     display: flex !important;
     justify-content: space-between !important;
@@ -978,75 +1110,6 @@ tbody tr:hover {
     padding: 4px 9px;
     border-radius: 18px;
   }
-
-  /* Summary cards better spacing on mobile */
-  #tr_summary > div {
-    flex: 1 1 calc(50% - 4px) !important;
-    min-width: auto !important;
-    padding: 8px 10px !important;
-  }
-
-  /* Year summary cards - equal size 2x2 grid on mobile */
-  #tr_year_summary {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
-    gap: 8px !important;
-  }
-
-  #tr_year_summary > div {
-    flex: none !important;
-    width: auto !important;
-    min-width: 0 !important;
-    padding: 10px !important;
-    white-space: normal !important;
-    display: flex !important;
-    flex-direction: column !important;
-    justify-content: center !important;
-    align-items: center !important;
-    min-height: 85px !important;
-    text-align: center;
-  }
-
-  #tr_year_summary > div div:first-child {
-    font-size: 1.2rem !important;
-    margin-bottom: 4px;
-  }
-
-  #tr_year_summary > div div:not(:first-child) {
-    font-size: 10px !important;
-    line-height: 1.3;
-  }
-
-  /* Target badges (shortfall) - match the equal size boxes */
-  #tr_target_badges {
-    display: contents;
-  }
-
-  #tr_target_badges > div {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    min-height: 85px;
-    text-align: center;
-    padding: 10px;
-  }
-
-  #tr_target_badges div div:first-child {
-    font-size: 1.2rem !important;
-    margin-bottom: 4px;
-  }
-
-  #tr_target_badges div div:not(:first-child) {
-    font-size: 10px !important;
-    line-height: 1.3;
-  }
-
-  /* Reduce button sizes on mobile */
-  #tr_lists button {
-    padding: 6px 10px !important;
-    font-size: 11px !important;
-  }
 }
 
 @media (max-width: 380px) {
@@ -1081,12 +1144,16 @@ tbody tr:hover {
     max-width: 50px;
   }
 
-  /* More compact tracker layout on very small screens */
+  /* Extra small phones (380px and below) */
   .tr-toolbar {
     padding: 8px !important;
     gap: 8px !important;
     flex-wrap: wrap;
-    position: relative;
+  }
+
+  .tr-toolbar .tr-field {
+    flex: 1 1 auto;
+    min-width: 45%;
   }
 
   .tr-toolbar select {
@@ -1095,29 +1162,27 @@ tbody tr:hover {
   }
 
   .tr-toolbar .tr-hide-chk {
-    position: absolute;
-    right: 6px;
-    bottom: 6px;
-    margin-left: 0 !important;
-    white-space: nowrap;
+    margin-left: auto !important;
+    padding-bottom: 0;
     font-size: 9px !important;
-    padding: 0 !important;
+    white-space: nowrap;
   }
 
   .tr-toolbar .tr-hide-chk input {
     margin-right: 2px;
   }
 
-  /* Year summary boxes equal size on extra small screens */
+  /* Year overview grid for extra small screens */
   #tr_year_summary {
     display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
+    grid-template-columns: repeat(2, 1fr) !important;
     gap: 6px !important;
+    width: 100%;
   }
 
   #tr_year_summary > div {
     padding: 8px !important;
-    min-height: 75px !important;
+    min-height: 70px !important;
     display: flex !important;
     flex-direction: column !important;
     justify-content: center !important;
@@ -1125,31 +1190,34 @@ tbody tr:hover {
     text-align: center;
   }
 
-  #tr_year_summary > div div:first-child {
-    font-size: 1rem !important;
+  #tr_year_summary div div:first-child {
+    font-size: 0.95rem !important;
+    font-weight: 700;
     margin-bottom: 3px;
   }
 
+  /* Target badges - use display:contents for grid items */
   #tr_target_badges {
     display: contents;
   }
 
   #tr_target_badges > div {
-    padding: 8px;
-    min-height: 75px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
+    padding: 8px !important;
+    min-height: 70px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
     text-align: center;
   }
 
   #tr_target_badges div div:first-child {
-    font-size: 1rem !important;
+    font-size: 0.95rem !important;
+    font-weight: 700;
     margin-bottom: 3px;
   }
 
-  /* Extra small phone member row improvements */
+  /* Member rows on extra small screens */
   .tr-member-row {
     padding: 8px !important;
     min-height: 40px !important;
