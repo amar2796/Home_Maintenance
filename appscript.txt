@@ -138,14 +138,15 @@ function _verifySession(params, actionName) {
       if (rowId && (rowId === userId || String(allData[i][headers.indexOf("Name")]||"") === userId)) {
         const stored = String(allData[i][tokenCol] || "").trim();
         if (!stored) {
-          // [FIX-7] Legacy bypass: only allow if the request also sends no token.
-          // Previously an empty stored token accepted ANY incoming token string,
-          // meaning any user with a blank SessionToken cell was fully authenticated.
-          // Now: blank stored + blank incoming = allow (legacy/migrating user).
-          //      blank stored + non-blank incoming = also allow (first login after migration).
-          // This preserves backward compat while tightening the obvious exploit path.
-          // To fully enforce tokens for all users, populate SessionToken on every login.
-          return true;
+          // [SEC-TIGHTEN] Previously this bypassed auth entirely for any row with a
+          // blank SessionToken (logged-out, expired-and-cleared, or never-migrated
+          // legacy rows) — meaning "not logged in" was treated as "always allowed."
+          // Now: blank stored token = reject, same as an invalid one. A legitimate
+          // session always has a non-blank token (set by setSessionToken right after
+          // login), so this only affects requests where the server thinks the user
+          // is NOT currently logged in — exactly the case that should be rejected.
+          logAction(userId, "SESSION_TOKEN_MISMATCH", "Action: " + actionName + " — no active session (token blank)", "", "", { severity:"WARN", result:"BLOCKED" });
+          return false;
         }
         if (stored !== token) {
           logAction(userId, "SESSION_TOKEN_MISMATCH", "Action: " + actionName + " — token rejected", "", "", { severity:"WARN", result:"BLOCKED" });
@@ -192,6 +193,69 @@ function _verifySession(params, actionName) {
   }
   return false; // user not found — reject (unknown userId should never pass session check)
 }
+
+// ════════════════════════════════════════════════════════════════
+//  [SEC] DAILY SWEEP — CLEAR EXPIRED SESSION TOKENS
+//  Set up a Time-based trigger: Day timer (e.g. once daily) → cleanupExpiredSessions
+//
+//  Covers the case _verifySession/checkSession can't: a user whose session
+//  expired but who never comes back to that browser tab (no logout click,
+//  no tab-close sendBeacon, no further checkSession polls). Their
+//  SessionToken/TokenExpiry would otherwise sit in the sheet indefinitely —
+//  harmless (already rejected server-side on any actual use) but not clean.
+//  This scans every USERS row once a day and clears any token whose
+//  TokenExpiry has already passed, independent of that user's browser
+//  ever calling back in.
+// ════════════════════════════════════════════════════════════════
+function cleanupExpiredSessions() {
+  try {
+    const sheet   = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEETS.USERS);
+    const allData = sheet.getDataRange().getValues();
+    const headers = allData[0];
+    const uidCol    = headers.indexOf("UserId");
+    const tokenCol  = headers.indexOf("SessionToken");
+    const expiryCol = headers.indexOf("TokenExpiry");
+    if (tokenCol === -1 || expiryCol === -1) {
+      return { status: "ok", cleared: 0, message: "SessionToken/TokenExpiry column not found" };
+    }
+
+    const now = Date.now();
+    let cleared = 0;
+
+    for (let i = 1; i < allData.length; i++) {
+      const tokenVal = String(allData[i][tokenCol] || "").trim();
+      if (!tokenVal) continue; // already blank — nothing to clear
+
+      const expiryVal = allData[i][expiryCol];
+      if (!expiryVal) continue; // no expiry set — leave alone (legacy row)
+
+      const expiryTime = expiryVal instanceof Date ? expiryVal.getTime() : Number(expiryVal);
+      if (isNaN(expiryTime) || expiryTime <= 0 || now <= expiryTime) continue; // still valid or unparsable — skip
+
+      // Past expiry and still populated — clear it.
+      sheet.getRange(i + 1, tokenCol + 1).setValue("");
+      sheet.getRange(i + 1, expiryCol + 1).setValue("");
+      cleared++;
+
+      const rowUserId = uidCol !== -1 ? String(allData[i][uidCol] || "") : "";
+      logAction(rowUserId || "Unknown", "SESSION_EXPIRED_AUTO_CLEARED",
+        "Daily sweep — token expired at " + Utilities.formatDate(new Date(expiryTime), "GMT+5:30", "dd-MM-yyyy HH:mm:ss") + " and was never cleared by logout/checkSession",
+        "", "", { severity:"INFO", result:"SUCCESS" });
+    }
+
+    if (cleared > 0) {
+      SpreadsheetApp.flush();
+      _bustSheetCache("c_users_verify");
+    }
+
+    logAction("System", "CLEANUP_EXPIRED_SESSIONS_RUN", "Cleared: " + cleared + " of " + (allData.length - 1) + " user rows checked", "", "", { severity:"INFO", result:"SUCCESS" });
+    return { status: "ok", cleared: cleared };
+  } catch (e) {
+    logAction("System", "CLEANUP_EXPIRED_SESSIONS_ERROR", e.message, "", "", { severity:"ERROR", result:"FAILURE", error: e });
+    return { status: "error", message: e.message };
+  }
+}
+
 // ── Hash password (SHA-256, matches client-side sha256())
 function hashPassword(pwd) {
   const raw = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, pwd);
@@ -1038,6 +1102,95 @@ function _doSendAdminSummary(overrideMonth, overrideYear, withPdf) {
 }
 
 // ── Build paid/unpaid data — merges multiple entries per member into ONE total row
+// ════════════════════════════════════════════════════════════════
+//  [ADMIN SUMMARY] LIFETIME PENDING HELPERS — ported from the Payment
+//  Tracker's _trParseDMY / _trEffectiveStart / _trInactiveFreeze /
+//  _trLifetimePendingCount in admin.js, so the "Total Pending" figures
+//  in the Admin Monthly Summary match the Tracker exactly. Scoped with
+//  an _adm prefix — used only by _buildAdminSummaryData(), does not
+//  touch or replace the frontend Tracker logic.
+// ════════════════════════════════════════════════════════════════
+function _admParseDMY(s) {
+  if (!s) return null;
+  const m = /^(\d{2})-(\d{2})-(\d{4})/.exec(String(s).trim());
+  if (!m) return null;
+  const y = Number(m[3]), mo = Number(m[2]) - 1, d = Number(m[1]);
+  if (isNaN(y) || isNaN(mo) || mo < 0 || mo > 11) return null;
+  return { y: y, m: mo, d: d };
+}
+
+function _admYM(y, m) { return y * 12 + m; }
+
+// Effective start month for a member: ContribStartDate → earliest non-walk-in
+// contribution → RegisteredAt → null (not countable).
+function _admEffectiveStart(u, allContribs) {
+  const cs = _admParseDMY(u.ContribStartDate);
+  if (cs) return cs;
+  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const mine = allContribs.filter(function(c) {
+    return String(c.UserId) === String(u.UserId) && String(c.UserId).indexOf("WALKIN_") !== 0;
+  });
+  let best = null;
+  mine.forEach(function(c) {
+    const y = Number(c.Year), mi = MONTHS.indexOf(String(c.ForMonth || "").trim());
+    if (isNaN(y) || mi === -1) return;
+    if (!best || y < best.y || (y === best.y && mi < best.m)) best = { y: y, m: mi };
+  });
+  if (best) return best;
+  const reg = _admParseDMY(u.RegisteredAt);
+  if (reg) return reg;
+  return null;
+}
+
+// Freeze point for an inactive member — pending stops accruing at InactiveSince.
+function _admInactiveFreeze(u) {
+  if (String(u.Status || "").toLowerCase() !== "inactive") return null;
+  return _admParseDMY(u.InactiveSince);
+}
+
+// Lifetime pending month-count for one member, from their effective start
+// through today (or their inactive-freeze point), across ALL years — same
+// rule the Tracker's "Total Pending" column uses.
+function _admLifetimePendingCount(u, allContribs) {
+  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const start = _admEffectiveStart(u, allContribs);
+  if (!start) return 0;
+  const freeze = _admInactiveFreeze(u);
+  const now = new Date();
+  const curYM = _admYM(now.getFullYear(), now.getMonth());
+  const startYM = _admYM(start.y, start.m);
+  const endYM = freeze ? Math.min(curYM, _admYM(freeze.y, freeze.m)) : curYM;
+  if (endYM < startYM) return 0;
+
+  const myAll = allContribs.filter(function(c) {
+    return String(c.UserId) === String(u.UserId) && String(c.UserId).indexOf("WALKIN_") !== 0;
+  });
+  const paidSet = {};
+  myAll.forEach(function(c) {
+    const mi = MONTHS.indexOf(String(c.ForMonth || "").trim());
+    const y  = Number(c.Year);
+    if (mi !== -1 && !isNaN(y)) paidSet[_admYM(y, mi)] = true;
+  });
+
+  let pending = 0;
+  for (let ym = startYM; ym <= endYM; ym++) {
+    if (!paidSet[ym]) pending++;
+  }
+  return pending;
+}
+
+// Indian digit-grouping (lakh/crore style: 2-2-3) — used only for the
+// "Overall Fund Summary (All-Time)" figures, per request. Everything else
+// (Members collected, Paid amounts, Total Pending, etc.) stays plain digits.
+function _admFormatINR(n) {
+  const neg = n < 0;
+  const x = String(Math.round(Math.abs(n)));
+  const lastThree = x.substring(x.length - 3);
+  const rest = x.substring(0, x.length - 3);
+  const grouped = rest === "" ? lastThree : rest.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + "," + lastThree;
+  return (neg ? "-" : "") + grouped;
+}
+
 function _buildAdminSummaryData(month, year) {
   const users         = getSheetData(SHEETS.USERS);
   const contributions = getSheetData(SHEETS.CONTRIBUTIONS);
@@ -1060,6 +1213,13 @@ function _buildAdminSummaryData(month, year) {
   const unpaidList = [];
   let totalCollected = 0;
 
+  // ── Lifetime pending (Tracker-equivalent) for Not-Yet-Paid members —
+  // months × MonthlyTarget, using the _adm* helpers above. Members with no
+  // MonthlyTarget set get amount:null and show "—" instead of a figure.
+  const pendingList = [];
+  let totalPendingAmount = 0;
+  let pendingHasAnyTarget = false;
+
   activeMembers.forEach(member => {
     const myContribs = contributions.filter(c =>
       String(c.UserId) === String(member.UserId) &&
@@ -1073,10 +1233,32 @@ function _buildAdminSummaryData(month, year) {
       paidList.push({ name: member.Name, mobile: member.Mobile, amount: totalAmt, entries: myContribs.length });
     } else {
       unpaidList.push({ name: member.Name, mobile: member.Mobile });
+      const months = _admLifetimePendingCount(member, contributions);
+      const target = Number(member.MonthlyTarget || 0);
+      const hasTarget = target > 0;
+      if (hasTarget) {
+        pendingHasAnyTarget = true;
+        totalPendingAmount += months * target;
+      }
+      pendingList.push({
+        name: member.Name,
+        months: months,
+        target: target,
+        amount: hasTarget ? months * target : null
+      });
     }
   });
 
   paidList.sort((a, b) => b.amount - a.amount); // highest contributor first
+  // Known amounts first (highest pending first, months as tie-break), then
+  // members with no MonthlyTarget set (amount:null) pushed to the bottom.
+  pendingList.sort((a, b) => {
+    if (a.amount === null && b.amount === null) return 0;
+    if (a.amount === null) return 1;
+    if (b.amount === null) return -1;
+    if (b.amount !== a.amount) return b.amount - a.amount;
+    return b.months - a.months;
+  });
 
   // ── Walk-in contributions (no USERS row — donor's name lives in the Note field
   // as "Walk-in: <name> | <phone>"). These aren't tracked as "members" so there's
@@ -1138,7 +1320,10 @@ function _buildAdminSummaryData(month, year) {
     netBalance: grandTotal - expenseTotal, // income minus expenses for the month
     allTimeCollected: allTimeCollected,
     allTimeExpenses: allTimeExpenses,
-    allTimeNetBalance: allTimeNetBalance
+    allTimeNetBalance: allTimeNetBalance,
+    pendingList: pendingList,             // lifetime pending months × MonthlyTarget, Not-Yet-Paid members only
+    totalPendingAmount: totalPendingAmount,
+    pendingHasAnyTarget: pendingHasAnyTarget // false = none of the unpaid members have a MonthlyTarget set
   };
 }
 
@@ -1158,65 +1343,53 @@ function _buildAdminSummaryPdf(data) {
 
 function _buildAdminSummaryPdfHtml(data) {
   function esc(s) { return _htmlEscape(String(s || "")); }
-  const thPaid   = "padding:8px 14px;border:1px solid #bbf7d0;text-align:left;background:#dcfce7;color:#166534;";
-  const thUnpaid = "padding:8px 14px;border:1px solid #fecaca;text-align:left;background:#fee2e2;color:#991b1b;";
-  const thWalkin = "padding:8px 14px;border:1px solid #fde68a;text-align:left;background:#fef3c7;color:#92400e;";
-  const thExpense= "padding:8px 14px;border:1px solid #cbd5e1;text-align:left;background:#f1f5f9;color:#334155;";
-  const tdPaid   = "padding:8px 14px;border:1px solid #bbf7d0;background:#f0fdf4;";
-  const tdUnpaid = "padding:8px 14px;border:1px solid #fecaca;background:#fef2f2;";
-  const tdWalkin = "padding:8px 14px;border:1px solid #fde68a;background:#fffbeb;";
-  const tdExpense= "padding:8px 14px;border:1px solid #cbd5e1;background:#f8fafc;";
-  const numCol   = "width:28px;text-align:center;color:#94a3b8;font-weight:600;";
-  const walkinList  = data.walkinList || [];
+  // Compact spacing + a single unified type scale (was a mix of default/13/14/15px) —
+  // narrow padding throughout so a normal month's report fits on one page.
+  const thPaid   = "padding:4px 8px;border:1px solid #bbf7d0;text-align:left;background:#dcfce7;color:#166534;font-size:11px;";
+  const thUnpaid = "padding:4px 8px;border:1px solid #fecaca;text-align:left;background:#fee2e2;color:#991b1b;font-size:11px;";
+  const thWalkin = "padding:4px 8px;border:1px solid #fde68a;text-align:left;background:#fef3c7;color:#92400e;font-size:11px;";
+  const thExpense= "padding:4px 8px;border:1px solid #cbd5e1;text-align:left;background:#f1f5f9;color:#334155;font-size:11px;";
+  const tdPaid   = "padding:4px 8px;border:1px solid #bbf7d0;background:#f0fdf4;font-size:11.5px;";
+  const tdUnpaid = "padding:4px 8px;border:1px solid #fecaca;background:#fef2f2;font-size:11.5px;";
+  const tdWalkin = "padding:4px 8px;border:1px solid #fde68a;background:#fffbeb;font-size:11.5px;";
+  const tdExpense= "padding:4px 8px;border:1px solid #cbd5e1;background:#f8fafc;font-size:11.5px;";
+  const numCol   = "width:20px;text-align:center;color:#94a3b8;font-weight:600;";
+  const walkinList  = data.walkinList  || [];
   const expenseList = data.expenseList || [];
+  const pendingList = data.pendingList || [];
+  const hasWalkin   = walkinList.length > 0; // walk-in line/count hidden entirely when 0
 
   // ── Each section is skipped entirely (no heading, no table) when its list is empty —
   // rather than printing a placeholder row like "— none —".
-  let sections = "";
+  let sectionsA = "";
 
   if (data.paidList.length > 0) {
     const paidRows = data.paidList.map((m, i) =>
       "<tr><td style='" + tdPaid + numCol + "'>" + (i + 1) + ".</td>" +
       "<td style='" + tdPaid + "'>" + esc(m.name) + "</td>" +
       "<td style='" + tdPaid + "text-align:right;'>" + CFG.currencyText + " " + m.amount + "</td>" +
-      "<td style='" + tdPaid + "text-align:center;'>" + (m.entries > 1 ? m.entries : "—") + "</td></tr>"
+      "<td style='" + tdPaid + "text-align:center;'>" + m.entries + "</td></tr>"
     ).join("");
-    sections += "<h3 style='color:#166534;margin-bottom:10px;'>✅ Paid</h3>" +
-      "<table style='border-collapse:collapse;width:100%;margin-bottom:6px;'>" +
+    sectionsA += "<p style='color:#166534;font-size:12.5px;font-weight:700;margin:0 0 6px;'>✅ Paid</p>" +
+      "<table style='border-collapse:collapse;width:100%;margin-bottom:10px;'>" +
         "<tr><th style='" + thPaid + numCol + "'>#</th><th style='" + thPaid + "'>Name</th><th style='" + thPaid + "text-align:right;'>Amount</th><th style='" + thPaid + "text-align:center;'>Entries</th></tr>" +
         paidRows +
       "</table>";
   }
 
-  if (walkinList.length > 0) {
+  if (hasWalkin) {
     const walkinRows = walkinList.map((m, i) =>
       "<tr><td style='" + tdWalkin + numCol + "'>" + (i + 1) + ".</td>" +
       "<td style='" + tdWalkin + "'>" + esc(m.name) + "</td>" +
       "<td style='" + tdWalkin + "text-align:right;'>" + CFG.currencyText + " " + m.amount + "</td></tr>"
     ).join("");
-    sections += "<h3 style='color:#92400e;margin-top:20px;margin-bottom:10px;'>🚶 Walk-in Contributions</h3>" +
-      "<table style='border-collapse:collapse;width:100%;margin-bottom:6px;'>" +
+    sectionsA += "<p style='color:#92400e;font-size:12.5px;font-weight:700;margin:10px 0 6px;'>🚶 Walk-in Contributions</p>" +
+      "<table style='border-collapse:collapse;width:100%;margin-bottom:10px;'>" +
         "<tr><th style='" + thWalkin + numCol + "'>#</th><th style='" + thWalkin + "'>Name</th><th style='" + thWalkin + "text-align:right;'>Amount</th></tr>" +
         walkinRows +
       "</table>";
   }
 
-  if (data.unpaidList.length > 0) {
-    const unpaidRows = data.unpaidList.map((m, i) =>
-      "<tr><td style='" + tdUnpaid + numCol + "'>" + (i + 1) + ".</td>" +
-      "<td style='" + tdUnpaid + "font-weight:600;'>" + esc(m.name) + "</td></tr>"
-    ).join("");
-    sections += "<h3 style='color:#991b1b;margin-top:20px;margin-bottom:10px;'>⚠️ Not Yet Paid</h3>" +
-      "<table style='border-collapse:collapse;width:100%;margin-bottom:6px;'>" +
-        "<tr><th style='" + thUnpaid + numCol + "'>#</th><th style='" + thUnpaid + "'>Name</th></tr>" +
-        unpaidRows +
-      "</table>";
-  }
-
-  // [NEW] Expenses — listed individually (Title + Date + Amount), neutral slate
-  // tint so it reads as "money out" rather than a green/red income signal.
-  // Total Expenses / Net Balance sit right below this table, not in the top
-  // summary line, per request — this section is fully self-contained.
   if (expenseList.length > 0) {
     const expenseRows = expenseList.map((x, i) =>
       "<tr><td style='" + tdExpense + numCol + "'>" + (i + 1) + ".</td>" +
@@ -1224,43 +1397,109 @@ function _buildAdminSummaryPdfHtml(data) {
       "<td style='" + tdExpense + "'>" + esc(x.date || "—") + "</td>" +
       "<td style='" + tdExpense + "text-align:right;'>" + CFG.currencyText + " " + x.amount + "</td></tr>"
     ).join("");
-    sections += "<h3 style='color:#334155;margin-top:20px;margin-bottom:10px;'>💸 Expenses This Month</h3>" +
-      "<table style='border-collapse:collapse;width:100%;margin-bottom:8px;'>" +
+    sectionsA += "<p style='color:#334155;font-size:12.5px;font-weight:700;margin:10px 0 6px;'>💸 Expenses This Month</p>" +
+      "<table style='border-collapse:collapse;width:100%;margin-bottom:6px;'>" +
         "<tr><th style='" + thExpense + numCol + "'>#</th><th style='" + thExpense + "'>Title</th><th style='" + thExpense + "'>Date</th><th style='" + thExpense + "text-align:right;'>Amount</th></tr>" +
         expenseRows +
       "</table>" +
-      "<p style='margin:0 0 4px;'><strong>Total Expenses:</strong> " + CFG.currencyText + " " + (data.expenseTotal||0) + "</p>" +
-      "<p style='margin:0;font-size:14px;'><strong>Net Balance: " + CFG.currencyText + " " + (data.netBalance != null ? data.netBalance : data.grandTotal) + "</strong> <span style='color:#94a3b8;font-weight:400;font-size:11.5px;'>(collected − expenses)</span></p>";
+      "<p style='margin:0 0 3px;font-size:11.5px;'><strong>Total Expenses:</strong> " + CFG.currencyText + " " + (data.expenseTotal||0) + "</p>" +
+      "<p style='margin:0;font-size:12.5px;'><strong>Net Balance: " + CFG.currencyText + " " + (data.netBalance != null ? data.netBalance : data.grandTotal) + "</strong> <span style='color:#94a3b8;font-weight:400;font-size:10.5px;'>(collected − expenses)</span></p>";
   }
 
-  // [NEW] All-time fund summary — a SEPARATE block from the monthly figures
-  // above, showing overall treasury totals since inception rather than just
-  // this month. Distinct indigo tint so it doesn't blend with the monthly
-  // slate-colored expense box right above it.
+  // Not Yet Paid — plain name list, this-month status only. Lifetime pending
+  // figures live in Box B below, not merged in here.
+  if (data.unpaidList.length > 0) {
+    const unpaidRows = data.unpaidList.map((m, i) =>
+      "<tr><td style='" + tdUnpaid + numCol + "'>" + (i + 1) + ".</td>" +
+      "<td style='" + tdUnpaid + "font-weight:600;'>" + esc(m.name) + "</td></tr>"
+    ).join("");
+    sectionsA += "<p style='color:#991b1b;font-size:12.5px;font-weight:700;margin:10px 0 6px;'>⚠️ Not Yet Paid</p>" +
+      "<table style='border-collapse:collapse;width:100%;'>" +
+        "<tr><th style='" + thUnpaid + numCol + "'>#</th><th style='" + thUnpaid + "'>Name</th></tr>" +
+        unpaidRows +
+      "</table>";
+  }
+
+  // Members collected line — Grand total shown only when it actually differs
+  // from Members collected (i.e. there's walk-in income to add on top).
+  const membersLine = "<p style='margin:0 0 6px;font-size:12px;font-weight:700;'>" +
+    "Members collected: " + CFG.currencyText + " " + data.totalCollected +
+    (hasWalkin ? " &nbsp;|&nbsp; Walk-in collected: " + CFG.currencyText + " " + data.walkinTotal : "") +
+    "</p>" +
+    (hasWalkin
+      ? "<p style='font-size:12.5px;font-weight:700;margin:0 0 8px;'>Grand total: " + CFG.currencyText + " " + data.grandTotal + "</p>"
+      : "");
+
+  const boxA =
+    "<div style='border:1.2px solid #cbd5e1;border-radius:10px;padding:12px 14px;margin-bottom:40px;'>" +
+      "<h2 style='margin:0 0 2px;font-size:17px;'>" + esc(CFG.name) + "</h2>" +
+      "<p style='color:#64748b;margin:0 0 8px;font-size:11px;'>" + esc(data.month) + " " + esc(data.year) + " — Contribution Summary</p>" +
+      membersLine +
+      "<p style='margin:0 0 10px;font-size:12px;'>Paid: " + data.paidList.length + " &nbsp;|&nbsp; Not yet paid: " + data.unpaidList.length +
+        (hasWalkin ? " &nbsp;|&nbsp; Walk-in entries: " + walkinList.length : "") + "</p>" +
+      sectionsA +
+    "</div>";
+
+  // ── Box B: Overall Summary — lifetime figures, not tied to this month.
+  //    1) Total Pending — Not Yet Paid Members (months × MonthlyTarget)
+  //    2) Overall Fund Summary (All-Time), unchanged, Net Balance color-coded.
+  let pendingBlock = "";
+  if (pendingList.length > 0) {
+    if (!data.pendingHasAnyTarget) {
+      pendingBlock =
+        "<p style='color:#334155;font-size:12px;font-weight:700;margin:0 0 6px;'>Total Pending — Not Yet Paid Members</p>" +
+        "<div style='padding:8px 10px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;color:#92400e;font-size:11px;'>" +
+          "⚠️ Monthly Target not set for these members — pending amount unavailable." +
+        "</div>";
+    } else {
+      const thPending = "padding:4px 6px;border:1px solid #fecaca;text-align:left;background:#fee2e2;color:#991b1b;font-size:10.5px;";
+      const tdPending = "padding:4px 6px;border:1px solid #fecaca;background:#fef2f2;font-size:11px;";
+      const dash = "<span style='color:#94a3b8;'>—</span>";
+      const pendingRows = pendingList.map((p, i) =>
+        "<tr><td style='" + tdPending + numCol + "'>" + (i + 1) + ".</td>" +
+        "<td style='" + tdPending + "'>" + esc(p.name) + "</td>" +
+        "<td style='" + tdPending + "text-align:center;'>" + (p.amount !== null ? p.months : dash) + "</td>" +
+        "<td style='" + tdPending + "text-align:right;'>" + (p.amount !== null ? CFG.currencyText + " " + p.target : dash) + "</td>" +
+        "<td style='" + tdPending + "text-align:right;font-weight:700;'>" + (p.amount !== null ? CFG.currencyText + " " + p.amount : dash) + "</td></tr>"
+      ).join("");
+      pendingBlock =
+        "<p style='color:#334155;font-size:12px;font-weight:700;margin:0 0 6px;'>Total Pending — Not Yet Paid Members</p>" +
+        "<table style='border-collapse:collapse;width:100%;margin-bottom:6px;'>" +
+          "<tr><th style='" + thPending + numCol + "'>#</th><th style='" + thPending + "'>Name</th>" +
+            "<th style='" + thPending + "text-align:center;'>Months</th>" +
+            "<th style='" + thPending + "text-align:right;'>Target</th>" +
+            "<th style='" + thPending + "text-align:right;'>Pending</th></tr>" +
+          pendingRows +
+        "</table>" +
+        "<p style='margin:0 0 10px;font-size:12px;font-weight:700;'>Total Pending: " + CFG.currencyText + " " + data.totalPendingAmount + "</p>";
+    }
+  }
+
+  const netBalanceColor = (data.allTimeNetBalance != null ? data.allTimeNetBalance : (data.allTimeCollected||0)) < 0 ? "#dc2626" : "#16a34a";
   const allTimeBlock =
-    "<div style='margin-top:22px;padding:14px 16px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;'>" +
-      "<h3 style='color:#3730a3;margin:0 0 10px;font-size:14px;'>🏦 Overall Fund Summary (All-Time)</h3>" +
-      "<p style='margin:0 0 4px;'><strong>Total Collection (all-time):</strong> " + CFG.currencyText + " " + (data.allTimeCollected||0) + "</p>" +
-      "<p style='margin:0 0 4px;'><strong>Total Expenses (all-time):</strong> " + CFG.currencyText + " " + (data.allTimeExpenses||0) + "</p>" +
-      "<p style='margin:0;font-size:15px;'><strong>Current Net Balance: " + CFG.currencyText + " " + (data.allTimeNetBalance != null ? data.allTimeNetBalance : (data.allTimeCollected||0)) + "</strong></p>" +
+    "<div style='padding:8px 10px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;'>" +
+      "<p style='color:#3730a3;font-size:12px;font-weight:700;margin:0 0 5px;'>Overall Fund Summary (All-Time)</p>" +
+      "<p style='margin:0 0 3px;font-size:11.5px;'>Total Collection (all-time): " + CFG.currencyText + " " + _admFormatINR(data.allTimeCollected||0) + "</p>" +
+      "<p style='margin:0 0 3px;font-size:11.5px;'>Total Expenses (all-time): " + CFG.currencyText + " " + _admFormatINR(data.allTimeExpenses||0) + "</p>" +
+      "<p style='margin:0;font-size:12.5px;font-weight:700;color:" + netBalanceColor + ";'>Current Net Balance: " + CFG.currencyText + " " + _admFormatINR(data.allTimeNetBalance != null ? data.allTimeNetBalance : (data.allTimeCollected||0)) + "</p>" +
+    "</div>";
+
+  const boxB =
+    "<div style='border:1.2px solid #cbd5e1;border-radius:10px;padding:12px 14px;'>" +
+      "<p style='margin:0 0 8px;font-size:13.5px;font-weight:700;'>🏦 Overall Summary</p>" +
+      pendingBlock +
+      allTimeBlock +
     "</div>";
 
   // [NEW] System-generated footer note — printed at the bottom of the PDF page.
   const footerNote =
-    "<p style='margin-top:28px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:10.5px;color:#94a3b8;text-align:center;'>" +
+    "<p style='margin-top:8px;padding-top:6px;border-top:1px solid #e2e8f0;font-size:9px;color:#94a3b8;text-align:center;'>" +
       "This is a system-generated document from " + esc(CFG.name) + ". No signature is required." +
     "</p>";
 
-  return "<html><body style='font-family:Arial,sans-serif;color:#1e293b;font-size:13px;padding:18px 22px;'>" +
-    "<h2 style='margin-bottom:2px;'>" + esc(CFG.name) + "</h2>" +
-    "<p style='color:#64748b;margin-top:0;'>" + esc(data.month) + " " + esc(data.year) + " — Contribution Summary</p>" +
-    "<p><strong>Members collected:</strong> " + CFG.currencyText + " " + data.totalCollected +
-      " &nbsp;|&nbsp; <strong>Walk-in collected:</strong> " + CFG.currencyText + " " + (data.walkinTotal||0) + "</p>" +
-    "<p style='font-size:15px;'><strong>Grand total: " + CFG.currencyText + " " + (data.grandTotal != null ? data.grandTotal : data.totalCollected) + "</strong></p>" +
-    "<p>Paid: " + data.paidList.length + " &nbsp;|&nbsp; Not yet paid: " + data.unpaidList.length +
-      " &nbsp;|&nbsp; Walk-in entries: " + walkinList.length + "</p>" +
-    sections +
-    allTimeBlock +
+  return "<html><body style='font-family:Arial,sans-serif;color:#1e293b;padding:12px 16px;'>" +
+    boxA +
+    boxB +
     footerNote +
     "</body></html>";
 }
@@ -1270,8 +1509,10 @@ function _buildAdminSummaryPdfHtml(data) {
 //    so a pre-formatted block the admin can manually select is the reliable fallback —
 //    it's also shown even when the PDF attaches fine, since forwarding text is often faster.
 function _buildAdminSummaryPlainText(data) {
-  const walkinList  = data.walkinList || [];
+  const walkinList  = data.walkinList  || [];
   const expenseList = data.expenseList || [];
+  const pendingList = data.pendingList || [];
+  const hasWalkin   = walkinList.length > 0;
   const lines = [];
   lines.push(CFG.symbol + " " + CFG.name);
   lines.push("📍 " + CFG.location);
@@ -1283,11 +1524,11 @@ function _buildAdminSummaryPlainText(data) {
     lines.push("");
     lines.push("✅ PAID (" + data.paidList.length + ")");
     data.paidList.forEach((m, i) => {
-      lines.push((i + 1) + ". " + m.name + " — " + CFG.currencyText + " " + m.amount + (m.entries > 1 ? " (" + m.entries + " entries)" : ""));
+      lines.push((i + 1) + ". " + m.name + " — " + CFG.currencyText + " " + m.amount + " (" + m.entries + " entries)");
     });
   }
 
-  if (walkinList.length > 0) {
+  if (hasWalkin) {
     lines.push("");
     lines.push("🚶 WALK-IN (" + walkinList.length + ")");
     walkinList.forEach((m, i) => {
@@ -1305,8 +1546,10 @@ function _buildAdminSummaryPlainText(data) {
 
   lines.push("");
   lines.push("💰 Members Collected: " + CFG.currencyText + " " + data.totalCollected);
-  lines.push("💰 Walk-in Collected: " + CFG.currencyText + " " + (data.walkinTotal||0));
-  lines.push("💰 Grand Total: " + CFG.currencyText + " " + (data.grandTotal != null ? data.grandTotal : data.totalCollected));
+  if (hasWalkin) {
+    lines.push("💰 Walk-in Collected: " + CFG.currencyText + " " + data.walkinTotal);
+    lines.push("💰 Grand Total: " + CFG.currencyText + " " + (data.grandTotal != null ? data.grandTotal : data.totalCollected));
+  }
 
   // [NEW] Expenses — its own Total Expenses / Net Balance lines live here,
   // right after the expense list, rather than mixed into the income summary
@@ -1322,14 +1565,28 @@ function _buildAdminSummaryPlainText(data) {
     lines.push("📊 Net Balance: " + CFG.currencyText + " " + (data.netBalance != null ? data.netBalance : data.grandTotal) + " (collected − expenses)");
   }
 
-  // [NEW] All-time fund summary — separate block, shown after the monthly
-  // figures above, giving the overall treasury total rather than just this
-  // month's activity.
+  // ── Overall Summary — lifetime figures, separate from the monthly section
+  // above: Total Pending (Not-Yet-Paid members) then All-Time fund totals.
   lines.push("");
-  lines.push("🏦 OVERALL FUND SUMMARY (ALL-TIME)");
-  lines.push("Total Collection (all-time): " + CFG.currencyText + " " + (data.allTimeCollected||0));
-  lines.push("Total Expenses (all-time): " + CFG.currencyText + " " + (data.allTimeExpenses||0));
-  lines.push("Current Net Balance: " + CFG.currencyText + " " + (data.allTimeNetBalance != null ? data.allTimeNetBalance : (data.allTimeCollected||0)));
+  lines.push("🏦 OVERALL SUMMARY");
+
+  if (pendingList.length > 0) {
+    lines.push("");
+    lines.push("📌 Total Pending — Not Yet Paid Members");
+    if (!data.pendingHasAnyTarget) {
+      lines.push("⚠️ Monthly Target not set for these members — pending amount unavailable.");
+    } else {
+      pendingList.forEach((p, i) => {
+        lines.push((i + 1) + ". " + p.name + " — " + (p.amount !== null ? (p.months + " mo × " + CFG.currencyText + " " + p.target + " = " + CFG.currencyText + " " + p.amount) : "—"));
+      });
+      lines.push("Total Pending: " + CFG.currencyText + " " + data.totalPendingAmount);
+    }
+  }
+
+  lines.push("");
+  lines.push("Total Collection (all-time): " + CFG.currencyText + " " + _admFormatINR(data.allTimeCollected||0));
+  lines.push("Total Expenses (all-time): " + CFG.currencyText + " " + _admFormatINR(data.allTimeExpenses||0));
+  lines.push("Current Net Balance: " + CFG.currencyText + " " + _admFormatINR(data.allTimeNetBalance != null ? data.allTimeNetBalance : (data.allTimeCollected||0)));
 
   lines.push("━━━━━━━━━━━━━━━━━━━━");
   lines.push(CFG.tagline);
@@ -1355,36 +1612,29 @@ function _adminSummaryRow(num, name, value, textColor) {
 //    (no heading, no empty table) when its list has zero entries. Every row is
 //    numbered, with real horizontal padding so text never touches the card edge.
 function _buildAdminSummaryEmail(data) {
-  const walkinList  = data.walkinList || [];
+  const walkinList  = data.walkinList  || [];
   const expenseList = data.expenseList || [];
+  const pendingList = data.pendingList || [];
+  const hasWalkin   = walkinList.length > 0;
 
   let sectionsHtml = "";
 
   if (data.paidList.length > 0) {
     const paidRows = data.paidList.map((m, i) =>
-      _adminSummaryRow(i + 1, m.name, CFG.currencyText + " " + m.amount + (m.entries > 1 ? " (" + m.entries + " entries)" : ""), "#166534")
+      _adminSummaryRow(i + 1, m.name, CFG.currencyText + " " + m.amount + " (" + m.entries + " entries)", "#166534")
     ).join("");
     sectionsHtml += `
     <p style="color:#166534;font-size:13px;font-weight:600;margin:0 0 8px;">✅ Paid</p>
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;overflow:hidden;">${paidRows}</table>`;
   }
 
-  if (walkinList.length > 0) {
+  if (hasWalkin) {
     const walkinRows = walkinList.map((m, i) =>
       _adminSummaryRow(i + 1, m.name, CFG.currencyText + " " + m.amount, "#92400e")
     ).join("");
     sectionsHtml += `
     <p style="color:#92400e;font-size:13px;font-weight:600;margin:20px 0 8px;">🚶 Walk-in Contributions</p>
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;overflow:hidden;">${walkinRows}</table>`;
-  }
-
-  if (data.unpaidList.length > 0) {
-    const unpaidRows = data.unpaidList.map((m, i) =>
-      _adminSummaryRow(i + 1, m.name, undefined, "#991b1b")
-    ).join("");
-    sectionsHtml += `
-    <p style="color:#991b1b;font-size:13px;font-weight:700;margin:20px 0 8px;">⚠️ Not Yet Paid</p>
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:8px;overflow:hidden;">${unpaidRows}</table>`;
   }
 
   // [NEW] Expenses — neutral slate tint (money OUT, distinct from paid/walkin's
@@ -1407,48 +1657,99 @@ function _buildAdminSummaryEmail(data) {
     </p>`;
   }
 
-  const plainText = _buildAdminSummaryPlainText(data);
-  const preId = "admsum_copy_text";
+  // Not Yet Paid — plain name list, this-month status only. Lifetime pending
+  // figures live in the Overall Summary box below, not merged in here.
+  if (data.unpaidList.length > 0) {
+    const unpaidRows = data.unpaidList.map((m, i) =>
+      _adminSummaryRow(i + 1, m.name, undefined, "#991b1b")
+    ).join("");
+    sectionsHtml += `
+    <p style="color:#991b1b;font-size:13px;font-weight:700;margin:20px 0 8px;">⚠️ Not Yet Paid</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:8px;overflow:hidden;">${unpaidRows}</table>`;
+  }
 
-  // [NEW] All-time fund summary — separate indigo-tinted block, shown after
-  // all the monthly sections above, giving overall treasury totals rather
-  // than just this month's activity.
+  // Members collected / Grand total — Grand total shown only when it differs
+  // from Members collected (i.e. there's walk-in income on top of it).
+  const membersLineHtml = hasWalkin
+    ? `<p style="color:${_EM.ink};font-size:13px;margin:0 0 4px;">
+         Members: ${CFG.currencyText} ${data.totalCollected} &nbsp;+&nbsp; Walk-in: ${CFG.currencyText} ${data.walkinTotal}
+       </p>
+       <p style="color:${_EM.ink};font-size:15px;font-weight:600;margin:0 0 16px;">
+         Grand total: ${CFG.currencyText} ${data.grandTotal}
+       </p>`
+    : `<p style="color:${_EM.ink};font-size:14px;font-weight:600;margin:0 0 16px;">
+         Members collected: ${CFG.currencyText} ${data.totalCollected}
+       </p>`;
+
+  const boxA = `
+    <div style="border:1.5px solid #cbd5e1;border-radius:12px;padding:20px 22px;margin:0 0 16px;">
+      <p style="color:${_EM.ink};font-size:14px;margin:0 0 12px;">
+        ${data.month} ${data.year} contribution status — ${data.paidList.length} paid, ${data.unpaidList.length} pending${hasWalkin ? ", " + walkinList.length + " walk-in" : ""}.
+      </p>
+      ${membersLineHtml}
+      ${sectionsHtml}
+    </div>`;
+
+  // ── Overall Summary box — lifetime figures, not tied to this month.
+  //    1) Total Pending — Not Yet Paid Members (months × MonthlyTarget)
+  //    2) Overall Fund Summary (All-Time), Net Balance color-coded.
+  let pendingHtml = "";
+  if (pendingList.length > 0) {
+    if (!data.pendingHasAnyTarget) {
+      pendingHtml = `
+      <p style="color:#334155;font-size:13px;font-weight:700;margin:0 0 8px;">Total Pending — Not Yet Paid Members</p>
+      <p style="color:#92400e;font-size:12px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;margin:0 0 16px;">
+        ⚠️ Monthly Target not set for these members — pending amount unavailable.
+      </p>`;
+    } else {
+      const dash = `<span style="color:#94a3b8;">—</span>`;
+      const pendingRows = pendingList.map((p, i) => `<tr>
+        <td style="padding:10px 4px 10px 14px;color:#991b1b;opacity:0.55;font-size:12px;font-weight:700;text-align:center;width:26px;border-bottom:1px solid rgba(0,0,0,0.06);">${i + 1}.</td>
+        <td style="padding:10px 8px;color:#991b1b;font-size:13px;font-weight:600;border-bottom:1px solid rgba(0,0,0,0.06);">${_htmlEscape(p.name)}</td>
+        <td style="padding:10px 8px;color:#991b1b;font-size:12px;text-align:center;border-bottom:1px solid rgba(0,0,0,0.06);">${p.amount !== null ? p.months : dash}</td>
+        <td style="padding:10px 8px;color:#991b1b;font-size:12px;text-align:right;border-bottom:1px solid rgba(0,0,0,0.06);">${p.amount !== null ? CFG.currencyText + " " + p.target : dash}</td>
+        <td style="padding:10px 14px 10px 8px;color:#991b1b;font-size:13px;font-weight:700;text-align:right;border-bottom:1px solid rgba(0,0,0,0.06);">${p.amount !== null ? CFG.currencyText + " " + p.amount : dash}</td>
+      </tr>`).join("");
+      pendingHtml = `
+      <p style="color:#334155;font-size:13px;font-weight:700;margin:0 0 8px;">Total Pending — Not Yet Paid Members</p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;overflow:hidden;">
+        <tr style="background:#fee2e2;">
+          <td style="padding:8px 4px 8px 14px;color:#991b1b;font-size:11px;font-weight:700;width:26px;">#</td>
+          <td style="padding:8px;color:#991b1b;font-size:11px;font-weight:700;">Name</td>
+          <td style="padding:8px;color:#991b1b;font-size:11px;font-weight:700;text-align:center;">Months</td>
+          <td style="padding:8px;color:#991b1b;font-size:11px;font-weight:700;text-align:right;">Target</td>
+          <td style="padding:8px 14px 8px 8px;color:#991b1b;font-size:11px;font-weight:700;text-align:right;">Pending</td>
+        </tr>
+        ${pendingRows}
+      </table>
+      <p style="color:${_EM.ink};font-size:13px;font-weight:700;margin:10px 0 16px;">Total Pending: ${CFG.currencyText} ${data.totalPendingAmount}</p>`;
+    }
+  }
+
+  const netBalanceColor = (data.allTimeNetBalance != null ? data.allTimeNetBalance : (data.allTimeCollected||0)) < 0 ? "#dc2626" : "#16a34a";
   const allTimeHtml = `
-    <div style="margin-top:22px;padding:14px 16px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;">
-      <p style="color:#3730a3;font-size:13px;font-weight:700;margin:0 0 8px;">🏦 Overall Fund Summary (All-Time)</p>
-      <p style="color:${_EM.ink};font-size:13px;margin:0 0 4px;">Total Collection (all-time): ${CFG.currencyText} ${data.allTimeCollected||0}</p>
-      <p style="color:${_EM.ink};font-size:13px;margin:0 0 4px;">Total Expenses (all-time): ${CFG.currencyText} ${data.allTimeExpenses||0}</p>
-      <p style="color:${_EM.ink};font-size:14.5px;font-weight:700;margin:0;">Current Net Balance: ${CFG.currencyText} ${data.allTimeNetBalance != null ? data.allTimeNetBalance : (data.allTimeCollected||0)}</p>
+    <div style="padding:14px 16px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;">
+      <p style="color:#3730a3;font-size:13px;font-weight:700;margin:0 0 8px;">Overall Fund Summary (All-Time)</p>
+      <p style="color:${_EM.ink};font-size:13px;margin:0 0 4px;">Total Collection (all-time): ${CFG.currencyText} ${_admFormatINR(data.allTimeCollected||0)}</p>
+      <p style="color:${_EM.ink};font-size:13px;margin:0 0 4px;">Total Expenses (all-time): ${CFG.currencyText} ${_admFormatINR(data.allTimeExpenses||0)}</p>
+      <p style="color:${netBalanceColor};font-size:14.5px;font-weight:700;margin:0;">Current Net Balance: ${CFG.currencyText} ${_admFormatINR(data.allTimeNetBalance != null ? data.allTimeNetBalance : (data.allTimeCollected||0))}</p>
+    </div>`;
+
+  const boxB = `
+    <div style="border:1.5px solid #cbd5e1;border-radius:12px;padding:20px 22px;margin:0 0 16px;">
+      <p style="color:${_EM.ink};font-size:15px;font-weight:700;margin:0 0 16px;">🏦 Overall Summary</p>
+      ${pendingHtml}
+      ${allTimeHtml}
     </div>`;
 
   const body = `
   ${_emHeader("ADMIN MONTHLY SUMMARY")}
   <tr><td style="padding:24px 28px;">
-    <p style="color:${_EM.ink};font-size:14px;margin:0 0 12px;">
-      ${data.month} ${data.year} contribution status — ${data.paidList.length} paid, ${data.unpaidList.length} pending, ${walkinList.length} walk-in.
-    </p>
-    <p style="color:${_EM.ink};font-size:13px;margin:0 0 4px;">
-      Members: ${CFG.currencyText} ${data.totalCollected} &nbsp;+&nbsp; Walk-in: ${CFG.currencyText} ${data.walkinTotal||0}
-    </p>
-    <p style="color:${_EM.ink};font-size:15px;font-weight:600;margin:0 0 16px;">
-      Grand total: ${CFG.currencyText} ${data.grandTotal != null ? data.grandTotal : data.totalCollected}
-    </p>
-    ${sectionsHtml}
-    ${allTimeHtml}
+    ${boxA}
+    ${boxB}
 
-    <p style="color:${_EM.sub};font-size:12px;margin:18px 0 6px;">
-      Ready-to-forward text:
-      <!-- Attempts a real click-to-copy — works in mail clients that don't strip
-           inline scripts. Gmail/Outlook web strip <script>/onclick, so this button
-           silently does nothing there; the block below is always select-and-copy-able
-           regardless, so nothing is lost if the button doesn't fire. -->
-      <button type="button" onclick="try{var t=document.getElementById('${preId}').innerText;navigator.clipboard.writeText(t);this.innerText='Copied ✓';}catch(e){}" style="border:1px solid #c4b5fd;background:#f5f3ff;color:#5b21b6;font-size:11px;padding:3px 10px;border-radius:6px;cursor:pointer;margin-left:4px;">Copy</button>
-    </p>
-    <pre id="${preId}" style="white-space:pre-wrap;font-family:'Courier New',monospace;font-size:11.5px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;color:#334155;margin:0;">${_htmlEscape(plainText)}</pre>
-
-    <p style="color:${_EM.sub};font-size:12px;margin:16px 0 0;">
+    <p style="color:${_EM.sub};font-size:12px;margin:0;">
       A PDF copy of this table is also attached — forward either to the group if needed.
-
     </p>
   </td></tr>
   ${_emFooter()}`;
@@ -2002,7 +2303,12 @@ function doGet(e) {
             if (!((rowUserId && rowUserId === userId) || (rowName && rowName === userId))) continue;
             foundRow = i;
             const stored = String(allData[i][tokenCol] || "").trim();
-            if (stored === "") { isValid = true; break; }           // legacy session, allow
+            // [SEC-TIGHTEN] Was previously "legacy session, allow" — now matches
+            // _verifySession: blank stored token means the server has no active
+            // session for this user (logged out / expired / never authenticated),
+            // so the client should be sent back to the login screen, not treated
+            // as still-valid.
+            if (stored === "") { isValid = false; expiredReason = "not_logged_in"; break; }
             if (stored !== token) { isValid = false; expiredReason = "token_mismatch"; break; }
             // Check TokenExpiry
             if (expiryCol !== -1) {
