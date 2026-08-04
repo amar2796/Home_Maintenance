@@ -1930,211 +1930,121 @@
       </div>
 
       <!-- ANNOUNCEMENT PAGE -->
-      <!-- ═══ CONTRIBUTION TRACKER PAGE (Improvement #6) ═══ -->
-      <div id="trackerPage" class="page">
-        <div class="card">
-          <h3><i class="fa-solid fa-chart-pie" style="color:#0F766E;"></i> Contribution Tracker
-            <span style="font-size:11px;font-weight:400;color:#999;margin-left:8px;">Who paid · Who hasn't</span>
-          </h3>
+      <!-- ═════════════════════════════════════════════════════════════════════════
+     TRACKER SECTION - REDESIGNED (Drop-in replacement)
+     Replace lines 1934-2096 in your admin.html with this section
+     ═════════════════════════════════════════════════════════════════════════ -->
+`    <div id="trackerPage" class="page">
+  <div class="card">
+    <h3 style="margin-bottom:16px;"><i class="fa-solid fa-chart-pie" style="color:#0F766E;"></i> Contribution Tracker
+      <span style="font-size:11px;font-weight:400;color:#999;margin-left:8px;">Who paid · Who hasn't</span>
+    </h3>
 
-          <style>
-            .tr-toolbar { display:flex; flex-wrap:wrap; align-items:flex-end; gap:20px; background:transparent; border:none; border-bottom:1px solid #eef1f4; border-radius:0; padding:2px 2px 16px; margin-bottom:20px; }
-            .tr-toolbar .tr-field { display:flex; flex-direction:column; gap:5px; }
-            .tr-toolbar label { font-size:10.5px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:.03em; }
-            .tr-toolbar select { padding:7px 12px; border:1px solid #e2e8f0; border-radius:7px; font-family:Poppins,sans-serif; font-size:13px; background:#fff; height:34px; color:#334155; }
-            .tr-toolbar .tr-hide-chk { display:flex; align-items:center; gap:6px; font-size:12px; color:#64748b; cursor:pointer; white-space:nowrap; padding-bottom:7px; margin-left:auto; }
-            .tr-focus-bar { display:flex; align-items:center; flex-wrap:wrap; gap:10px; background:#fff; border:1px dashed #d7dce3; border-radius:10px; padding:10px 14px; margin-bottom:16px; }
-            .tr-focus-bar label { font-size:12px; font-weight:600; color:#555; white-space:nowrap; }
-            .tr-focus-bar select { padding:7px 12px; border:1px solid #ddd; border-radius:8px; font-family:Poppins,sans-serif; font-size:13px; background:#fff; height:34px; }
-            .tr-legend-chip { display:inline-flex; align-items:center; gap:5px; background:#f8fafc; border:1px solid #eef2f6; border-radius:20px; padding:4px 12px; font-size:11px; color:#64748b; font-weight:500; }
-            /* Year-overview + shortfall badges — single line on wider screens, shrink to fit */
-            #tr_year_summary { flex-wrap:wrap; gap:10px; }
-            #tr_year_summary > div { padding:12px 14px; }
-            #tr_target_badges { display:flex; }
-            @media (min-width:641px) {
-              #tr_year_summary { flex-wrap:nowrap; overflow-x:auto; }
-              #tr_year_summary > div, #tr_target_badges { flex:1 1 0; min-width:0; white-space:nowrap; }
-              #tr_year_summary > div { padding:12px 14px; }
-            }
-            @media (max-width:640px) {
-              .tr-toolbar { padding:10px 8px; gap:8px; }
-              .tr-toolbar .tr-field { flex:1 1 auto; min-width:45%; }
-              .tr-toolbar select { width:100%; font-size:12px; }
-              .tr-toolbar label { font-size:10px; }
-              .tr-toolbar .tr-hide-chk { margin-left:auto !important; padding-bottom:0; font-size:10px; white-space:nowrap; }
-              .tr-toolbar .tr-hide-chk input { margin-right:3px; }
-              .tr-focus-bar { flex-direction:column; align-items:stretch; padding:8px 10px; }
-              .tr-focus-bar select { width:100%; font-size:12px; }
-              .tr-legend-chip { font-size:10px; padding:3px 8px; }
-              #tr_grid_table { font-size:10px !important; min-width:100% !important; }
-              #tr_grid_table th { font-size:9px !important; padding:3px 4px !important; }
-              #tr_grid_table td { font-size:9px !important; padding:3px 4px !important; }
-              #tr_grid_table td:first-child { text-align:left !important; padding:6px 6px !important; max-width:100px; overflow:hidden; }
-              #tr_grid_table td:first-child > div { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-              #tr_grid_table td:first-child span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block; max-width:70px; }
-              #tr_grid_wrap { margin:0 -8px !important; border-radius:0 !important; }
-              #tr_summary { gap:6px; }
-              #tr_summary > div { flex:1 1 auto; min-width:auto; padding:8px 10px; font-size:11px; }
-              #tr_summary > div > div:first-child { font-size:1.2rem !important; }
-              #tr_summary > div > div:not(:first-child) { font-size:9px !important; }
-              #tr_year_summary { display:grid !important; grid-template-columns:repeat(2, 1fr) !important; gap:8px !important; width:100%; }
-              #tr_year_summary > div { padding:10px !important; min-height:80px !important; display:flex !important; flex-direction:column !important; justify-content:center !important; align-items:center !important; text-align:center; }
-              #tr_year_summary > div:nth-child(1), #tr_year_summary > div:nth-child(2), #tr_year_summary > div:nth-child(3) { min-height:80px !important; }
-              #tr_target_badges { display:contents; }
-              #tr_target_badges > div { padding:10px !important; min-height:80px !important; display:flex !important; flex-direction:column !important; justify-content:center !important; align-items:center !important; text-align:center; }
-              #tr_year_summary div div:first-child { font-size:1.1rem !important; font-weight:700; margin-bottom:4px; }
-              #tr_year_summary div div:not(:first-child), #tr_target_badges div div:not(:first-child) { font-size:10px !important; line-height:1.2; }
-              #tr_lists { grid-template-columns:1fr !important; gap:10px !important; }
-              #tr_lists button { padding:6px 10px !important; font-size:11px !important; }
-              .tr-member-row { display:flex !important; justify-content:space-between !important; align-items:flex-start !important; padding:10px !important; min-height:45px !important; gap:8px !important; }
-              .tr-member-row > div:first-child { display:flex; align-items:center; gap:8px; flex:1; min-width:0; }
-              .tr-member-row > div:first-child > div { min-width:0; }
-              .tr-member-row > div:first-child span { font-size:12px; font-weight:600; }
-              .tr-member-row > div:last-child { font-size:10px; }
-              .tr-member-row > span { flex-shrink:0; font-size:11px; font-weight:700; padding:4px 9px; border-radius:18px; }
-            }
-            @media (max-width:380px) {
-              .tr-toolbar { padding:8px; gap:6px; flex-wrap:wrap; }
-              .tr-toolbar .tr-field { flex:1 1 auto; min-width:45%; }
-              .tr-toolbar select { font-size:11px; height:30px; }
-              .tr-toolbar label { font-size:9px; }
-              .tr-toolbar .tr-hide-chk { margin-left:auto !important; padding-bottom:0; font-size:9px !important; white-space:nowrap; }
-              .tr-toolbar .tr-hide-chk input { margin-right:2px; }
-              #tr_grid_table { font-size:8.5px !important; }
-              #tr_grid_table th, #tr_grid_table td { padding:2px 3px !important; font-size:8px !important; }
-              #tr_grid_table td:first-child { max-width:70px; padding:4px 4px !important; }
-              #tr_grid_table td:first-child > div { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-              #tr_grid_table td:first-child span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block; max-width:50px; }
-              #tr_year_summary { display:grid !important; grid-template-columns:repeat(2, 1fr) !important; gap:6px !important; width:100%; }
-              #tr_year_summary > div { padding:8px !important; min-height:70px !important; display:flex !important; flex-direction:column !important; justify-content:center !important; align-items:center !important; text-align:center; }
-              #tr_target_badges { display:contents; }
-              #tr_target_badges > div { padding:8px !important; min-height:70px !important; display:flex !important; flex-direction:column !important; justify-content:center !important; align-items:center !important; text-align:center; }
-              #tr_year_summary div div:first-child { font-size:0.95rem !important; font-weight:700; margin-bottom:3px; }
-              #tr_summary > div { padding:6px 8px; font-size:10px; }
-              #tr_summary > div > div:first-child { font-size:1rem !important; }
-              #tr_lists { grid-template-columns:1fr !important; gap:10px !important; }
-              #tr_lists button { padding:5px 8px !important; font-size:10px !important; }
-              .tr-member-row { display:flex !important; justify-content:space-between !important; align-items:flex-start !important; padding:8px !important; min-height:40px !important; gap:6px !important; }
-              .tr-member-row > span { font-size:10px !important; padding:3px 8px !important; }
-            }
-          </style>
-
-          <!-- Grid filters — auto-applies on any change, no Apply button needed -->
-          <div class="tr-toolbar">
-            <div class="tr-field">
-              <label>Type</label>
-              <select id="tr_type" onchange="runTracker()">
-                <option value="">— All Types —</option>
-              </select>
-            </div>
-            <div class="tr-field">
-              <label>Year</label>
-              <select id="tr_year" onchange="runTracker()" style="min-width:90px;text-align:center;"></select>
-            </div>
-            <label class="tr-hide-chk">
-              <input type="checkbox" id="tr_hide_inactive" onchange="runTracker()"/> Hide inactive members
-            </label>
-          </div>
-
-          <!-- Year overview — always reflects the selected Year + Type, independent of Focus month -->
-          <div style="font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:.04em;text-transform:uppercase;margin:0 0 8px 2px;">
-            Year overview
-          </div>
-          <div id="tr_year_summary" style="display:none;gap:10px;margin-bottom:18px;">
-            <div
-              style="background:#F0FDFA;border:1px solid #bfdbfe;border-radius:10px;text-align:center;">
-              <div style="font-size:1.3rem;font-weight:700;color:#0F766E;" id="tr_total_members">0</div>
-              <div style="font-size:10.5px;color:#115E59;font-weight:600;">👥 Total Members</div>
-            </div>
-            <div
-              style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;text-align:center;">
-              <div style="font-size:1.3rem;font-weight:700;color:#dc2626;" id="tr_year_pending_months">0</div>
-              <div style="font-size:10.5px;color:#991b1b;font-weight:600;">📅 Pending Months (this year)</div>
-            </div>
-            <div
-              style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;text-align:center;">
-              <div style="font-size:1.3rem;font-weight:700;color:#475569;" id="tr_year_inactive_count">0</div>
-              <div style="font-size:10.5px;color:#334155;font-weight:600;">🔒 Inactive (Closed)</div>
-            </div>
-          </div>
-          <!-- Shortfall badge (target_badges) gets appended as a 4th flex item here by runTracker() -->
-          
-
-          <!-- Year-wise member × month grid -->
-          <div id="tr_grid_wrap" style="display:none;overflow-x:auto;border:1px solid #eef1f4;border-radius:10px;margin-bottom:10px;">
-            <table id="tr_grid_table" style="border-collapse:collapse;font-size:11.5px;width:100%;min-width:500px;table-layout:auto;"></table>
-          </div>
-          <div id="tr_grid_legend" style="display:none;gap:8px;margin:0 0 22px;flex-wrap:wrap;">
-            <span class="tr-legend-chip"><b style="color:#16a34a;">✓</b> Paid</span>
-            <span class="tr-legend-chip"><b style="color:#dc2626;">✕</b> Pending</span>
-            <span class="tr-legend-chip"><b style="color:#94a3b8;">—</b> Before start date</span>
-            <span class="tr-legend-chip"><b style="color:#94a3b8;">·</b> Future month</span>
-            <span class="tr-legend-chip"><b style="color:#64748b;">◆</b> Closed (inactive)</span>
-          </div>
-
-          <!-- Focus month — drives the paid/pending lists + WhatsApp buttons below -->
-          <div class="tr-focus-bar">
-            <label><i class="fa-solid fa-list-check" style="color:#0F766E;margin-right:4px;"></i>List + WhatsApp send for</label>
-            <select id="tr_month" onchange="runTracker()"></select>
-          </div>
-
-          <!-- Selected-month summary -->
-          <div id="tr_summary" style="display:none;gap:12px;flex-wrap:wrap;margin-bottom:8px;">
-            <div
-              style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 20px;text-align:center;min-width:120px;">
-              <div style="font-size:1.5rem;font-weight:700;color:#16a34a;" id="tr_paid_count">0</div>
-              <div style="font-size:11px;color:#166534;font-weight:600;">✅ Paid</div>
-              <div style="font-size:12px;color:#15803d;font-weight:700;" id="tr_paid_amt">₹0</div>
-            </div>
-            <div
-              style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px 20px;text-align:center;min-width:120px;">
-              <div style="font-size:1.5rem;font-weight:700;color:#dc2626;" id="tr_pending_count">0</div>
-              <div style="font-size:11px;color:#991b1b;font-weight:600;">❌ Pending</div>
-              <div style="font-size:12px;color:#b91c1c;font-weight:600;" id="tr_pending_pct">0%</div>
-            </div>
-          </div>
-          <!-- Progress bar -->
-          <div style="background:#e2e8f0;border-radius:20px;height:8px;margin-bottom:18px;overflow:hidden;display:none;"
-            id="tr_progress_wrap">
-            <div id="tr_progress_bar"
-              style="height:100%;width:0%;border-radius:20px;transition:width 0.6s ease,background 0.4s;"></div>
-          </div>
-
-          <!-- Two-column lists -->
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;" id="tr_lists">
-            <!-- Paid -->
-            <div>
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                <h4 style="margin:0;color:#16a34a;font-size:13px;"><i class="fa-solid fa-circle-check"></i> Paid Members
-                </h4>
-                <button onclick="sendTrackerMsg('paid')"
-                  style="padding:5px 12px;font-size:11px;background:#16a34a;box-shadow:none;">
-                  <i class="fa-brands fa-whatsapp"></i> Send List
-                </button>
-              </div>
-              <div id="tr_paid_list"
-                style="max-height:380px;overflow-y:auto;border:1px solid #bbf7d0;border-radius:8px;"></div>
-            </div>
-            <!-- Pending -->
-            <div>
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                <h4 style="margin:0;color:#dc2626;font-size:13px;"><i class="fa-solid fa-circle-xmark"></i> Pending
-                  Members</h4>
-                <button onclick="sendTrackerMsg('pending')"
-                  style="padding:5px 12px;font-size:11px;background:#dc2626;box-shadow:none;">
-                  <i class="fa-brands fa-whatsapp"></i> Send Reminder
-                </button>
-              </div>
-              <div id="tr_pending_list"
-                style="max-height:380px;overflow-y:auto;border:1px solid #fecaca;border-radius:8px;"></div>
-            </div>
-          </div>
-          <div id="tr_empty" style="display:none;text-align:center;padding:40px;color:#aaa;">
-            <i class="fa-solid fa-filter" style="font-size:2rem;margin-bottom:10px;"></i>
-            <p>Apply a filter above to see contribution status.</p>
-          </div>
-        </div>
+    <!-- Toolbar with Filters -->
+    <div class="tr-toolbar">
+      <div class="tr-field">
+        <label>Type</label>
+        <select id="tr_type" onchange="runTracker()">
+          <option value="">— All Types —</option>
+        </select>
       </div>
+      <div class="tr-field">
+        <label>Year</label>
+        <select id="tr_year" onchange="runTracker()"></select>
+      </div>
+      <label class="tr-hide-chk">
+        <input type="checkbox" id="tr_hide_inactive" onchange="runTracker()"/>
+        Hide inactive members
+      </label>
+    </div>
+
+    <!-- Year Overview Section -->
+    <div class="tr-section-title">Year overview</div>
+    <div id="tr_year_summary" style="display:none;">
+      <div>
+        <div id="tr_total_members">0</div>
+        <div>👥 Total Members</div>
+      </div>
+      <div>
+        <div id="tr_year_pending_months">0</div>
+        <div>📅 Pending Months (this year)</div>
+      </div>
+      <div>
+        <div id="tr_year_inactive_count">0</div>
+        <div>🔒 Inactive (Closed)</div>
+      </div>
+    </div>
+
+    <!-- Grid Table -->
+    <div id="tr_grid_wrap" style="display:none;">
+      <table id="tr_grid_table"></table>
+    </div>
+
+    <!-- Legend -->
+    <div id="tr_grid_legend" style="display:none;">
+      <span class="tr-legend-chip"><b style="color:#16a34a;">✓</b> Paid</span>
+      <span class="tr-legend-chip"><b style="color:#dc2626;">✕</b> Pending</span>
+      <span class="tr-legend-chip"><b style="color:#94a3b8;">—</b> Before start date</span>
+      <span class="tr-legend-chip"><b style="color:#94a3b8;">·</b> Future month</span>
+      <span class="tr-legend-chip"><b style="color:#64748b;">◆</b> Closed (inactive)</span>
+    </div>
+
+    <!-- Focus Month Selector -->
+    <div class="tr-focus-bar">
+      <label><i class="fa-solid fa-list-check" style="color:#0F766E;"></i>List + WhatsApp send for</label>
+      <select id="tr_month" onchange="runTracker()"></select>
+    </div>
+
+    <!-- Month Summary Stats -->
+    <div id="tr_summary" style="display:none;">
+      <div>
+        <div id="tr_paid_count">0</div>
+        <div>✅ Paid</div>
+        <div id="tr_paid_amt">₹0</div>
+      </div>
+      <div>
+        <div id="tr_pending_count">0</div>
+        <div>❌ Pending</div>
+        <div id="tr_pending_pct">0%</div>
+      </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div id="tr_progress_wrap" style="display:none;">
+      <div id="tr_progress_bar"></div>
+    </div>
+
+    <!-- Member Lists -->
+    <div id="tr_lists">
+      <!-- Paid Members -->
+      <div>
+        <div>
+          <h4><i class="fa-solid fa-circle-check"></i> Paid Members</h4>
+          <button onclick="sendTrackerMsg('paid')">
+            <i class="fa-brands fa-whatsapp"></i> Send List
+          </button>
+        </div>
+        <div id="tr_paid_list"></div>
+      </div>
+      <!-- Pending Members -->
+      <div>
+        <div>
+          <h4><i class="fa-solid fa-circle-xmark"></i> Pending Members</h4>
+          <button onclick="sendTrackerMsg('pending')">
+            <i class="fa-brands fa-whatsapp"></i> Send Reminder
+          </button>
+        </div>
+        <div id="tr_pending_list"></div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div id="tr_empty" style="display:none;">
+      <i class="fa-solid fa-filter"></i>
+      <p>Apply a filter above to see contribution status.</p>
+    </div>
+  </div>
+</div>
 
       <div id="announcementPage" class="page">
         <div class="card">
