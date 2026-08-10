@@ -186,7 +186,7 @@ body.dark-mode [style*="color:#16a34a"] { color: #4ade80 !important; }
   }
 }
 
-@media (max-width: 420px) {
+@media (max-width: 480px) {
   /* Year summary → 1-col */
   #yearSummaryPage .grid-layout { grid-template-columns: 1fr !important; }
   /* Health check sheets → 1-col */
@@ -200,4 +200,3 @@ body.dark-mode [style*="color:#16a34a"] { color: #4ade80 !important; }
 @media (max-width: 768px) and (orientation: landscape) {
   .sidebar { max-height: 100dvh; overflow-y: auto; }
 }
-

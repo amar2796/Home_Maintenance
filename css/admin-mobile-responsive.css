@@ -141,7 +141,7 @@
 }
 
 /* ── M4. SLIDE PANEL — bottom sheet on mobile ── */
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   /* Drag handle hint */
   .sp-panel::before {
     content: '';
@@ -205,7 +205,7 @@
 }
 
 /* ── M6. USERS PAGE: status tabs — horizontal scroll on narrow phones ── */
-@media (max-width: 560px) {
+@media (max-width: 600px) {
   .status-tabs {
     flex-wrap: nowrap !important;
     overflow-x: auto !important;
@@ -252,7 +252,7 @@
 }
 
 /* ── M8. EVENTS PAGE: stat grid → 2-col, smaller cards ── */
-@media (max-width: 560px) {
+@media (max-width: 600px) {
   .ev-card {
     padding: 13px !important;
   }
@@ -292,7 +292,7 @@
 }
 
 /* ── M10. GOALS PAGE: single column ── */
-@media (max-width: 560px) {
+@media (max-width: 600px) {
   #goalsPage .grid-layout {
     grid-template-columns: 1fr !important;
   }
@@ -330,7 +330,7 @@
 }
 
 /* ── M13. ANNOUNCEMENT PREVIEW BAR: wrap gracefully ── */
-@media (max-width: 560px) {
+@media (max-width: 600px) {
   .ann-preview-bar {
     flex-wrap: wrap !important;
     font-size: 12px !important;
@@ -347,7 +347,7 @@
 }
 
 /* ── M15. ADMIN HEADER DROPDOWN: no right overflow on 375px phones ── */
-@media (max-width: 420px) {
+@media (max-width: 480px) {
   .adm-hdr-dropdown {
     right: 0 !important;
     min-width: 188px !important;
@@ -405,7 +405,7 @@
 }
 
 /* ── M20. LOADING ERROR CARD: fits 375px screens cleanly ── */
-@media (max-width: 400px) {
+@media (max-width: 480px) {
   .alo-err-card {
     width: 94vw !important;
     border-radius: 18px !important;
@@ -436,7 +436,7 @@
 }
 
 /* ── M22. VIEWING PERIOD HEADER (home): year dropdown always visible ── */
-@media (max-width: 420px) {
+@media (max-width: 480px) {
   #hm_period_label {
     font-size: 11px !important;
     padding: 3px 10px !important;
@@ -450,7 +450,7 @@
 /* No change needed — sidebar hides via fixed positioning. Verified OK. */
 
 /* ── M24. GOALS FORM: single column inputs on phones ── */
-@media (max-width: 560px) {
+@media (max-width: 600px) {
   #goalsPage .form-row {
     grid-template-columns: 1fr !important;
     gap: 8px !important;
@@ -483,4 +483,4 @@
     padding: 10px 14px !important;
     gap: 8px !important;
   }
-}
+}

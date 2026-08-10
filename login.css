@@ -186,7 +186,7 @@
    
    /* Registration form grid */
    .reg-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-   @media(max-width:400px){.reg-row{grid-template-columns:1fr;}}
+   @media(max-width:480px){.reg-row{grid-template-columns:1fr;}}
    .field-label{font-size:11.5px;font-weight:600;color:#555;margin-bottom:5px;display:block;text-align:left;}
    
    /* Password strength */
@@ -228,7 +228,7 @@
    #fpResendBtn:hover,#regResendBtn:hover{color:var(--color-primary)!important;}
    
    /* ── Responsive ── */
-   @media(max-width:960px){
+   @media(max-width:1024px){
      .login-shell{flex-direction:column;}
      .brand-panel{
        flex:0 0 auto;clip-path:none;padding:30px 24px 34px;text-align:center;align-items:center;

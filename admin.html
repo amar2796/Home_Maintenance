@@ -32,7 +32,6 @@
   <link rel="stylesheet" href="css/admin-panels-modals.css" />
   <link rel="stylesheet" href="css/admin-loading-overlay.css" />
   <link rel="stylesheet" href="css/admin-desktop-tweaks.css" />
-  <link rel="stylesheet" href="css/admin-mobile-responsive.css" />
   <link rel="stylesheet" href="css/admin-dashboard-widgets.css" />
   <link rel="stylesheet" href="css/admin-tables.css" />
   <link rel="stylesheet" href="css/admin-row-hover-buttons.css" />
@@ -40,6 +39,8 @@
   <link rel="stylesheet" href="css/admin-tracker-v4.css" />
   <!-- Shared design tokens (also used by login.html / index.html) — additive only -->
   <link rel="stylesheet" href="design-system.css" />
+  <!-- Loaded LAST on purpose: mobile fixes must win the cascade over every file above -->
+  <link rel="stylesheet" href="css/admin-mobile-responsive.css" />
 
   <!-- constants.js loaded here so APP.shortName is available to the anti-FOUC
        script below. Previously admin's dark-mode toggle lived deep inside

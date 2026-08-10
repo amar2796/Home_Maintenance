@@ -412,7 +412,7 @@
     width: auto;
   }
   
-  @media (max-width: 880px) {
+  @media (max-width: 900px) {
     .header {
       padding: 0 14px;
       height: 56px;
@@ -443,7 +443,7 @@
     .hamburger-btn { display: flex; }
     .nav-menu { top: 56px; }
   }
-  @media (min-width: 881px) {
+  @media (min-width: 901px) {
     .nav-links    { display: flex; }
     .hamburger-btn { display: none !important; }
     .nav-menu      { display: none !important; }
@@ -909,7 +909,7 @@
     }
     .gallery-skeleton-card:nth-child(3) { display: none; }
   }
-  @media (max-width: 520px) {
+  @media (max-width: 600px) {
     .gallery-skeleton-row {
       grid-template-columns: 1fr;
       padding: 0 32px;
@@ -1063,7 +1063,7 @@
     .gc-lb-prev { left: -46px; width: 38px; height: 38px; }
     .gc-lb-next { right: -46px; width: 38px; height: 38px; }
   }
-  @media(max-width: 520px) {
+  @media(max-width: 600px) {
     .swiper-slide-gallery img { height: 320px; }
     .gallery-swiper-section { padding: 0 32px; }
     .gc-lb-panel { padding: 0 12px 12px; }
@@ -1363,7 +1363,7 @@
     box-shadow: 0 2px 8px rgba(15, 118, 110, 0.15);
   }
   .fb-pending-badge i { color: #0F766E; font-size: 0.78rem; }
-  @media (max-width: 800px) {
+  @media (max-width: 900px) {
     .feedback-layout { grid-template-columns: 1fr; }
     .feedback-map-side { min-height: 280px; }
     .feedback-map-side iframe { min-height: 260px; }
@@ -2004,7 +2004,7 @@
   .pay-help a:hover { color: #2DD4BF; border-color: rgba(255,213,133,0.6); }
   
   /* ── Responsive ── */
-  @media (max-width: 560px) {
+  @media (max-width: 600px) {
     .pay-cards-row { grid-template-columns: 1fr; }
     .pay-modal-body { padding: 4px 14px 56px; }
     .pay-section-title { font-size: 1.55rem; }
@@ -2301,7 +2301,7 @@
     border-color: #0F766E;
     box-shadow: 0 0 8px rgba(15, 118, 110, 0.5);
   }
-  @media (max-width: 760px) {
+  @media (max-width: 768px) {
     .members-header-top { flex-direction: column; gap: 14px; }
     .members-nav { align-self: flex-end; padding-top: 0; }
     .member-card.active { flex-direction: column; }
@@ -2312,7 +2312,7 @@
     .member-name { font-size: 1.5rem; }
     .members-title { font-size: 1.75rem; }
   }
-  @media (max-width: 500px) {
+  @media (max-width: 600px) {
     .member-photo-side { flex: 0 0 280px; min-height: 320px; }
     .member-photo-side img.member-avatar { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
     .member-avatar-placeholder { width: 120px; height: 120px; font-size: 2.8rem; }
@@ -2662,7 +2662,7 @@
   }
   
   /* Payment modal — single column, ensure readable on tiny phones */
-  @media (max-width: 400px) {
+  @media (max-width: 480px) {
     .pay-cards-row { grid-template-columns: 1fr; gap: 14px; }
     .pay-modal-body { padding: 4px 12px 60px; }
     .pay-section-title { font-size: 1.25rem; }

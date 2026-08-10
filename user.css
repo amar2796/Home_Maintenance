@@ -819,7 +819,7 @@ body.user-dark .hdr-bell-badge { box-shadow: 0 0 0 2px #1E2E36; }
   margin-bottom: 14px;
 }
 
-@media(max-width:640px) {
+@media(max-width:768px) {
   .grid-2 {
     grid-template-columns: 1fr;
   }
@@ -1010,13 +1010,13 @@ body.user-dark .hdr-bell-badge { box-shadow: 0 0 0 2px #1E2E36; }
   margin-bottom: 12px;
 }
 
-@media(max-width:860px) {
+@media(max-width:900px) {
   .f-grid {
     grid-template-columns: 1fr 1fr;
   }
 }
 
-@media(max-width:400px) {
+@media(max-width:480px) {
   .f-grid {
     grid-template-columns: 1fr;
   }
@@ -1656,7 +1656,7 @@ button[data-loading="true"] {
   }
 }
 
-@media(max-width:400px) {
+@media(max-width:480px) {
   .hero-stat {
     min-width: 80px;
     padding: 8px 11px;
@@ -4490,7 +4490,7 @@ body.user-dark ._row span[style*="background:#fff7ed"] {
   overflow: hidden !important;
 }
 /* Allow icon+text to shrink gracefully on very small screens */
-@media (max-width: 360px) {
+@media (max-width: 380px) {
   ._mft ._mbtn { font-size: 11px !important; padding: 8px 4px !important; gap: 3px !important; }
 }
 
@@ -4614,7 +4614,7 @@ body.user-dark .ra-item.ra-tapped {
   text-align: center !important;
   overflow: hidden !important;
 }
-@media (max-width: 360px) {
+@media (max-width: 380px) {
   ._mft ._mbtn { font-size: 10.5px !important; padding: 8px 3px !important; }
 }
 
@@ -4707,7 +4707,7 @@ body.user-dark .ra-item.ra-tapped { background: transparent !important; }
   flex: 1 1 0 !important;
   font-size: 11.5px !important;
 }
-@media (max-width: 420px) {
+@media (max-width: 480px) {
   ._mft { gap: 5px !important; padding: 8px 10px !important; }
   ._mft ._mbtn:first-child,
   ._mft ._mbtn:last-child { flex: 0 0 95px !important; }
@@ -5279,7 +5279,7 @@ body.user-dark ._modal ._mbdy [style*="padding: 6px 20px"] {
    Mobile already renders correctly and is left untouched — this fix
    only applies above the mobile breakpoint used elsewhere (860px).
    ═══════════════════════════════════════════════════════════════════ */
-@media (min-width: 861px) {
+@media (min-width: 901px) {
   ._modal {
     position: fixed !important;
     top: 0 !important;

@@ -404,7 +404,7 @@ body.dark-mode .bk-total-bar { background: #1e293b; color: #cbd5e1; }
 body.dark-mode .bk-total-bar b { color: #5eead4; }
 
 /* ── Mobile ── */
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .sp-panel { width: 100vw; border-radius: 20px 20px 0 0; top: auto; bottom: 0; height: 90vh; transform: translateY(110%); }
   .sp-panel-open { transform: translateY(0); }
   .sp-row2 { grid-template-columns: 1fr; }
@@ -866,4 +866,3 @@ body.dark-mode .sp-panel-footer {
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
-

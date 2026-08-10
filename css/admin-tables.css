@@ -436,11 +436,11 @@ body.dark-mode .action-btns .btn-sm {
   }
 }
 
-@media (max-width: 420px) {
+@media (max-width: 480px) {
   th, td { padding: 7px 8px !important; font-size: 11px !important; }
   .action-btns { gap: 3px !important; }
   .action-btns .btn-sm {
     padding: 4px 7px !important;
     font-size: 11px !important;
   }
-}
+}

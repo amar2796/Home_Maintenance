@@ -114,7 +114,7 @@ tr.row-rejected td {
   margin-bottom: 14px;
 }
 
-@media(max-width:640px) {
+@media(max-width:768px) {
   .cbot-row {
     grid-template-columns: 1fr;
   }
@@ -214,4 +214,3 @@ tr.row-rejected td {
   gap: 10px;
   align-items: center;
 }
-

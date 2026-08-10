@@ -723,7 +723,7 @@ html.dark-mode #trackerPage,
 }
 
 /* Very small phones */
-@media (max-width: 360px) {
+@media (max-width: 380px) {
   .tr-filters-grid { grid-template-columns: 1fr; }
   .tr-stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
   .tr-stat-value { font-size: 17px; }
@@ -736,7 +736,7 @@ html.dark-mode #trackerPage,
    screens) use for 5-8 destinations. Every tab stays visible with no
    scrolling and no uneven line-wrapping, and each tile is a full
    ~64px tap target. Desktop/tablet keep the pill row untouched. */
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .tr-tabs-bar {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -769,7 +769,7 @@ html.dark-mode #trackerPage,
   }
 }
 
-@media (max-width: 340px) {
+@media (max-width: 380px) {
   .tr-tabs-bar { grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .tracker-tab-btn { padding: 10px 2px; font-size: 10px; min-height: 56px; }
   .tr-tab-icon { font-size: 17px; }

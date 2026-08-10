@@ -149,7 +149,7 @@ label {
   gap: 14px;
 }
 
-@media (max-width: 540px) {
+@media (max-width: 600px) {
   .form-row {
     grid-template-columns: 1fr;
   }
@@ -448,7 +448,7 @@ tbody tr:hover {
 }
 
 /* ══ TRACKER MOBILE IMPROVEMENTS ══ */
-@media (max-width: 700px) {
+@media (max-width: 768px) {
 
   /* Tracker two-col → single col */
   #tr_lists {
@@ -487,7 +487,7 @@ tbody tr:hover {
   }
 }
 
-@media (max-width: 500px) {
+@media (max-width: 600px) {
 
   /* Tracker filter row buttons full width */
   #trackerPage .filter-row>div,
@@ -874,4 +874,3 @@ tbody tr:hover {
     padding: 3px 8px !important;
   }
 }
-
