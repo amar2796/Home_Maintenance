@@ -1,0 +1,446 @@
+/* ════════════════════════════════════════════════════════════════
+   DATA LIST & TABLE ENHANCEMENTS
+   Covers: all <table>, ct-tbl, tracker lists, member lists,
+   home lists, request cards, gallery grid, audit rows.
+   Zero logic changes — visual/UI only.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── 1. BASE TABLE: zebra stripe + better row rhythm ── */
+tbody tr:nth-child(even) {
+  background: #fafbfc;
+}
+tbody tr:hover {
+  background: #fff8ee !important;
+  box-shadow: inset 3px 0 0 #0F766E;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* ── 2. THEAD: richer dark header ── */
+thead {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  color: #fff;
+}
+thead th {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #0F766E;
+  padding: 12px 14px;
+  border-bottom: 2px solid rgba(15, 118, 110,0.25);
+}
+thead th:first-child { border-radius: 0; }
+
+/* ── 3. ROW NUMBER COLUMN: muted, tabular ── */
+td:first-child {
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+/* ── 4. AMOUNT CELLS: bold, tabular nums ── */
+td[style*="color:#27ae60"],
+td[style*="color: #27ae60"],
+.amt-green {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.2px;
+}
+td[style*="color:#e74c3c"],
+td[style*="color: #e74c3c"],
+.amt-red {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 5. TRACKING ID CELLS: monospace, muted ── */
+td[style*="MNR-"],
+td[style*="TRX-"] {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  font-size: 11.5px;
+  color: #64748b;
+  letter-spacing: 0.3px;
+}
+
+/* ── 6. TABLE ROW SEPARATOR: cleaner dividers ── */
+tbody td {
+  border-bottom: 1px solid #f1f5f9;
+}
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ── 7. ACTION BUTTONS in tables: icon buttons ── */
+.action-btns .btn-info,
+.action-btns .btn-sm[style*="background:#2980b9"],
+.action-btns [title*="Receipt"],
+.action-btns [title*="View"] {
+  background: linear-gradient(135deg, #1e6fa8, #2980b9) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 6px rgba(41,128,185,0.35) !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+.action-btns .btn-sm[style*="background:#0F766E"],
+.action-btns [title*="Edit"] {
+  background: linear-gradient(135deg, #d47c0b, #0F766E) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 6px rgba(15, 118, 110,0.35) !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+.action-btns .btn-sm[style*="background:#e74c3c"],
+.action-btns [title*="Delete"] {
+  background: linear-gradient(135deg, #c0392b, #e74c3c) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 6px rgba(231,76,60,0.35) !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+@media (hover: hover) {
+  .action-btns .btn-sm:hover {
+    transform: translateY(-1px) scale(1.06) !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.22) !important;
+  }
+}
+
+/* ── 8. CONTRIBUTION-TYPE BADGE: pill style ── */
+.ct-badge,
+td .ct-b-mem, td .ct-b-wk, td .ct-b-paid, td .ct-b-pend {
+  border-radius: 20px !important;
+  padding: 3px 10px !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+/* Monthly Contribution badge — replicate the screenshot teal pill */
+.ct-b-monthly-contrib,
+td[data-type="Monthly Contribution"] .badge,
+td .badge-mc {
+  background: linear-gradient(135deg, #0f5132, #166534);
+  color: #6ee7b7;
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+/* ── 9. STATUS BADGE: pill refinement ── */
+.status-badge {
+  border-radius: 20px !important;
+  padding: 3px 11px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.15px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.status-badge.approved, .status-badge.active {
+  background: #dcfce7 !important;
+  color: #166534 !important;
+  border: 1px solid #bbf7d0 !important;
+}
+.status-badge.pending {
+  background: #fef9c3 !important;
+  color: #854d0e !important;
+  border: 1px solid #5EEAD4 !important;
+}
+.status-badge.rejected, .status-badge.inactive {
+  background: #fee2e2 !important;
+  color: #991b1b !important;
+  border: 1px solid #fca5a5 !important;
+}
+
+/* ── 10. CT TRACKER TABLE: enhanced ── */
+.ct-tbl th {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #64748b;
+  background: #f8fafc;
+  padding: 9px 11px;
+  border-bottom: 2px solid #e2e8f0;
+}
+.ct-tbl th:hover { color: #0F766E; }
+.ct-tbl td {
+  padding: 8px 11px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 12px;
+}
+.ct-tbl tbody tr:nth-child(even) td { background: #fafbfc; }
+.ct-tbl tbody tr:hover td {
+  background: #fff8ee !important;
+  box-shadow: inset 3px 0 0 #0F766E;
+}
+.ct-tbl tr.ct-pend td { background: #fffbeb; }
+.ct-tbl tr.ct-pend:hover td { background: #fef3c7 !important; }
+
+/* ── 11. HOME MEMBER/WALKIN LIST ROWS ── */
+#hm_member_list > div,
+#hm_walkin_list > div {
+  padding: 9px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  transition: background 0.12s ease;
+  border-radius: 6px;
+  margin-bottom: 2px;
+}
+#hm_member_list > div:hover,
+#hm_walkin_list > div:hover {
+  background: #fff8ee;
+}
+#hm_member_list > div:last-child,
+#hm_walkin_list > div:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+/* ── 12. TRACKER PAGE PAID/PENDING LIST ROWS ── */
+#tr_paid_list > div,
+#tr_pending_list > div {
+  padding: 9px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 12.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.12s ease;
+}
+#tr_paid_list > div:hover    { background: #f0fdf4; }
+#tr_pending_list > div:hover { background: #fff1f1; }
+#tr_paid_list > div:last-child,
+#tr_pending_list > div:last-child { border-bottom: none; }
+
+/* ── 13. CONTRIBUTION REQUEST CARDS: better spacing ── */
+.req-card {
+  border-radius: 12px !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05) !important;
+  transition: box-shadow 0.2s ease, transform 0.15s ease !important;
+  padding: 16px !important;
+}
+.req-card:hover {
+  box-shadow: 0 6px 20px rgba(0,0,0,0.10) !important;
+  transform: translateY(-1px) !important;
+}
+.req-card-label {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.4px !important;
+  color: #94a3b8 !important;
+}
+.req-card-val {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #1e293b !important;
+  margin-top: 2px !important;
+}
+
+/* ── 14. GALLERY GRID CARDS: consistent hover ── */
+.glry-card {
+  border-radius: 10px !important;
+  overflow: hidden !important;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.08) !important;
+  transition: box-shadow 0.2s ease, transform 0.15s ease !important;
+  border: 1px solid #e2e8f0 !important;
+}
+.glry-card:hover {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* ── 15. AUDIT LOG TABLE: special row colours ── */
+#auditTableBody tr[data-action="login"] td { border-left: 3px solid #22c55e; }
+#auditTableBody tr[data-action="logout"] td { border-left: 3px solid #94a3b8; }
+#auditTableBody tr[data-action="delete"] td { border-left: 3px solid #ef4444; }
+#auditTableBody tr[data-action="contribution"] td { border-left: 3px solid #0F766E; }
+#auditTableBody tr[data-action="expense"] td { border-left: 3px solid #e74c3c; }
+
+/* ── 16. BROADCAST HISTORY ITEMS ── */
+#broadcastHistory > div {
+  border-radius: 10px !important;
+  border: 1px solid #f1f5f9 !important;
+  padding: 13px 16px !important;
+  margin-bottom: 8px !important;
+  background: #fff !important;
+  transition: box-shadow 0.15s ease !important;
+}
+#broadcastHistory > div:hover {
+  box-shadow: 0 4px 14px rgba(0,0,0,0.07) !important;
+}
+
+/* ── 17. TABLE SCROLL TRACK STYLING ── */
+.table-responsive::-webkit-scrollbar {
+  height: 5px;
+}
+.table-responsive::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+.table-responsive::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+.table-responsive::-webkit-scrollbar-thumb:hover {
+  background: #0F766E;
+}
+
+/* ── 18. EMPTY STATE ROWS: nicer placeholder ── */
+tbody tr td[colspan] {
+  text-align: center !important;
+  color: #94a3b8 !important;
+  padding: 32px 20px !important;
+  font-size: 13px !important;
+  font-style: italic;
+}
+
+/* ════ DARK MODE overrides for all above ════ */
+
+/* Table body dark zebra + hover */
+body.dark-mode tbody tr:nth-child(even) {
+  background: #0d1525 !important;
+}
+body.dark-mode tbody tr:hover {
+  background: #16213a !important;
+  box-shadow: none !important;
+}
+body.dark-mode tbody td {
+  border-bottom-color: #1e2d45 !important;
+}
+
+/* CT tracker table dark zebra */
+body.dark-mode .ct-tbl tbody tr:nth-child(even) td {
+  background: #0a1220 !important;
+}
+body.dark-mode .ct-tbl tbody tr:hover td {
+  background: #16213a !important;
+  box-shadow: none !important;
+}
+body.dark-mode .ct-tbl td { border-bottom-color: #1a2540 !important; }
+body.dark-mode .ct-tbl tr.ct-pend td { background: #1a1a05 !important; }
+body.dark-mode .ct-tbl tr.ct-pend:hover td { background: #1f1f08 !important; }
+
+/* Status badges dark */
+body.dark-mode .status-badge.approved,
+body.dark-mode .status-badge.active {
+  background: #052e16 !important;
+  color: #4ade80 !important;
+  border-color: #14532d !important;
+}
+body.dark-mode .status-badge.pending {
+  background: #1a1200 !important;
+  color: #5EEAD4 !important;
+  border-color: #78350f !important;
+}
+body.dark-mode .status-badge.rejected,
+body.dark-mode .status-badge.inactive {
+  background: #450a0a !important;
+  color: #fca5a5 !important;
+  border-color: #7f1d1d !important;
+}
+
+/* Home list rows dark */
+body.dark-mode #hm_member_list > div,
+body.dark-mode #hm_walkin_list > div {
+  border-bottom-color: #1e2d45 !important;
+}
+body.dark-mode #hm_member_list > div:hover,
+body.dark-mode #hm_walkin_list > div:hover {
+  background: #1a2540 !important;
+}
+
+/* Tracker paid/pending list rows dark */
+body.dark-mode #tr_paid_list > div,
+body.dark-mode #tr_pending_list > div {
+  border-bottom-color: #1e2d45 !important;
+}
+body.dark-mode #tr_paid_list > div:hover    { background: #0a1f10 !important; }
+body.dark-mode #tr_pending_list > div:hover { background: #1a0808 !important; }
+
+/* Request cards dark */
+body.dark-mode .req-card {
+  border-color: #1e2d45 !important;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3) !important;
+}
+body.dark-mode .req-card:hover {
+  box-shadow: 0 6px 22px rgba(0,0,0,0.45) !important;
+}
+body.dark-mode .req-card-val { color: #e2e8f0 !important; }
+
+/* Gallery cards dark */
+body.dark-mode .glry-card {
+  border-color: #1e2d45 !important;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.3) !important;
+}
+body.dark-mode .glry-card:hover {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
+}
+
+/* Broadcast history dark */
+body.dark-mode #broadcastHistory > div {
+  background: #111827 !important;
+  border-color: #1e2d45 !important;
+}
+body.dark-mode #broadcastHistory > div:hover {
+  box-shadow: 0 4px 14px rgba(0,0,0,0.4) !important;
+}
+
+/* Table scrollbar dark */
+body.dark-mode .table-responsive::-webkit-scrollbar-track { background: #0d1525; }
+body.dark-mode .table-responsive::-webkit-scrollbar-thumb { background: #2d3f58; }
+body.dark-mode .table-responsive::-webkit-scrollbar-thumb:hover { background: #0F766E; }
+
+/* Empty state dark */
+body.dark-mode tbody tr td[colspan] { color: #475569 !important; }
+
+/* Action buttons dark */
+body.dark-mode .action-btns .btn-sm {
+  filter: brightness(0.85) saturate(0.9) !important;
+}
+@media (hover: hover) {
+  body.dark-mode .action-btns .btn-sm:hover {
+    filter: brightness(1.05) saturate(1) !important;
+    transform: translateY(-1px) scale(1.06) !important;
+  }
+}
+
+/* ════ MOBILE: table & list tweaks ════ */
+
+@media (max-width: 600px) {
+  /* Tighter row padding on mobile */
+  th, td { padding: 9px 10px !important; font-size: 12px !important; }
+  thead th { font-size: 10px !important; padding: 10px 10px !important; }
+
+  /* Action buttons: square icon-only on mobile */
+  .action-btns .btn-sm {
+    padding: 5px 8px !important;
+    font-size: 12px !important;
+    border-radius: 7px !important;
+  }
+
+  /* Member/walkin list rows: tighter */
+  #hm_member_list > div,
+  #hm_walkin_list > div {
+    padding: 8px 10px !important;
+    font-size: 12px !important;
+  }
+
+  /* Request cards: single column */
+  .req-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 420px) {
+  th, td { padding: 7px 8px !important; font-size: 11px !important; }
+  .action-btns { gap: 3px !important; }
+  .action-btns .btn-sm {
+    padding: 4px 7px !important;
+    font-size: 11px !important;
+  }
+}

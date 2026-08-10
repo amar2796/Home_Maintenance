@@ -81,6 +81,32 @@ const _U_NOTIF_DISMISSED = _U_PREFIX + "_notif_dismissed_ids"; // notification b
     }
   });
 
+  // ── [SEC] SCREEN LOCK / APP SWITCH — Visibility API hidden-duration check
+  // [NEW] admin.js already had this; user.js previously did not — a member's
+  // tab could sit hidden indefinitely (phone locked, app backgrounded) with
+  // no equivalent enforcement, unlike admin. This doesn't change what's
+  // actually secure — _verifySession already rejects an expired token
+  // server-side regardless — it just gives members the same "get sent back
+  // to login promptly" UX that admins already have, instead of stale UI
+  // sitting there until their next action happens to get rejected.
+  // Separate listener from the one above (both fire; that one only re-checks
+  // local expiry, this one specifically tracks how long the tab was hidden).
+  var _uPageHiddenAt = null;
+  var _U_VISIBILITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes — same as admin.js
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      _uPageHiddenAt = Date.now();
+    } else {
+      if (_uPageHiddenAt !== null) {
+        var hiddenDuration = Date.now() - _uPageHiddenAt;
+        _uPageHiddenAt = null;
+        if (hiddenDuration >= _U_VISIBILITY_TIMEOUT_MS) {
+          endSessionAndRedirect("Session expired - 30 min screen lock / inactivity", { extraKeys: [_U_RMK, _U_DARK, _U_LANG] });
+        }
+      }
+    }
+  });
+
 
   // ── SESSION CACHE — avoids 27x repeated _sess()
   const _sCache = { v: null, t: 0 };
@@ -129,39 +155,26 @@ const _U_NOTIF_DISMISSED = _U_PREFIX + "_notif_dismissed_ids"; // notification b
       _lo.innerHTML = '<div style="width:42px;height:42px;border:3px solid rgba(15, 118, 110,0.3);border-top-color:#0F766E;border-radius:50%;animation:spin .7s linear infinite;"></div><div style="color:#0F766E;font-family:sans-serif;font-size:14px;font-weight:600;letter-spacing:.5px;">Logging out…</div>';
       document.body.appendChild(_lo);
     })();
-    // [FIX] postData is JSONP (async script tag). Must WAIT for clearSessionToken
-    // to complete before wiping localStorage + redirecting — otherwise the page
-    // unloads before JSONP fires and TokenExpiry is never cleared in the sheet.
-    function _doRedirect() {
-      try { localStorage.removeItem(_U_RMK); } catch (e) { }
-      ["session",_U_RMK,_U_DARK,_U_LANG].forEach(k=>{try{localStorage.removeItem(k);}catch(e){}});
-      sessionStorage.clear();
-      history.replaceState(null, "", "login.html");
-      location.replace("login.html");
-    }
-    try {
-      var s = _sess();
-      if (s && s.userId) {
-        var devInfo = typeof window._getDeviceInfo === "function" ? window._getDeviceInfo() : "";
-        // Audit log — fire-and-forget, do not await
-        postData({ action: "logout", userId: s.userId, userName: s.name || "User",
-                   deviceInfo: devInfo, logoutReason: "User clicked logout button" }).catch(function(){});
-        // Clear server token FIRST, then redirect when done (or after 3s safety timeout)
-        var _done = false;
-        function _finish() { if (_done) return; _done = true; _doRedirect(); }
-        postData({
-          action:       "clearSessionToken",
-          userId:       s.userId,
-          sessionToken: s.sessionToken || "",
-          reason:       "User clicked logout button"
-        }).then(function() { _finish(); }).catch(function() { _finish(); });
-        // Safety net: redirect after 1.5s even if postData never resolves (reduced from 3s)
-        setTimeout(_finish, 1500);
-        return; // _doRedirect called by _finish above
-      }
-    } catch (e) { }
-    _doRedirect(); // no session — redirect immediately
+    // [FIX] Was: postData() (JSONP GET, cancelled on page navigation) racing a
+    // hardcoded 1.5s setTimeout — even more likely to lose that race than
+    // admin.js's 3s version, since it's shorter. Now uses the shared
+    // endSessionAndRedirect() (app.js), which uses sendBeacon — a browser API
+    // built to survive page navigation, so there's no timer to race at all.
+    endSessionAndRedirect("User clicked logout button", { extraKeys: [_U_RMK, _U_DARK, _U_LANG] });
   }
+
+  // ── [SEC] TAB / BROWSER CLOSE — clear session on server via sendBeacon
+  // [NEW] user.js previously had no handler for this at all — admin.js did
+  // (even though it was broken until this same fix), but a member closing
+  // their tab without clicking Logout got no server-side clear attempt
+  // whatsoever; the token just sat there until natural 30-min expiry (or the
+  // daily cleanupExpiredSessions() sweep). Same pattern as admin.js: beacon
+  // only, never redirect from beforeunload — it fires for ANY page-leave
+  // reason, not just logout.
+  window.addEventListener("beforeunload", function () {
+    if (window._navFlag) return; // logout already cleared token — skip
+    sendLogoutBeacon("User tab or browser closed");
+  });
 
   function toggleUserDropdown() {
     const dd = document.getElementById("userDropdown");

@@ -1,0 +1,51 @@
+      <div id="goalsPage" class="page">
+        <div class="card">
+          <h3><i class="fa-solid fa-bullseye"></i> Add / Edit Goal</h3>
+          <div class="form-row">
+            <div>
+              <label>Goal Name</label><input id="g_name" placeholder="e.g. Home Renovation" />
+            </div>
+            <div>
+              <label>Target Amount (₹)</label><input id="g_target" type="number" min="1" placeholder="500000" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div>
+              <label>Collected So Far (₹)
+                <span style="color: #aaa; font-size: 10px; font-weight: 400">— update manually each
+                  time</span></label><input id="g_current" type="number" min="0" placeholder="0" />
+            </div>
+            <div>
+              <label>Status</label>
+              <select id="g_status">
+                <option value="Enabled">Enabled</option>
+                <option value="Disabled">Disabled</option>
+              </select>
+            </div>
+          </div>
+          <button onclick="addGoal()">
+            <i class="fa-solid fa-plus"></i> Save Goal
+          </button>
+        </div>
+        <div class="card">
+          <h3><i class="fa-solid fa-list-ul"></i> Goals List</h3>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Goal Name</th>
+                  <th>Target (₹)</th>
+                  <th>Collected (₹)</th>
+                  <th>Progress</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="goalTableBody"></tbody>
+            </table>
+          </div>
+          <div id="goals_pagination" class="pagination-bar"></div>
+        </div>
+      </div>
+      <!-- YEAR SUMMARY -->

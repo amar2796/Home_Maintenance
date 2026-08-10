@@ -1,0 +1,877 @@
+/* ══ ADMIN — TODAY'S BIRTHDAYS WIDGET ══════════════════════════════ */
+.adm-bday-card { padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
+.adm-bday-card:last-child { border-bottom: none; }
+.adm-bday-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.adm-bday-avatar { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 1.5px solid #f59e0b; background: #fff7ed; flex-shrink: 0; }
+.adm-bday-name { font-size: 13px; font-weight: 700; color: #334155; }
+.adm-bday-sub { font-size: 11px; color: #94a3b8; }
+.adm-bday-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.adm-bday-btn {
+  border: 1px solid rgba(15, 118, 110, 0.35);
+  background: rgba(15, 118, 110, 0.06);
+  color: #0F766E;
+  border-radius: 999px;
+  padding: 7px 12px;
+  min-height: 32px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .2s, transform .2s;
+}
+.adm-bday-btn:hover { background: rgba(15, 118, 110, 0.15); transform: translateY(-1px); }
+.adm-bday-btn:disabled { opacity: .55; cursor: default; transform: none; }
+.adm-bday-sent { font-size: 11px; font-weight: 700; color: #16a34a; padding: 7px 0; }
+.adm-bday-custom-row { display: flex; gap: 6px; margin-top: 6px; }
+.adm-bday-custom-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid rgba(15, 118, 110, 0.35);
+  border-radius: 999px;
+  padding: 7px 12px;
+  min-height: 32px;
+  font-size: 11.5px;
+  outline: none;
+}
+.adm-bday-custom-input:focus { border-color: #f59e0b; }
+.adm-bday-custom-cancel { border: none; background: none; color: #94a3b8; font-size: 15px; line-height: 1; cursor: pointer; padding: 0 6px; flex-shrink: 0; }
+.adm-bday-custom-cancel:hover { color: #334155; }
+
+body.dark-mode .adm-bday-card { border-color: rgba(255,255,255,0.08) !important; }
+body.dark-mode .adm-bday-name { color: #e2e8f0 !important; }
+body.dark-mode .adm-bday-btn { color: #e2e8f0 !important; }
+body.dark-mode .adm-bday-custom-input { color: #e2e8f0 !important; background: rgba(255,255,255,0.04) !important; }
+
+/* FIX: same issue for every ad-hoc "display:grid;grid-template-columns:1fr ..."
+   container in this file (dashboard cards, tracker paid/pending lists, email
+   automation toggles, etc). Their direct children default to min-width:auto,
+   so once real content renders (long names, buttons, badges) the child can
+   force its grid track — and the page — wider than the viewport. This applies
+   min-width:0 to every such grid's direct children so they respect their
+   assigned column width and wrap/truncate/scroll internally instead. */
+[style*="grid-template-columns:1fr"] > * {
+  min-width: 0;
+}
+
+.card h3 {
+  margin-top: 0;
+  color: #333;
+  border-bottom: 2px solid #f4f6f9;
+  padding-bottom: 10px;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Prevent anchor scroll from hiding under sticky header */
+html {
+  scroll-padding-top: 70px;
+}
+
+.card h3 i {
+  color: #0F766E;
+}
+
+.card-box {
+  background: white;
+  padding: 22px;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+  border-left: 5px solid #0F766E;
+  text-align: center;
+  transition: transform 0.3s ease;
+  will-change: transform;
+}
+
+.card-box:hover {
+  transform: translateY(-5px);
+}
+
+.card-box h4 {
+  margin: 0;
+  color: #666;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.card-box h2 {
+  margin: 10px 0 0;
+  color: #333;
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  display: none;
+  z-index: 900;
+}
+
+.overlay.active {
+  display: block;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.3s;
+  font-size: 14px;
+}
+
+input:focus,
+select:focus {
+  border-color: #0F766E;
+}
+
+label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 4px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 540px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 10px;
+  min-width: 350px;
+}
+
+thead {
+  background: #334155;
+  color: white;
+}
+
+thead th {
+  white-space: nowrap;
+}
+
+th,
+td {
+  padding: 11px 14px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* Allow data cells to wrap for long content columns */
+td.wrap,
+td[style*="white-space:normal"],
+td[style*="white-space: normal"] {
+  white-space: normal;
+}
+
+/* Broadcast, Feedback, Audit tables — allow wrapping in body cells */
+#auditTableBody td,
+#fbAdminTableBody td,
+#broadcastHistory td {
+  white-space: normal;
+  word-break: break-word;
+}
+
+tbody tr:hover {
+  background: #fdfbf7;
+  cursor: pointer;
+}
+
+.action-btns {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+#loadingOverlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.85);
+  z-index: 9999;
+}
+
+#loadingOverlay.show {
+  display: block;
+}
+
+#loadingOverlay > div {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.spinner {
+  width: 42px;
+  height: 42px;
+  border: 4px solid #0F766E;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+#menuBtn {
+  display: none;
+  background: #0F766E;
+  color: white;
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: none;
+}
+
+@media (max-width: 768px) {
+  #menuBtn {
+    display: block;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -260px;
+    width: 260px;
+    height: 100%;
+    z-index: 1000;
+    background: linear-gradient(180deg, #1e293b 0%, #253347 100%);
+    transition: left 0.3s ease;
+  }
+
+  .sidebar.active {
+    left: 0;
+  }
+
+  .page {
+    padding: 10px 8px 20px;
+  }
+
+  .card {
+    padding: 14px 12px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+  }
+
+  .header {
+    padding: 8px 10px;
+    position: sticky;
+    top: 0;
+    z-index: 200;
+  }
+
+
+
+
+
+  .grid-layout {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .card-box {
+    padding: 14px 10px;
+  }
+
+  .form-row {
+    gap: 10px;
+  }
+
+  /* Mobile: search+refresh stack vertically so refresh is never clipped */
+  .search-refresh-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .search-refresh-row input.search-bar {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .search-refresh-row button {
+    width: 100% !important;
+    justify-content: center;
+  }
+
+  /* Card title font size on mobile */
+  .card h3 {
+    font-size: 0.92rem;
+  }
+
+  /* Home dashboard: collapse 2-col grid to single col on mobile */
+  #home [style*="grid-template-columns:1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  letter-spacing: 0.2px;
+}
+
+.badge-green {
+  background: #eafaf1;
+  color: #27ae60;
+}
+
+.badge-red {
+  background: #fdedec;
+  color: #e74c3c;
+}
+
+.amt-green {
+  color: #27ae60;
+  font-weight: 700;
+}
+
+.amt-red {
+  color: #e74c3c;
+  font-weight: 700;
+}
+
+.search-bar {
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+
+.search-bar:focus {
+  border-color: #0F766E;
+}
+
+.filter-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+@media (max-width: 600px) {
+  .filter-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ══ EMAIL AUTOMATION TOGGLE SWITCH ══ */
+.ea-toggle {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 25px;
+  flex-shrink: 0;
+}
+
+.ea-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.ea-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #cbd5e1;
+  border-radius: 25px;
+  transition: 0.3s;
+}
+
+.ea-slider:before {
+  position: absolute;
+  content: "";
+  height: 19px;
+  width: 19px;
+  left: 3px;
+  bottom: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: 0.3s;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+}
+
+.ea-toggle input:checked+.ea-slider {
+  background: #10b981;
+}
+
+.ea-toggle input:checked+.ea-slider:before {
+  transform: translateX(21px);
+}
+
+/* ══ TRACKER MOBILE IMPROVEMENTS ══ */
+@media (max-width: 700px) {
+
+  /* Tracker two-col → single col */
+  #tr_lists {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Summary badges → horizontal scroll row */
+  #tr_summary {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 6px;
+    gap: 10px !important;
+  }
+
+  #tr_summary>div {
+    min-width: 100px !important;
+    flex-shrink: 0;
+  }
+
+  /* Tracker list heights reduced on mobile */
+  #tr_paid_list,
+  #tr_pending_list {
+    max-height: 260px !important;
+  }
+
+  /* Email automation two-col → one-col */
+  #ea_toggle_grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  #ea_card_receipt,
+  #ea_card_monthly,
+  #ea_card_birthday {
+    padding: 14px !important;
+  }
+}
+
+@media (max-width: 500px) {
+
+  /* Tracker filter row buttons full width */
+  #trackerPage .filter-row>div,
+  #trackerPage .filter-row select {
+    width: 100%;
+  }
+
+  /* Tracker header row stack on mobile */
+  #tr_paid_list .tr-member-row,
+  #tr_pending_list .tr-member-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  /* ── Tracker Grid Table Mobile Improvements ── */
+  #tr_grid_table {
+    font-size: 10px !important;
+    min-width: 100% !important;
+  }
+
+  #tr_grid_table th,
+  #tr_grid_table td {
+    padding: 4px 5px !important;
+  }
+
+  #tr_grid_table th {
+    font-weight: 600 !important;
+    font-size: 9px !important;
+    text-align: center;
+  }
+
+  #tr_grid_table td {
+    text-align: center !important;
+    font-size: 9px !important;
+  }
+
+  /* Member name column — crop names on mobile */
+  #tr_grid_table td:first-child {
+    text-align: left !important;
+    padding: 6px 6px !important;
+    font-size: 10px !important;
+    max-width: 100px;
+    overflow: hidden;
+  }
+
+  /* Crop member name text specifically */
+  #tr_grid_table td:first-child > div {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #tr_grid_table td:first-child span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+    max-width: 70px;
+  }
+
+  #tr_grid_table th:first-child {
+    text-align: left !important;
+  }
+
+  /* Grid wrap better mobile handling */
+  #tr_grid_wrap {
+    margin: 0 -8px !important;
+    border-radius: 0 !important;
+  }
+
+  /* Tracker lists full width on mobile */
+  #tr_lists {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  /* Tracker toolbar fixes */
+  .tr-toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .tr-toolbar .tr-field {
+    flex: 1 1 auto;
+    min-width: 45%;
+  }
+
+  .tr-toolbar select {
+    width: 100%;
+    font-size: 12px;
+  }
+
+  .tr-toolbar .tr-hide-chk {
+    margin-left: auto !important;
+    padding-bottom: 0;
+    font-size: 10px !important;
+    white-space: nowrap;
+  }
+
+  .tr-toolbar .tr-hide-chk input {
+    margin-right: 3px;
+  }
+
+  /* Tracker grid table fixes */
+  #tr_grid_table {
+    font-size: 10px !important;
+    min-width: 100% !important;
+  }
+
+  #tr_grid_table th {
+    font-size: 9px !important;
+    padding: 3px 4px !important;
+  }
+
+  #tr_grid_table td {
+    font-size: 9px !important;
+    padding: 3px 4px !important;
+  }
+
+  #tr_grid_table td:first-child {
+    text-align: left !important;
+    padding: 6px 6px !important;
+    max-width: 100px;
+    overflow: hidden;
+  }
+
+  #tr_grid_table td:first-child > div,
+  #tr_grid_table td:first-child span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #tr_grid_table td:first-child span {
+    display: block;
+    max-width: 70px;
+  }
+
+  #tr_grid_wrap {
+    margin: 0 -8px !important;
+    border-radius: 0 !important;
+  }
+
+  /* Year overview - 2x2 grid with all boxes equal size */
+  #tr_year_summary {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    width: 100%;
+  }
+
+  #tr_year_summary > div {
+    padding: 10px !important;
+    min-height: 80px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center;
+  }
+
+  #tr_year_summary div div:first-child {
+    font-size: 1.1rem !important;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  #tr_year_summary div div:not(:first-child) {
+    font-size: 10px !important;
+    line-height: 1.2;
+  }
+
+  /* Target badges (shortfall) - use display:contents to be grid items */
+  #tr_target_badges {
+    display: contents;
+  }
+
+  #tr_target_badges > div {
+    padding: 10px !important;
+    min-height: 80px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center;
+  }
+
+  #tr_target_badges div div:first-child {
+    font-size: 1.1rem !important;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  #tr_target_badges div div:not(:first-child) {
+    font-size: 10px !important;
+    line-height: 1.2;
+  }
+
+  /* Summary cards */
+  #tr_summary {
+    gap: 6px;
+  }
+
+  #tr_summary > div {
+    flex: 1 1 auto;
+    min-width: auto;
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  #tr_summary > div > div:first-child {
+    font-size: 1.2rem !important;
+  }
+
+  #tr_summary > div > div:not(:first-child) {
+    font-size: 9px !important;
+  }
+
+  /* Lists and buttons */
+  #tr_lists {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  #tr_lists button {
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+  }
+
+  /* Member rows */
+  .tr-member-row {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+    padding: 10px !important;
+    min-height: 45px !important;
+    gap: 8px !important;
+  }
+
+  .tr-member-row > div:first-child {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .tr-member-row > div:first-child > div {
+    min-width: 0;
+  }
+
+  .tr-member-row > div:first-child span {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .tr-member-row > div:last-child {
+    font-size: 10px;
+  }
+
+  .tr-member-row > span {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 9px;
+    border-radius: 18px;
+  }
+}
+
+@media (max-width: 380px) {
+  /* Extra small phone adjustments */
+  #tr_grid_table {
+    font-size: 9px !important;
+  }
+
+  #tr_grid_table th,
+  #tr_grid_table td {
+    padding: 3px 3px !important;
+  }
+
+  #tr_grid_table td:first-child {
+    max-width: 70px;
+    padding: 4px 4px !important;
+    font-size: 9px !important;
+    overflow: hidden;
+  }
+
+  #tr_grid_table td:first-child > div {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #tr_grid_table td:first-child span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+    max-width: 50px;
+  }
+
+  /* Extra small phones (380px and below) */
+  .tr-toolbar {
+    padding: 8px !important;
+    gap: 8px !important;
+    flex-wrap: wrap;
+  }
+
+  .tr-toolbar .tr-field {
+    flex: 1 1 auto;
+    min-width: 45%;
+  }
+
+  .tr-toolbar select {
+    font-size: 12px !important;
+    height: 32px !important;
+  }
+
+  .tr-toolbar .tr-hide-chk {
+    margin-left: auto !important;
+    padding-bottom: 0;
+    font-size: 9px !important;
+    white-space: nowrap;
+  }
+
+  .tr-toolbar .tr-hide-chk input {
+    margin-right: 2px;
+  }
+
+  /* Year overview grid for extra small screens */
+  #tr_year_summary {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 6px !important;
+    width: 100%;
+  }
+
+  #tr_year_summary > div {
+    padding: 8px !important;
+    min-height: 70px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center;
+  }
+
+  #tr_year_summary div div:first-child {
+    font-size: 0.95rem !important;
+    font-weight: 700;
+    margin-bottom: 3px;
+  }
+
+  /* Target badges - use display:contents for grid items */
+  #tr_target_badges {
+    display: contents;
+  }
+
+  #tr_target_badges > div {
+    padding: 8px !important;
+    min-height: 70px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center;
+  }
+
+  #tr_target_badges div div:first-child {
+    font-size: 0.95rem !important;
+    font-weight: 700;
+    margin-bottom: 3px;
+  }
+
+  /* Member rows on extra small screens */
+  .tr-member-row {
+    padding: 8px !important;
+    min-height: 40px !important;
+  }
+
+  .tr-member-row > span {
+    font-size: 10px !important;
+    padding: 3px 8px !important;
+  }
+}
+

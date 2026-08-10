@@ -1,0 +1,329 @@
+/* ── SIDEBAR BRAND HEADER ── */
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 4px;
+}
+
+.hdr-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  /* background: linear-gradient(135deg,var(--ink) 0%,var(--ink-mid) 100%); */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  /* box-shadow:0 3px 10px rgba(0,0,0,0.18); */
+}
+
+/* header Logo  */
+.header-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(15, 118, 110, 0.55);
+  box-shadow: 0 0 10px rgba(15, 118, 110, 0.35);
+  flex-shrink: 0;
+  background: #78501e;
+}
+
+
+/* .sidebar-brand-icon {
+    font-size: 2rem;
+    line-height: 1;
+    filter: drop-shadow(0 0 8px rgba(15, 118, 110,0.7));
+    flex-shrink: 0;
+  } */
+.sidebar-brand-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0F766E;
+  line-height: 1.2;
+}
+
+.sidebar-brand-sub {
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.42);
+  margin-top: 1px;
+  line-height: 1;
+}
+
+.sidebar h2 {
+  display: none;
+}
+
+/* ── Section group labels ── */
+.nav-section-label {
+  font-size: 9.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 1.2px !important;
+  text-transform: uppercase !important;
+  color: rgba(255, 255, 255, 0.32) !important;
+  padding: 14px 20px 5px !important;
+  cursor: default !important;
+  pointer-events: none;
+  border-bottom: none !important;
+  background: none !important;
+}
+
+.nav-section-label:hover {
+  background: none !important;
+  color: rgba(255, 255, 255, 0.32) !important;
+  padding-left: 20px !important;
+}
+
+/* ── UI ENHANCEMENTS ── */
+.sidebar li.active-nav {
+  border-left: 3px solid #f7c35a;
+  background: linear-gradient(90deg, rgba(15, 118, 110, 0.88), rgba(247, 140, 10, 0.76));
+  padding-left: 27px;
+  color: #fff !important;
+  font-weight: 600;
+}
+
+.sidebar li:hover:not(.active-nav):not(.nav-section-label) {
+  background: rgba(255, 255, 255, 0.07);
+  color: #f7c35a;
+  padding-left: 30px;
+}
+
+/* Finance group — amber tint */
+.nav-finance {
+  color: #fcd34d;
+}
+
+.nav-finance:hover:not(.active-nav),
+.nav-finance.active-nav {
+  color: #fef3c7 !important;
+}
+
+.nav-finance.active-nav {
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.85), rgba(217, 119, 6, 0.72)) !important;
+  border-left-color: #fcd34d !important;
+}
+
+/* Members group — blue tint */
+.nav-members {
+  color: #5EEAD4;
+}
+
+.nav-members:hover:not(.active-nav),
+.nav-members.active-nav {
+  color: #dbeafe !important;
+}
+
+.nav-members.active-nav {
+  background: linear-gradient(90deg, rgba(20, 184, 166, 0.7), rgba(15, 118, 110, 0.55)) !important;
+  border-left-color: #5EEAD4 !important;
+}
+
+/* Content group — purple tint */
+.nav-content {
+  color: #c4b5fd;
+}
+
+.nav-content:hover:not(.active-nav),
+.nav-content.active-nav {
+  color: #ede9fe !important;
+}
+
+.nav-content.active-nav {
+  background: linear-gradient(90deg, rgba(124, 58, 237, 0.7), rgba(109, 40, 217, 0.55)) !important;
+  border-left-color: #c4b5fd !important;
+}
+
+
+
+/* System group — teal/green tint */
+.nav-system {
+  color: #6ee7b7;
+}
+
+.nav-system:hover:not(.active-nav),
+.nav-system.active-nav {
+  color: #d1fae5 !important;
+}
+
+.nav-system.active-nav {
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.65), rgba(5, 150, 105, 0.50)) !important;
+  border-left-color: #6ee7b7 !important;
+}
+/* Audit — red tint */
+.nav-audit-item {
+  color: #6ee7b7;
+}
+
+.card-box {
+  position: relative;
+  overflow: hidden;
+}
+
+.card-box::after {
+  content: "";
+  position: absolute;
+  top: -18px;
+  right: -18px;
+  width: 72px;
+  height: 72px;
+  background: rgba(15, 118, 110, 0.08);
+  border-radius: 50%;
+}
+
+.card-box h2 {
+  transition: transform 0.25s ease;
+}
+
+.card-box:hover h2 {
+  transform: scale(1.06);
+}
+
+tbody tr {
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+tbody tr:hover {
+  background: #fffbf2 !important;
+  box-shadow: inset 3px 0 0 #0F766E;
+  cursor: default;
+}
+
+tbody tr.clickable-row:hover {
+  cursor: pointer;
+}
+
+.card:hover {
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
+}
+
+@keyframes goalFill {
+  from {
+    width: 0%;
+  }
+}
+
+.goal-bar-fill {
+  animation: goalFill 0.8s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -600px 0;
+  }
+
+  100% {
+    background-position: 600px 0;
+  }
+}
+
+.shimmer-row td {
+  background: linear-gradient(90deg,
+      #f0f0f0 25%,
+      #e8e8e8 50%,
+      #f0f0f0 75%);
+  background-size: 600px 100%;
+  animation: shimmer 1.4s infinite linear;
+  color: transparent !important;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f4f6f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d4a843;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #0F766E;
+}
+
+
+.ann-preview-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(90deg, #4c1a6e, #6b21a8, #4c1a6e);
+  border-radius: 10px;
+  padding: 12px 18px;
+  color: #fff;
+  font-size: 14px;
+  margin-bottom: 18px;
+  font-family: Poppins, sans-serif;
+}
+
+.ann-preview-bar .ann-preview-icon {
+  font-size: 1.3rem;
+  animation: annBellAdmin 2s ease-in-out infinite;
+}
+
+@keyframes annBellAdmin {
+
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+
+  10% {
+    transform: rotate(12deg);
+  }
+
+  20% {
+    transform: rotate(-10deg);
+  }
+
+  30% {
+    transform: rotate(8deg);
+  }
+
+  40% {
+    transform: rotate(-6deg);
+  }
+
+  50% {
+    transform: rotate(0);
+  }
+}
+
+.ann-history-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 10px;
+  transition: box-shadow 0.2s;
+}
+
+.ann-history-item:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.07);
+}
+
+.ann-history-item.active-ann {
+  background: #fef9ec;
+  border-color: #0F766E44;
+  box-shadow: inset 3px 0 0 #0F766E;
+}
+
+.ann-status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+

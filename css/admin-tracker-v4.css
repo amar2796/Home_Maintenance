@@ -1,0 +1,806 @@
+/* ══════════════════════════════════════════════════════════════════
+   CONTRIBUTION TRACKER — v5 STYLES
+   Design tokens + mobile-first responsive layout.
+   Dark mode: NOT a separate toggle — this file reads the site-wide
+   "dark-mode" class that admin.js already applies to <body> (see
+   admin.html's anti-FOUC script / darkModeBtn). No new storage key,
+   no new switch; the tracker just follows the rest of the admin panel.
+   All functional hooks (#ids, onclick handlers, .tracker-tab-btn,
+   .modal/.modal-content/.modal-close) are unchanged from v4 — this
+   file only changes appearance.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ─── 1. DESIGN TOKENS (light — default) ───────────────────────── */
+
+#trackerPage {
+  --tr-bg:            #f8fafc;
+  --tr-card:          #ffffff;
+  --tr-surface:       #f8fafc;
+  --tr-surface-alt:   #f1f5f9;
+  --tr-border:        #e2e8f0;
+  --tr-border-strong: #cbd5e1;
+  --tr-text:          #1e293b;
+  --tr-text-muted:    #64748b;
+  --tr-text-faint:    #94a3b8;
+
+  --tr-accent:        #0F766E;
+  --tr-accent-hover:  #0b5f58;
+  --tr-accent-soft:   #ccfbf1;
+  --tr-on-accent:     #ffffff;
+
+  --tr-success:       #16a34a;
+  --tr-success-bg:    #dcfce7;
+  --tr-success-bg2:   #bbf7d0;
+  --tr-success-text:  #0b5d33;
+
+  --tr-danger:        #dc2626;
+  --tr-danger-hover:  #b91c1c;
+  --tr-danger-bg:     #fee2e2;
+  --tr-danger-bg2:    #fecaca;
+  --tr-danger-text:   #7f1d1d;
+
+  --tr-warning-bg:    #fef3c7;
+  --tr-warning-bg2:   #fcd34d;
+  --tr-warning-text:  #b45309;
+
+  --tr-info-bg:       #e0e7ff;
+  --tr-info-bg2:      #c7d2fe;
+  --tr-info-text:     #4c1d95;
+
+  --tr-radius-sm: 6px;
+  --tr-radius:    10px;
+  --tr-radius-lg: 14px;
+  --tr-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06);
+  --tr-shadow:    0 6px 20px rgba(15, 23, 42, 0.08);
+  --tr-shadow-lift: 0 10px 28px rgba(15, 23, 42, 0.10);
+
+  background: var(--tr-bg);
+  color: var(--tr-text);
+}
+
+/* ─── 1b. DESIGN TOKENS (dark — mirrors admin's own #080f1e/#e2e8f0
+   FOUC palette so the tracker doesn't look like a different app when
+   the rest of the admin panel switches to dark mode) ─────────────── */
+
+body.dark-mode #trackerPage,
+html.dark-mode #trackerPage,
+.dark-mode #trackerPage {
+  --tr-bg:            #080f1e;
+  --tr-card:          #111a2e;
+  --tr-surface:       #0d1526;
+  --tr-surface-alt:   #16213a;
+  --tr-border:        #26324a;
+  --tr-border-strong: #37476b;
+  --tr-text:          #e2e8f0;
+  --tr-text-muted:    #94a3b8;
+  --tr-text-faint:    #64748b;
+
+  --tr-accent:        #2dd4bf;
+  --tr-accent-hover:  #5eead4;
+  --tr-accent-soft:   #103b36;
+  --tr-on-accent:     #04211e;
+
+  --tr-success:       #4ade80;
+  --tr-success-bg:    #0f2a1c;
+  --tr-success-bg2:   #14532d;
+  --tr-success-text:  #86efac;
+
+  --tr-danger:        #f87171;
+  --tr-danger-hover:  #fca5a5;
+  --tr-danger-bg:     #351313;
+  --tr-danger-bg2:    #5c1a1a;
+  --tr-danger-text:   #fca5a5;
+
+  --tr-warning-bg:    #362808;
+  --tr-warning-bg2:   #573c0d;
+  --tr-warning-text:  #fbbf24;
+
+  --tr-info-bg:       #1a1e3a;
+  --tr-info-bg2:      #292e57;
+  --tr-info-text:     #c7d2fe;
+
+  --tr-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --tr-shadow:    0 6px 20px rgba(0, 0, 0, 0.45);
+  --tr-shadow-lift: 0 10px 30px rgba(0, 0, 0, 0.55);
+}
+
+* { box-sizing: border-box; }
+
+/* ─── 2. PAGE / CARD SHELL ─────────────────────────────────────── */
+
+#trackerPage {
+  font-family: Poppins, sans-serif;
+  padding: 4px;
+}
+
+#trackerPage .card {
+  position: relative;
+  background: var(--tr-card);
+  border: 1px solid var(--tr-border);
+  border-radius: var(--tr-radius-lg);
+  padding: 20px;
+  padding-top: 23px;
+  box-shadow: var(--tr-shadow-sm);
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  overflow: hidden;
+}
+
+/* Signature: a quiet gradient hairline instead of a generic flat top
+   border — ties every tab back to the teal brand accent without
+   shouting about it. */
+#trackerPage .card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--tr-accent) 0%, var(--tr-accent-soft) 55%, transparent 100%);
+  opacity: 0.9;
+}
+
+#trackerPage h3 {
+  margin: 0 0 4px 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--tr-text);
+  letter-spacing: -0.01em;
+}
+
+#trackerPage h4 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--tr-text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ─── 3. HEADER ROW ─────────────────────────────────────────────── */
+
+.tr-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.tr-header-row h3 { margin: 0; }
+
+/* ─── 4. GLOBAL FILTERS ─────────────────────────────────────────── */
+
+.tr-filters {
+  background: var(--tr-surface);
+  border: 1px solid var(--tr-border);
+  border-radius: var(--tr-radius);
+  padding: 14px 16px;
+  margin-bottom: 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.tr-filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 14px;
+  flex: 1;
+  min-width: 240px;
+}
+
+.tr-field { min-width: 0; }
+
+.tr-field-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--tr-text-muted);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tr-field-icon { font-size: 11px; }
+
+.tr-select {
+  width: 100%;
+  padding: 9px 30px 9px 12px;
+  border: 1.5px solid var(--tr-border-strong);
+  border-radius: 999px;
+  font-size: 12px;
+  background-color: var(--tr-card);
+  color: var(--tr-text);
+  font-family: Poppins, sans-serif;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--tr-text-muted) 50%), linear-gradient(135deg, var(--tr-text-muted) 50%, transparent 50%);
+  background-position: calc(100% - 16px) center, calc(100% - 11px) center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.tr-select:hover { border-color: var(--tr-accent); }
+.tr-select:focus-visible {
+  border-color: var(--tr-accent);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15);
+}
+
+/* Hide-Inactive rendered as a proper toggle switch rather than a bare
+   checkbox — reads instantly as on/off at a glance next to the pill
+   selects. */
+.tr-field-toggle { display: flex; flex-direction: column; }
+
+.tr-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--tr-text);
+  cursor: pointer;
+  user-select: none;
+  height: 34px;
+}
+
+.tr-toggle-switch { position: relative; display: inline-flex; flex-shrink: 0; }
+.tr-toggle-switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+
+.tr-toggle-track {
+  width: 34px;
+  height: 20px;
+  background: var(--tr-border-strong);
+  border-radius: 999px;
+  display: block;
+  position: relative;
+  transition: background 0.2s ease;
+}
+
+.tr-toggle-thumb {
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 16px; height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  transition: transform 0.2s ease;
+}
+
+.tr-toggle-switch input:checked + .tr-toggle-track { background: var(--tr-accent); }
+.tr-toggle-switch input:checked + .tr-toggle-track .tr-toggle-thumb { transform: translateX(14px); }
+.tr-toggle-switch input:focus-visible + .tr-toggle-track { outline: 2px solid var(--tr-accent); outline-offset: 2px; }
+
+.tr-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  background: var(--tr-card);
+  color: var(--tr-text-muted);
+  border: 1.5px solid var(--tr-border-strong);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: Poppins, sans-serif;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.tr-reset-icon { font-size: 14px; line-height: 1; transition: transform 0.3s ease; }
+
+.tr-reset-btn:hover {
+  background: var(--tr-danger-bg);
+  border-color: var(--tr-danger);
+  color: var(--tr-danger);
+}
+
+.tr-reset-btn:hover .tr-reset-icon { transform: rotate(-70deg); }
+
+/* ─── 5. TABS ───────────────────────────────────────────────────── */
+/* Floating "browser tab" chips: each tab is its own rounded card, the
+   active one lifts slightly and its accent color bleeds into a thin
+   top border on the panel below so the two visually connect. Wraps
+   to a second row on narrow screens instead of scrolling sideways. */
+
+.tr-tabs-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--tr-border);
+  margin: 0 0 20px 0;
+  padding: 0 0 10px 0;
+}
+
+.tracker-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 16px;
+  background: var(--tr-surface);
+  border: 1px solid var(--tr-border);
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--tr-text-muted);
+  font-size: 12.5px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  font-family: Poppins, sans-serif;
+}
+
+.tr-tab-icon { font-size: 13px; line-height: 1; }
+
+.tracker-tab-btn:hover {
+  color: var(--tr-accent);
+  border-color: var(--tr-accent);
+  background: var(--tr-card);
+}
+
+.tracker-tab-btn.active {
+  color: var(--tr-on-accent);
+  background: var(--tr-accent);
+  border-color: var(--tr-accent);
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(15, 118, 110, 0.28);
+}
+
+/* ─── 6. PANELS / SECTIONS ─────────────────────────────────────── */
+
+/* Paid / Pending side by side — the first thing an admin needs to
+   scan on load. Stacks to one column under 768px. */
+.tr-lists-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.tr-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-right: 7px;
+  vertical-align: middle;
+}
+.tr-dot-success { background: var(--tr-success); }
+.tr-dot-danger { background: var(--tr-danger); }
+
+.tr-panel {
+  background: var(--tr-card);
+  border-radius: var(--tr-radius);
+  border: 1px solid var(--tr-border);
+  margin-bottom: 16px;
+  padding: 12px;
+}
+
+.tr-panel-plain-head {
+  padding: 12px 14px 0;
+}
+
+.tr-panel-plain-head h4 { margin-bottom: 4px; }
+
+.tr-panel-plain {
+  background: var(--tr-card);
+  border-radius: var(--tr-radius);
+  border: 1px solid var(--tr-border);
+  margin-bottom: 16px;
+  overflow-x: auto;
+}
+
+.tr-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ─── 7. GRID TABLE ─────────────────────────────────────────────── */
+
+#tr_grid_table {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#tr_grid_table table {
+  width: 100%;
+  font-size: 11px;
+  border-collapse: collapse;
+}
+
+#tr_grid_table th {
+  background: var(--tr-surface-alt);
+  padding: 10px 8px;
+  text-align: left;
+  font-weight: 700;
+  color: var(--tr-text);
+  border-bottom: 2px solid var(--tr-border);
+  white-space: nowrap;
+}
+
+#tr_grid_table td {
+  padding: 9px 8px;
+  border-bottom: 1px solid var(--tr-border);
+  color: var(--tr-text);
+}
+
+#tr_grid_table tr:hover td { background: var(--tr-surface); }
+
+#tr_grid_table th:first-child,
+#tr_grid_table td:first-child {
+  position: sticky;
+  left: 0;
+  background: var(--tr-card);
+  z-index: 1;
+  min-width: 120px;
+}
+
+#tr_grid_table th:first-child { background: var(--tr-surface-alt); z-index: 2; }
+#tr_grid_table tr:hover td:first-child { background: var(--tr-surface); }
+
+/* ─── 8. STAT CARDS ─────────────────────────────────────────────── */
+
+.tr-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.tr-stat-card {
+  border-radius: var(--tr-radius-sm);
+  padding: 12px;
+  text-align: center;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tr-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--tr-shadow-sm);
+}
+
+.tr-stat-label { font-size: 11px; font-weight: 600; }
+.tr-stat-value { font-size: 19px; font-weight: 700; margin-top: 4px; }
+
+.tr-stat-success { background: linear-gradient(135deg, var(--tr-success-bg), var(--tr-success-bg2)); }
+.tr-stat-success .tr-stat-label { color: var(--tr-success-text); opacity: 0.85; }
+.tr-stat-success .tr-stat-value { color: var(--tr-success-text); }
+
+.tr-stat-danger { background: linear-gradient(135deg, var(--tr-danger-bg), var(--tr-danger-bg2)); }
+.tr-stat-danger .tr-stat-label { color: var(--tr-danger-text); opacity: 0.85; }
+.tr-stat-danger .tr-stat-value { color: var(--tr-danger-text); }
+
+.tr-stat-warning { background: linear-gradient(135deg, var(--tr-warning-bg), var(--tr-warning-bg2)); }
+.tr-stat-warning .tr-stat-label { color: var(--tr-warning-text); opacity: 0.85; }
+.tr-stat-warning .tr-stat-value { color: var(--tr-warning-text); }
+
+.tr-stat-info { background: linear-gradient(135deg, var(--tr-info-bg), var(--tr-info-bg2)); }
+.tr-stat-info .tr-stat-label { color: var(--tr-info-text); opacity: 0.85; }
+.tr-stat-info .tr-stat-value { color: var(--tr-info-text); }
+
+/* ─── 9. BUTTONS ────────────────────────────────────────────────── */
+
+.tr-btn {
+  font-family: Poppins, sans-serif;
+  border: none;
+  border-radius: var(--tr-radius-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 12px;
+  padding: 10px 14px;
+}
+
+.tr-btn:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,0.12); }
+.tr-btn:active { transform: translateY(0); box-shadow: none; }
+.tr-btn:focus-visible { outline: 2px solid var(--tr-accent); outline-offset: 2px; }
+
+.tr-btn-primary { background: var(--tr-accent); color: var(--tr-on-accent); }
+.tr-btn-primary:hover { background: var(--tr-accent-hover); }
+
+.tr-btn-danger { background: var(--tr-danger); color: #ffffff; }
+.tr-btn-danger:hover { background: var(--tr-danger-hover); }
+
+.tr-btn-secondary { background: var(--tr-surface-alt); color: var(--tr-text-muted); border: 1.5px solid var(--tr-border-strong); }
+.tr-btn-secondary:hover { background: var(--tr-border-strong); }
+
+.tr-btn-sm { padding: 6px 12px; font-size: 11px; }
+.tr-btn-block { width: 100%; }
+.tr-actions-row { display: flex; gap: 10px; }
+.tr-actions-row .tr-btn { flex: 1; padding: 12px; }
+
+/* ─── 10. MEMBER LISTS ──────────────────────────────────────────── */
+
+#tr_paid_list,
+#tr_pending_list,
+#tr_individual_members_list {
+  max-height: 300px;
+  overflow-y: auto;
+  font-size: 12px;
+}
+
+#tr_individual_members_list { border-top: 1px solid var(--tr-border); }
+
+#tr_paid_list > div,
+#tr_pending_list > div,
+#tr_individual_members_list > div {
+  padding: 9px 4px;
+  border-bottom: 1px solid var(--tr-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--tr-text);
+}
+
+#tr_paid_list > div:hover,
+#tr_pending_list > div:hover,
+#tr_individual_members_list > div:hover {
+  background: var(--tr-surface);
+}
+
+/* ─── 11. EMAIL TAB ─────────────────────────────────────────────── */
+
+.tr-email-panel {
+  background: var(--tr-surface);
+  border-radius: var(--tr-radius);
+  padding: 16px;
+  border: 1px solid var(--tr-border);
+}
+
+.tr-email-sub {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tr-text-muted);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.tr-status-box {
+  background: var(--tr-success-bg);
+  border: 1px solid var(--tr-success);
+  border-radius: var(--tr-radius-sm);
+  padding: 12px;
+  margin-top: 16px;
+}
+
+.tr-status-box-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--tr-success-text);
+  margin-bottom: 8px;
+}
+
+.tr-status-box-detail {
+  font-size: 11px;
+  color: var(--tr-text-muted);
+  line-height: 1.6;
+}
+
+/* ─── 12. MODAL ─────────────────────────────────────────────────── */
+
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(3, 8, 20, 0.55);
+  overflow: auto;
+  backdrop-filter: blur(2px);
+}
+
+.modal-content {
+  background-color: var(--tr-card);
+  color: var(--tr-text);
+  margin: 10% auto;
+  padding: 20px;
+  border-radius: var(--tr-radius);
+  width: 90%;
+  max-width: 500px;
+  box-shadow: var(--tr-shadow);
+  border: 1px solid var(--tr-border);
+  animation: tr-modal-in 0.18s ease;
+}
+
+@keyframes tr-modal-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.modal-close {
+  color: var(--tr-text-muted);
+  float: right;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.modal-close:hover { color: var(--tr-text); }
+
+/* ─── 12b. SCROLLBARS ───────────────────────────────────────────── */
+/* Thin, theme-matched scrollbars on the internal scroll areas instead
+   of the browser default, in both light and dark. */
+
+#tr_paid_list, #tr_pending_list, #tr_individual_members_list,
+#tr_grid_table, .modal-content {
+  scrollbar-width: thin;
+  scrollbar-color: var(--tr-border-strong) transparent;
+}
+
+#tr_paid_list::-webkit-scrollbar, #tr_pending_list::-webkit-scrollbar,
+#tr_individual_members_list::-webkit-scrollbar,
+#tr_grid_table::-webkit-scrollbar, .modal-content::-webkit-scrollbar {
+  width: 6px; height: 6px;
+}
+
+#tr_paid_list::-webkit-scrollbar-thumb, #tr_pending_list::-webkit-scrollbar-thumb,
+#tr_individual_members_list::-webkit-scrollbar-thumb,
+#tr_grid_table::-webkit-scrollbar-thumb, .modal-content::-webkit-scrollbar-thumb {
+  background: var(--tr-border-strong);
+  border-radius: 999px;
+}
+
+/* ─── 13. CALENDAR ──────────────────────────────────────────────── */
+
+#tracker_calendar_content { overflow-x: auto; }
+
+/* ─── 14. FORM ELEMENT DEFAULTS WITHIN PAGE ─────────────────────── */
+
+#trackerPage input[type="text"],
+#trackerPage input[type="email"],
+#trackerPage select,
+#trackerPage textarea {
+  font-family: Poppins, sans-serif;
+  font-size: 12px;
+  color: var(--tr-text);
+  background: var(--tr-card);
+}
+
+#trackerPage input[type="text"]:focus,
+#trackerPage input[type="email"]:focus,
+#trackerPage select:focus,
+#trackerPage textarea:focus {
+  outline: none;
+  border-color: var(--tr-accent);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15);
+}
+
+/* ─── 15. UTILITIES ─────────────────────────────────────────────── */
+
+.text-center { text-align: center; }
+.text-muted  { color: var(--tr-text-muted); }
+.text-danger { color: var(--tr-danger); }
+.text-success{ color: var(--tr-success); }
+.mt-10 { margin-top: 10px; }
+.mb-10 { margin-bottom: 10px; }
+.gap-10 { gap: 10px; }
+
+/* ─── 16. RESPONSIVE ────────────────────────────────────────────── */
+
+/* Small phones — stack filters, shrink stat cards, full-width buttons,
+   and grow tap targets to a comfortable 40-44px minimum. */
+@media (max-width: 480px) {
+  #trackerPage .card { padding: 14px; padding-top: 17px; border-radius: var(--tr-radius); }
+  #trackerPage h3 { font-size: 15px; }
+
+  .tr-header-row { gap: 10px; }
+
+  .tr-filters { flex-direction: column; align-items: stretch; padding: 14px; }
+  .tr-filters-grid { grid-template-columns: 1fr 1fr; }
+  .tr-select { padding-top: 11px; padding-bottom: 11px; }
+  .tr-toggle-label { height: 38px; }
+  .tr-reset-btn { width: 100%; min-height: 42px; justify-content: center; }
+  .tr-reset-text { display: inline; }
+
+  .tracker-tab-btn { min-height: 40px; }
+
+  .tr-lists-row { grid-template-columns: 1fr; gap: 12px; }
+
+  .tr-stats-grid { grid-template-columns: 1fr 1fr; }
+  .tr-stat-card:hover { transform: none; }
+
+  .tr-actions-row { flex-direction: column; }
+  .tr-actions-row .tr-btn { min-height: 44px; }
+
+  .tr-btn { min-height: 40px; }
+  .tr-checkbox-label input[type="checkbox"] { width: 18px; height: 18px; }
+
+  #tr_grid_table th:first-child,
+  #tr_grid_table td:first-child { min-width: 96px; }
+
+  .modal-content { margin: 20% auto; width: 88%; padding: 16px; }
+}
+
+/* Very small phones */
+@media (max-width: 360px) {
+  .tr-filters-grid { grid-template-columns: 1fr; }
+  .tr-stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .tr-stat-value { font-size: 17px; }
+}
+
+/* ─── 17. MOBILE TAB GRID ───────────────────────────────────────── */
+/* Since this app is used mostly on phones: swap the horizontal tab
+   row for a 3×2 icon-over-label grid, the pattern most mobile-first
+   dashboards (payment apps, Notion mobile, banking app "services"
+   screens) use for 5-8 destinations. Every tab stays visible with no
+   scrolling and no uneven line-wrapping, and each tile is a full
+   ~64px tap target. Desktop/tablet keep the pill row untouched. */
+@media (max-width: 640px) {
+  .tr-tabs-bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    border-bottom: none;
+    padding-bottom: 6px;
+    margin-bottom: 18px;
+  }
+
+  .tracker-tab-btn {
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    padding: 12px 4px;
+    min-height: 62px;
+    border-radius: 14px;
+    font-size: 10.5px;
+    line-height: 1.15;
+    text-align: center;
+    white-space: normal;
+  }
+
+  .tr-tab-icon { font-size: 19px; }
+
+  .tracker-tab-btn:hover { transform: none; }
+
+  .tracker-tab-btn.active {
+    box-shadow: 0 5px 14px rgba(15, 118, 110, 0.32);
+  }
+}
+
+@media (max-width: 340px) {
+  .tr-tabs-bar { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .tracker-tab-btn { padding: 10px 2px; font-size: 10px; min-height: 56px; }
+  .tr-tab-icon { font-size: 17px; }
+}
+
+/* Tablets and up */
+@media (min-width: 768px) {
+  #trackerPage .card { padding: 22px; }
+  #trackerPage h3 { font-size: 19px; }
+  .tracker-tab-btn { font-size: 13px; padding: 12px 20px; }
+  #tr_grid_table table { font-size: 12px; }
+  #tr_grid_table th, #tr_grid_table td { padding: 10px; }
+
+  #tracker_calendar_content div[style*="grid-template-columns:repeat(7"] { gap: 8px; }
+}
+
+/* Desktop */
+@media (min-width: 1024px) {
+  #trackerPage .card { padding: 26px; }
+  #trackerPage h3 { font-size: 20px; }
+  .tracker-tab-btn { font-size: 14px; padding: 12px 24px; }
+  #tr_grid_table table { font-size: 13px; }
+  #tr_grid_table th, #tr_grid_table td { padding: 12px; }
+}
+
+/* Respect reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  #trackerPage *,
+  #trackerPage *::before,
+  #trackerPage *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

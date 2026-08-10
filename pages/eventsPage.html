@@ -1,0 +1,53 @@
+      <div id="eventsPage" class="page">
+        <!-- Action Bar -->
+        <div class="sp-action-bar">
+          <div class="sp-action-bar-title">
+            <i class="fa-solid fa-calendar-days"></i> Events
+          </div>
+          <div class="sp-action-btns">
+            <button class="sp-action-btn sp-btn-orange" onclick="spOpen('event')">
+              <i class="fa-solid fa-calendar-plus"></i> Create Event
+            </button>
+          </div>
+        </div>
+
+        <!-- Event Cards List -->
+        <div class="card">
+          <div
+            style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+            <h3 style="margin:0;"><i class="fa-solid fa-calendar-days"></i> All Events</h3>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <span>
+                <select id="ev_filter_status" onchange="renderEvents()"
+                  style="padding:7px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;">
+                  <option value="">All Status</option>
+                  <option value="Upcoming">Upcoming</option>
+                  <option value="Active">Active</option>
+                  <option value="Completed">Completed</option>
+                </select>
+              </span>
+              <span>
+                <select id="ev_filter_cat" onchange="renderEvents()"
+                  style="padding:7px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;">
+                  <option value="">All Categories</option>
+                  <option>Festival</option>
+                  <option>Pooja</option>
+                  <option>Maintenance</option>
+                  <option>Community</option>
+                  <option>Other</option>
+                </select>
+              </span>
+            </div>
+          </div>
+          <div id="ev_list">
+            <div style="text-align:center;padding:40px;color:#94a3b8;font-size:14px;">
+              <i class="fa-solid fa-spinner fa-spin"></i> Loading events…
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <!-- END EVENTS PAGE -->
+
+      <!-- END YEAR SUMMARY PAGE -->
+      <!-- MASTER -->

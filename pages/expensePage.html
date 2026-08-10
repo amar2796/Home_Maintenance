@@ -1,0 +1,95 @@
+      <div id="expensePage" class="page">
+        <!-- Action Bar -->
+        <div class="sp-action-bar">
+          <div class="sp-action-bar-title">
+            <i class="fa-solid fa-file-invoice-dollar"></i> Expenses
+          </div>
+          <div class="sp-action-btns">
+            <button class="sp-action-btn sp-btn-red" onclick="spOpen('expense')">
+              <i class="fa-solid fa-plus"></i> Add Expense
+            </button>
+          </div>
+        </div>
+        <div class="card">
+          <h3 style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+            <span>
+              <i class="fa-solid fa-list-ul"></i> Expense Records
+              <span style="font-size: 11px; font-weight: 400; color: #999">
+                (click row to view · edit via buttons)
+              </span>
+            </span>
+            <button onclick="exportExpenseCSV()"
+              style="background:#e74c3c;box-shadow:none;padding:8px 14px;font-size:12px;display:flex;align-items:center;gap:6px;">
+              <i class="fa-solid fa-file-csv"></i> Export CSV
+            </button>
+          </h3>
+          <div class="ct-pf-panel" style="margin-bottom:14px;">
+            <div class="ct-pf-header">
+              <div class="ct-pf-title"><i class="fa-solid fa-sliders" style="color:#e74c3c;"></i> Filters <span style="font-size:10px;font-weight:400;color:#94a3b8;" id="exp_filterCount"></span></div>
+              <div class="ct-pf-hint">All filters combine together</div>
+            </div>
+            <div class="ct-pf-g5" style="margin-bottom:8px;">
+              <div>
+                <span class="ct-pf-lbl">Year</span>
+                <select class="ct-pf-sel" id="expFilterYear" onchange="filterExpenses()">
+                  <option value="">All Years</option>
+                </select>
+              </div>
+              <div>
+                <span class="ct-pf-lbl">Month</span>
+                <select class="ct-pf-sel" id="expFilterMonth" onchange="filterExpenses()">
+                  <option value="">All Months</option>
+                  <option>January</option><option>February</option><option>March</option>
+                  <option>April</option><option>May</option><option>June</option>
+                  <option>July</option><option>August</option><option>September</option>
+                  <option>October</option><option>November</option><option>December</option>
+                </select>
+              </div>
+              <div>
+                <span class="ct-pf-lbl">Title / Search</span>
+                <input class="ct-pf-inp" id="searchExpense" placeholder="Search title…" oninput="_filterExpensesDebounced()" />
+              </div>
+              <div>
+                <span class="ct-pf-lbl">Expense Type</span>
+                <select class="ct-pf-sel" id="expFilterType" onchange="filterExpenses()">
+                  <option value="">All Types</option>
+                </select>
+              </div>
+              <div>
+                <span class="ct-pf-lbl">Amount Range</span>
+                <div style="display:flex;gap:4px;">
+                  <input class="ct-pf-inp" id="expFilterAmtMin" placeholder="₹ Min" type="number" min="0" oninput="_filterExpensesDebounced()" style="margin:0;" />
+                  <input class="ct-pf-inp" id="expFilterAmtMax" placeholder="₹ Max" type="number" min="0" oninput="_filterExpensesDebounced()" style="margin:0;" />
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;">
+              <button onclick="clearExpenseFilters()" style="background:transparent;border:1px solid #cbd5e1;color:#475569;border-radius:8px;padding:8px 14px;font-size:11px;font-weight:600;cursor:pointer;height:34px;white-space:nowrap;box-shadow:none;">
+                <i class="fa-solid fa-circle-xmark"></i> Clear All
+              </button>
+            </div>
+            <!-- Active filter tags -->
+            <div class="ct-tags" id="exp_activeTags" style="margin-top:8px;"></div>
+          </div>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Title</th>
+                  <th>Type</th>
+                  <th>Month</th>
+                  <th>Year</th>
+                  <th>Amount</th>
+                  <th>Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="expenseRecordsBody"></tbody>
+            </table>
+          </div>
+          <div id="expense_pagination" class="pagination-bar"></div>
+        </div>
+      </div>
+
+      <!-- USERS -->

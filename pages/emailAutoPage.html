@@ -1,0 +1,287 @@
+      <div id="emailAutoPage" class="page">
+        <div class="card">
+          <h3><i class="fa-solid fa-envelope-circle-check" style="color:#34d399;"></i> Email Automation
+            <span style="font-size:11px;font-weight:400;color:#999;margin-left:8px;">Control automatic emails sent to
+              members</span>
+          </h3>
+
+          <!-- Info Banner -->
+          <div
+            style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #6ee7b7;border-radius:10px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:flex-start;gap:12px;">
+            <i class="fa-solid fa-circle-info" style="color:#059669;font-size:1.2rem;margin-top:2px;flex-shrink:0;"></i>
+            <div style="font-size:12.5px;color:#065f46;line-height:1.7;">
+              <strong>Privacy guaranteed:</strong> Each email is sent only to that member — no other member's data is
+              shared. Monthly reports are user-wise and private.
+              <br /><span style="color:#047857;">📧 Daily email quota: <strong
+                  id="ea_quota_display">Loading...</strong></span>
+            </div>
+          </div>
+
+          <!-- Toggle Cards -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;" id="ea_toggle_grid">
+
+            <!-- Toggle 1: Auto Receipt on Contribution -->
+            <div
+              style="border:1.5px solid #e2e8f0;border-radius:12px;padding:18px;background:#fff;transition:border-color 0.2s;"
+              id="ea_card_receipt">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+                <div style="flex:1;">
+                  <div style="font-weight:700;color:#1e293b;font-size:14px;margin-bottom:4px;">
+                    <i class="fa-solid fa-receipt" style="color:#0F766E;margin-right:6px;"></i>Auto Receipt Email
+                  </div>
+                  <div style="font-size:11.5px;color:#64748b;line-height:1.6;">Automatically sends a receipt email to
+                    the member right after a contribution is saved. Only sent if member has an email address.</div>
+                </div>
+                <!-- Toggle Switch -->
+                <label class="ea-toggle" style="flex-shrink:0;">
+                  <input type="checkbox" id="toggle_auto_receipt"
+                    onchange="saveEmailToggle('auto_receipt', this.checked)">
+                  <span class="ea-slider"></span>
+                </label>
+              </div>
+              <div style="margin-top:12px;padding-top:10px;border-top:1px solid #f1f5f9;font-size:11px;color:#94a3b8;"
+                id="ea_receipt_status">
+                <i class="fa-solid fa-circle" style="font-size:7px;margin-right:4px;color:#94a3b8;"></i> Loading
+                status...
+              </div>
+            </div>
+
+            <!-- Toggle 2: Monthly End-of-Month Report -->
+            <div
+              style="border:1.5px solid #e2e8f0;border-radius:12px;padding:18px;background:#fff;transition:border-color 0.2s;"
+              id="ea_card_monthly">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+                <div style="flex:1;">
+                  <div style="font-weight:700;color:#1e293b;font-size:14px;margin-bottom:4px;">
+                    <i class="fa-solid fa-calendar-check" style="color:#14B8A6;margin-right:6px;"></i>Monthly
+                    End-of-Month Report
+                  </div>
+                  <div style="font-size:11.5px;color:#64748b;line-height:1.6;">On the last day of each month, sends each
+                    member a personal email — receipt summary if they contributed, or a friendly reminder if they
+                    haven't.</div>
+                </div>
+                <label class="ea-toggle" style="flex-shrink:0;">
+                  <input type="checkbox" id="toggle_monthly_report"
+                    onchange="saveEmailToggle('monthly_report', this.checked)">
+                  <span class="ea-slider"></span>
+                </label>
+              </div>
+              <div style="margin-top:12px;padding-top:10px;border-top:1px solid #f1f5f9;font-size:11px;color:#94a3b8;"
+                id="ea_monthly_status">
+                <i class="fa-solid fa-circle" style="font-size:7px;margin-right:4px;color:#94a3b8;"></i> Loading
+                status...
+              </div>
+            </div>
+
+            <!-- Toggle 3: Birthday Email -->
+            <div style="border:1.5px solid #e2e8f0;border-radius:12px;padding:18px;background:#fff;transition:border-color 0.2s;" id="ea_card_birthday">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+                <div style="flex:1;">
+                  <div style="font-weight:700;color:#1e293b;font-size:14px;margin-bottom:4px;">
+                    <i class="fa-solid fa-cake-candles" style="color:#ec4899;margin-right:6px;"></i>Birthday Email
+                  </div>
+                  <div style="font-size:11.5px;color:#64748b;line-height:1.6;">Automatically sends a beautiful household-themed birthday email directly to the member on their birthday. Runs daily via Apps Script trigger at 8 AM.</div>
+                </div>
+                <label class="ea-toggle" style="flex-shrink:0;">
+                  <input type="checkbox" id="toggle_birthday_email"
+                    onchange="saveEmailToggle('birthday_email', this.checked)">
+                  <span class="ea-slider"></span>
+                </label>
+              </div>
+              <div style="margin-top:12px;padding-top:10px;border-top:1px solid #f1f5f9;font-size:11px;color:#94a3b8;" id="ea_birthday_status">
+                <i class="fa-solid fa-circle" style="font-size:7px;margin-right:4px;color:#94a3b8;"></i> Loading status...
+              </div>
+            </div>
+
+            <!-- Toggle 4: Admin Monthly Summary -->
+            <div
+              style="border:1.5px solid #e2e8f0;border-radius:12px;padding:18px;background:#fff;transition:border-color 0.2s;"
+              id="ea_card_admin_summary">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+                <div style="flex:1;">
+                  <div style="font-weight:700;color:#1e293b;font-size:14px;margin-bottom:4px;">
+                    <i class="fa-solid fa-clipboard-list" style="color:#7c3aed;margin-right:6px;"></i>Admin Monthly
+                    Summary
+                  </div>
+                  <div style="font-size:11.5px;color:#64748b;line-height:1.6;">Sends every active admin a
+                    who-paid / who-hasn't table (with a PDF attachment) for the current month — one row per member,
+                    multiple entries combined into a single total.</div>
+                </div>
+                <label class="ea-toggle" style="flex-shrink:0;">
+                  <input type="checkbox" id="toggle_admin_monthly_summary"
+                    onchange="saveEmailToggle('admin_monthly_summary', this.checked)">
+                  <span class="ea-slider"></span>
+                </label>
+              </div>
+              <div style="margin-top:12px;padding-top:10px;border-top:1px solid #f1f5f9;font-size:11px;color:#94a3b8;"
+                id="ea_admin_summary_status">
+                <i class="fa-solid fa-circle" style="font-size:7px;margin-right:4px;color:#94a3b8;"></i> Loading
+                status...
+              </div>
+            </div>
+          </div>
+
+          <!-- Email Logo — auto-loaded from Drive folder set in CFG.folderLogo -->
+          <div style="margin-bottom:16px;background:#fff;border:1.5px solid #e0e7ff;border-left:4px solid #14B8A6;border-radius:10px;padding:16px 20px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <i class="fa-solid fa-image" style="color:#14B8A6;font-size:14px;"></i>
+              <span style="font-weight:700;color:#334155;font-size:13px;">Email Logo</span>
+              <span style="font-size:11px;color:#14B8A6;background:#F0FDFA;border-radius:20px;padding:2px 9px;font-weight:600;">All Emails</span>
+            </div>
+
+            <!-- Live preview strip -->
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;">
+              <div id="ea_logo_preview_wrap" style="width:56px;height:56px;border-radius:50%;border:2px solid #14B8A6;overflow:hidden;flex-shrink:0;background:#F0FDFA;display:flex;align-items:center;justify-content:center;">
+                <span id="ea_logo_fallback" style="font-size:26px;">🕉️</span>
+                <img id="ea_logo_preview_img" src="" alt="Logo" style="display:none;width:100%;height:100%;object-fit:cover;"
+                  onload="this.style.display='block';document.getElementById('ea_logo_fallback').style.display='none';"
+                  onerror="this.style.display='none';document.getElementById('ea_logo_fallback').style.display='block';" />
+              </div>
+              <div>
+                <div id="ea_logo_status_text" style="font-size:12px;font-weight:600;color:#334155;">Loading logo…</div>
+                <div style="font-size:11px;color:#64748b;margin-top:2px;">Used in: Auto Receipt · Monthly Report · Monthly Reminder · Birthday · Approval / Rejection emails</div>
+              </div>
+            </div>
+
+            <!-- How-to instruction box -->
+            <div style="background:#f0f4ff;border:1px solid #c7d2fe;border-radius:8px;padding:11px 14px;font-size:12px;color:#3730a3;line-height:1.7;">
+              <i class="fa-solid fa-circle-info" style="margin-right:5px;"></i>
+              <strong>To change the logo:</strong> Open Google Drive → go to your <strong>Logo folder</strong> →
+              drop in a new image file (<code>logo.png</code> or <code>logo.jpg</code>). The system picks the
+              first image it finds automatically — no URL needed here.<br>
+              <span style="color:#64748b;">The folder ID is set in <code>CFG.folderLogo</code> inside the Apps Script.
+              If the folder is empty, all emails show the 🕉️ Om symbol instead.</span>
+            </div>
+          </div>
+
+          <!-- How It Works -->
+          <div style="background:#f8fafc;border-radius:10px;padding:16px 20px;border:1px solid #e2e8f0;">
+            <div style="font-weight:700;color:#334155;font-size:13px;margin-bottom:12px;"><i
+                class="fa-solid fa-circle-question" style="color:#14B8A6;margin-right:6px;"></i>How It Works</div>
+            <style>
+              @media (max-width:900px) { .hiw-grid { grid-template-columns:1fr 1fr !important; } }
+              @media (max-width:560px) { .hiw-grid { grid-template-columns:1fr !important; } }
+            </style>
+            <div class="hiw-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;font-size:12px;color:#475569;">
+              <div>
+                <div style="font-weight:600;color:#1e293b;margin-bottom:4px;">📧 Auto Receipt Email</div>
+                <ul style="margin:0;padding-left:16px;line-height:1.8;color:#64748b;">
+                  <li>Triggers when admin adds a contribution</li>
+                  <li>Sent to that member's email only</li>
+                  <li>Includes receipt number, amount, date</li>
+                  <li>Skipped if daily email quota is full</li>
+                </ul>
+              </div>
+              <div>
+                <div style="font-weight:600;color:#1e293b;margin-bottom:4px;">📅 Monthly Report Email</div>
+                <ul style="margin:0;padding-left:16px;line-height:1.8;color:#64748b;">
+                  <li>Runs on last day of the month (Apps Script trigger)</li>
+                  <li>Contributed → receives their payment summary</li>
+                  <li>Not contributed → receives a reminder email</li>
+                  <li>Each member gets only their own data</li>
+                </ul>
+              </div>
+              <div>
+                <div style="font-weight:600;color:#1e293b;margin-bottom:4px;">&#x1F382; Birthday Email</div>
+                <ul style="margin:0;padding-left:16px;line-height:1.8;color:#64748b;">
+                  <li>Runs daily at 8 AM via Apps Script trigger</li>
+                  <li>Sent only to member whose birthday is today</li>
+                  <li>Household-themed email in Hindi + English</li>
+                  <li>Skipped if daily email quota is full</li>
+                </ul>
+              </div>
+              <div>
+                <div style="font-weight:600;color:#1e293b;margin-bottom:4px;">📋 Admin Monthly Summary</div>
+                <ul style="margin:0;padding-left:16px;line-height:1.8;color:#64748b;">
+                  <li>Runs on last day of month (separate trigger)</li>
+                  <li>Sent to every active admin, not members</li>
+                  <li>Who paid + who hasn't, PDF attached</li>
+                  <li>Multiple entries per member → one total</li>
+                </ul>
+              </div>
+            </div>
+            <div style="margin-top:12px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:11.5px;color:#94a3b8;">
+              <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i>
+              Monthly report requires a <strong>Time-based trigger</strong> set up in Apps Script. Go to Apps Script →
+              Triggers → Add trigger → <code>sendMonthlyEndReports</code> → Month timer → End of month.
+              <br/><br/>
+              <i class="fa-solid fa-cake-candles" style="color:#ec4899;"></i>
+              Birthday email requires a separate daily trigger: Apps Script → Triggers → Add trigger →
+              <code>sendBirthdayEmails</code> → <strong>Time-based → Day timer → 8 AM &ndash; 9 AM</strong>.
+              <br/><br/>
+              <i class="fa-solid fa-clipboard-list" style="color:#7c3aed;"></i>
+              Admin Monthly Summary requires its own trigger: Apps Script → Triggers → Add trigger →
+              <code>sendAdminMonthlySummary</code> → Month timer → day of your choice.
+            </div>
+          </div>
+
+
+
+          <!-- Manual Send Test -->
+          <div
+            style="margin-top:16px;background:linear-gradient(135deg,#fef9ee,#fef3c7);border:1px solid #5EEAD4;border-radius:10px;padding:16px 20px;">
+            <div style="font-weight:700;color:#92400e;font-size:13px;margin-bottom:8px;"><i class="fa-solid fa-flask"
+                style="color:#d97706;margin-right:6px;"></i>Manual Monthly Report (Test)</div>
+            <div style="font-size:12px;color:#78350f;margin-bottom:12px;">Send emails to members for a selected month.
+              Choose what to send:</div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+              <select id="ea_test_month"
+                style="padding:8px 12px;border:1px solid #fcd34d;border-radius:8px;font-family:Poppins,sans-serif;font-size:12px;background:#fff;min-width:130px;"></select>
+              <select id="ea_test_year"
+                style="padding:8px 12px;border:1px solid #fcd34d;border-radius:8px;font-family:Poppins,sans-serif;font-size:12px;background:#fff;min-width:90px;"></select>
+              <select id="ea_send_mode"
+                style="padding:8px 12px;border:1px solid #fcd34d;border-radius:8px;font-family:Poppins,sans-serif;font-size:12px;background:#fff;min-width:180px;">
+                <option value="reminders_only">📢 Reminders only (non-contributors)</option>
+                <option value="full_report">📋 Full report (all members)</option>
+              </select>
+              <button onclick="triggerManualMonthlyReport()"
+                style="background:linear-gradient(135deg,#d97706,#0F766E);padding:9px 18px;font-size:12px;box-shadow:0 2px 8px rgba(15, 118, 110,0.3);">
+                <i class="fa-solid fa-paper-plane"></i> Send Now
+              </button>
+            </div>
+            <div id="ea_manual_result" style="margin-top:10px;font-size:12px;display:none;"></div>
+          </div>
+
+          <!-- Manual Admin Summary Test -->
+          <div
+            style="margin-top:16px;background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:1px solid #c4b5fd;border-radius:10px;padding:16px 20px;">
+            <div style="font-weight:700;color:#5b21b6;font-size:13px;margin-bottom:8px;"><i class="fa-solid fa-clipboard-list"
+                style="color:#7c3aed;margin-right:6px;"></i>Manual Admin Summary (Test)</div>
+            <div style="font-size:12px;color:#4c1d95;margin-bottom:12px;">Send the who-paid / who-hasn't summary +
+              PDF to all active admins for the month selected above.</div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+              <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#4c1d95;cursor:pointer;">
+                <input type="checkbox" id="ea_admin_summary_pdf" checked style="width:14px;height:14px;">
+                Attach PDF
+              </label>
+              <button onclick="triggerManualAdminSummary()"
+                style="background:linear-gradient(135deg,#7c3aed,#5b21b6);padding:9px 18px;font-size:12px;box-shadow:0 2px 8px rgba(124,58,237,0.3);">
+                <i class="fa-solid fa-paper-plane"></i> Send Now
+              </button>
+            </div>
+            <div id="ea_admin_summary_result" style="margin-top:10px;font-size:12px;display:none;"></div>
+            <div style="margin-top:8px;font-size:11px;color:#7c3aed;">
+              Uncheck "Attach PDF" to send email-only — useful if you want to isolate whether a problem is the PDF step or the email step.
+            </div>
+          </div>
+
+
+          <!-- Test Birthday Email -->
+          <div style="margin-top:16px;background:linear-gradient(135deg,#fff0f6,#fce7f3);border:1px solid #fbcfe8;border-radius:10px;padding:16px 20px;">
+            <div style="font-weight:700;color:#9d174d;font-size:13px;margin-bottom:8px;">
+              <i class="fa-solid fa-cake-candles" style="color:#ec4899;margin-right:6px;"></i>Test Birthday Email
+            </div>
+            <div style="font-size:12px;color:#831843;margin-bottom:12px;">Send a preview birthday email to any member regardless of their actual birthday. Useful to verify the email looks correct before enabling the daily trigger.</div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+              <select id="ea_birthday_user" style="padding:8px 12px;border:1px solid #fbcfe8;border-radius:8px;font-size:12px;background:#fff;min-width:200px;flex:1;">
+                <option value="">-- Select a member --</option>
+              </select>
+              <button onclick="triggerTestBirthdayEmail()" style="background:linear-gradient(135deg,#ec4899,#db2777);color:#fff;padding:9px 18px;font-size:12px;border:none;border-radius:8px;cursor:pointer;font-weight:600;box-shadow:0 2px 8px rgba(236,72,153,0.35);flex-shrink:0;">
+                <i class="fa-solid fa-paper-plane"></i> Send Test
+              </button>
+            </div>
+            <div id="ea_birthday_result" style="margin-top:10px;font-size:12px;display:none;padding:10px 14px;border-radius:8px;border-left:3px solid;"></div>
+          </div>
+        </div>
+      </div>
+      <!-- ══ END EMAIL AUTOMATION PAGE ══ -->

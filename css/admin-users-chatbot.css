@@ -1,0 +1,217 @@
+/* ── PENDING BADGE on sidebar nav item ── */
+.nav-badge {
+  background: #e74c3c;
+  color: #fff;
+  border-radius: 12px;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: auto;
+  min-width: 18px;
+  text-align: center;
+  display: none;
+}
+
+.nav-badge.show {
+  display: inline-block;
+}
+
+/* ── User Status Tabs ── */
+.status-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.status-tab {
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1.5px solid #e8e8e8;
+  color: #666;
+  background: #fff;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-tab:hover {
+  border-color: #0F766E;
+  color: #0F766E;
+}
+
+.status-tab.active {
+  background: #0F766E;
+  color: #fff;
+  border-color: #0F766E;
+}
+
+.status-tab.tab-pending.active {
+  background: #e67e22;
+  border-color: #e67e22;
+}
+
+.status-tab.tab-rejected.active {
+  background: #e74c3c;
+  border-color: #e74c3c;
+}
+
+.status-tab.tab-approved.active {
+  background: #27ae60;
+  border-color: #27ae60;
+}
+
+.tab-ct {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 10px;
+  padding: 0 5px;
+  font-size: 10.5px;
+}
+
+.status-tab:not(.active) .tab-ct {
+  background: #f0f0f0;
+  color: #888;
+}
+
+/* ── Pending user row highlight ── */
+tr.row-pending td {
+  background: #fffbf0 !important;
+}
+
+tr.row-rejected td {
+  background: #fff5f5 !important;
+}
+
+/* ── Chatbot Settings Page ── */
+.cbot-section {
+  margin-bottom: 24px;
+}
+
+.cbot-section h4 {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #334155;
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #f4f6f9;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cbot-section h4 i {
+  color: #0F766E;
+}
+
+.cbot-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+@media(max-width:640px) {
+  .cbot-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cbot-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 5px;
+  display: block;
+}
+
+.cbot-input,
+.cbot-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 9px;
+  font-size: 13px;
+  font-family: "Poppins", sans-serif;
+  color: #334155;
+  background: #fafafa;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.cbot-input:focus,
+.cbot-textarea:focus {
+  border-color: #0F766E;
+  background: #fff;
+}
+
+.cbot-textarea {
+  min-height: 70px;
+  resize: vertical;
+}
+
+.cbot-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.cbot-toggle {
+  position: relative;
+  width: 46px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.cbot-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.cbot-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #ccc;
+  border-radius: 24px;
+  transition: 0.25s;
+}
+
+.cbot-toggle-slider:before {
+  position: absolute;
+  content: "";
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  bottom: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: 0.25s;
+}
+
+.cbot-toggle input:checked+.cbot-toggle-slider {
+  background: #27ae60;
+}
+
+.cbot-toggle input:checked+.cbot-toggle-slider:before {
+  transform: translateX(22px);
+}
+
+.cbot-save-bar {
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  padding: 14px 0 4px;
+  margin-top: 8px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+

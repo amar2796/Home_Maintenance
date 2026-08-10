@@ -1,0 +1,211 @@
+      <div id="chatbotPage" class="page">
+        <div class="card">
+          <h3><i class="fa-solid fa-robot"></i> Chatbot Settings
+            <span style="font-size:11px;font-weight:400;color:#aaa;margin-left:6px;">Controls what the chatbot shows to
+              visitors</span>
+            <button class="btn-sm btn-green" onclick="saveChatbotSettings()" style="margin-left:auto;">
+              <i class="fa-solid fa-floppy-disk"></i> Save All Settings
+            </button>
+          </h3>
+          <div id="cbotMsg" class="msg-box" style="margin-bottom:12px;"></div>
+
+          <!-- Enable/Disable -->
+          <div class="cbot-toggle-row">
+            <label class="cbot-toggle">
+              <input type="checkbox" id="cbot_enabled" checked />
+              <span class="cbot-toggle-slider"></span>
+            </label>
+            <span style="font-size:13.5px;font-weight:600;color:#334155;">Chatbot Enabled</span>
+            <span style="font-size:12px;color:#94a3b8;">(Turn off to hide chatbot from all pages)</span>
+          </div>
+
+          <!-- Welcome Messages -->
+          <div class="cbot-section">
+            <h4><i class="fa-solid fa-hand-wave"></i> Welcome Messages</h4>
+            <div class="cbot-row">
+              <div>
+                <span class="cbot-label">English</span>
+                <textarea class="cbot-textarea" id="cbot_welcome_en"
+                  placeholder="e.g. Hello! How can I help you?"></textarea>
+              </div>
+              <div>
+                <span class="cbot-label">Hindi</span>
+                <textarea class="cbot-textarea" id="cbot_welcome_hi"
+                  placeholder="e.g. नमस्ते! मैं कैसे मदद करूं?"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- Timings -->
+          <div class="cbot-section">
+            <h4><i class="fa-solid fa-clock"></i> Household Schedule</h4>
+            <div class="cbot-row">
+              <div>
+                <span class="cbot-label">English</span>
+                <textarea class="cbot-textarea" id="cbot_timings_en"
+                  placeholder="e.g. Morning: 5 AM – 12 PM&#10;Evening: 4 PM – 9 PM"></textarea>
+              </div>
+              <div>
+                <span class="cbot-label">Hindi</span>
+                <textarea class="cbot-textarea" id="cbot_timings_hi"
+                  placeholder="e.g. सुबह: 5 AM – 12 PM&#10;शाम: 4 PM – 9 PM"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- Location -->
+          <div class="cbot-section">
+            <h4><i class="fa-solid fa-location-dot"></i> Household Location</h4>
+            <div class="cbot-row">
+              <div>
+                <span class="cbot-label">English</span>
+                <input class="cbot-input" id="cbot_location_en" placeholder="Full address in English" />
+              </div>
+              <div>
+                <span class="cbot-label">Hindi</span>
+                <input class="cbot-input" id="cbot_location_hi" placeholder="पूरा पता हिंदी में" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Donation Info -->
+          <div class="cbot-section">
+            <h4><i class="fa-solid fa-hand-holding-heart"></i> Donation Information</h4>
+            <div class="cbot-row">
+              <div>
+                <span class="cbot-label">English</span>
+                <textarea class="cbot-textarea" id="cbot_donate_en" placeholder="How to donate in English"></textarea>
+              </div>
+              <div>
+                <span class="cbot-label">Hindi</span>
+                <textarea class="cbot-textarea" id="cbot_donate_hi" placeholder="दान कैसे करें — हिंदी में"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bank Details -->
+          <div class="cbot-section">
+            <h4><i class="fa-solid fa-building-columns"></i> Bank Details</h4>
+            <div class="cbot-row">
+              <div>
+                <span class="cbot-label">Bank Name</span>
+                <input class="cbot-input" id="cbot_bank_name" placeholder="e.g. State Bank of India" />
+              </div>
+              <div>
+                <span class="cbot-label">Account Number</span>
+                <input class="cbot-input" id="cbot_bank_account" placeholder="Account number" />
+              </div>
+            </div>
+            <div class="cbot-row">
+              <div>
+                <span class="cbot-label">IFSC Code</span>
+                <input class="cbot-input" id="cbot_bank_ifsc" placeholder="e.g. SBIN0001234" />
+              </div>
+              <div>
+                <span class="cbot-label">Branch</span>
+                <input class="cbot-input" id="cbot_bank_branch" placeholder="e.g. Sultanpur Main Branch" />
+              </div>
+            </div>
+          </div>
+
+          <!-- UPI -->
+          <div class="cbot-section">
+            <h4><i class="fa-solid fa-qrcode"></i> UPI / QR Code</h4>
+            <div style="max-width:360px;">
+              <span class="cbot-label">UPI ID (QR will be auto-generated from this)</span>
+              <input class="cbot-input" id="cbot_upi_id" placeholder="e.g. home@upi or 9876543210@paytm" />
+            </div>
+            <p style="font-size:11.5px;color:#94a3b8;margin:8px 0 0;">
+              <i class="fa-solid fa-info-circle" style="color:#0F766E;"></i>
+              Visitors will see a scannable QR code in the chatbot generated from this UPI ID.
+            </p>
+          </div>
+
+          <!-- Contact -->
+          <div class="cbot-section">
+            <h4><i class="fa-solid fa-address-book"></i> Contact Details</h4>
+            <div class="cbot-row">
+              <div>
+                <span class="cbot-label">Phone Number</span>
+                <input class="cbot-input" id="cbot_contact_phone" placeholder="e.g. +91-8127991402" />
+              </div>
+              <div>
+                <span class="cbot-label">Email</span>
+                <input class="cbot-input" id="cbot_contact_email" placeholder="Household email address" />
+              </div>
+            </div>
+            <div style="max-width:360px;">
+              <span class="cbot-label">WhatsApp Number (optional)</span>
+              <input class="cbot-input" id="cbot_contact_whatsapp" placeholder="e.g. +91-9876543210" />
+            </div>
+          </div>
+
+          <!-- Custom Q&A -->
+          <div class="cbot-section">
+            <h4><i class="fa-solid fa-circle-question"></i> Custom Questions (optional)</h4>
+            <p style="font-size:12px;color:#94a3b8;margin:0 0 14px;">Add up to 2 custom Q&amp;A pairs that appear as
+              chatbot options.</p>
+            <div
+              style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin-bottom:14px;">
+              <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:10px;">Custom Q&amp;A #1</div>
+              <div class="cbot-row">
+                <div>
+                  <span class="cbot-label">Question (English button label)</span>
+                  <input class="cbot-input" id="cbot_custom_q1_en" placeholder="e.g. Upcoming Events" />
+                </div>
+                <div>
+                  <span class="cbot-label">Question (Hindi button label)</span>
+                  <input class="cbot-input" id="cbot_custom_q1_hi" placeholder="e.g. आगामी कार्यक्रम" />
+                </div>
+              </div>
+              <div class="cbot-row">
+                <div>
+                  <span class="cbot-label">Answer (English)</span>
+                  <textarea class="cbot-textarea" id="cbot_custom_a1_en" placeholder="Answer in English..."
+                    style="min-height:56px;"></textarea>
+                </div>
+                <div>
+                  <span class="cbot-label">Answer (Hindi)</span>
+                  <textarea class="cbot-textarea" id="cbot_custom_a1_hi" placeholder="हिंदी में उत्तर..."
+                    style="min-height:56px;"></textarea>
+                </div>
+              </div>
+            </div>
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+              <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:10px;">Custom Q&amp;A #2</div>
+              <div class="cbot-row">
+                <div>
+                  <span class="cbot-label">Question (English)</span>
+                  <input class="cbot-input" id="cbot_custom_q2_en" placeholder="e.g. Household History" />
+                </div>
+                <div>
+                  <span class="cbot-label">Question (Hindi)</span>
+                  <input class="cbot-input" id="cbot_custom_q2_hi" placeholder="e.g. घर का इतिहास" />
+                </div>
+              </div>
+              <div class="cbot-row">
+                <div>
+                  <span class="cbot-label">Answer (English)</span>
+                  <textarea class="cbot-textarea" id="cbot_custom_a2_en" placeholder="Answer in English..."
+                    style="min-height:56px;"></textarea>
+                </div>
+                <div>
+                  <span class="cbot-label">Answer (Hindi)</span>
+                  <textarea class="cbot-textarea" id="cbot_custom_a2_hi" placeholder="हिंदी में उत्तर..."
+                    style="min-height:56px;"></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="cbot-save-bar">
+            <button class="btn-green" onclick="saveChatbotSettings()">
+              <i class="fa-solid fa-floppy-disk"></i> Save All Settings
+            </button>
+            <button onclick="loadChatbotSettings()" style="background:#64748b;box-shadow:none;">
+              <i class="fa-solid fa-rotate-right"></i> Reload
+            </button>
+          </div>
+        </div>
+      </div>
+      <!-- HEALTH CHECK PAGE (H14) -->

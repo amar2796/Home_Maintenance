@@ -1,0 +1,486 @@
+/* ╔══════════════════════════════════════════════════════╗
+   ║  MOBILE — 768 px and below                          ║
+   ╚══════════════════════════════════════════════════════╝ */
+
+/* ── M1. HEADER: tighter padding, smaller icons so nothing crowds ── */
+@media (max-width: 768px) {
+  .header {
+    padding: 7px 10px;
+    gap: 6px;
+  }
+  #adminAvatar {
+    width: 34px !important;
+    height: 34px !important;
+  }
+  #darkModeBtn,
+  #hc_hdr_wrap button {
+    width: 30px !important;
+    height: 30px !important;
+    font-size: 13px !important;
+  }
+  #welcomeUser {
+    max-width: 150px !important;
+    font-size: 0.85rem !important;
+  }
+
+  /* ── M1b. Page padding: add safe bottom padding for phones ── */
+  .page {
+    padding: 10px 10px 28px;
+  }
+
+  /* ── M1c. Card: tighten padding on mobile ── */
+  .card {
+    padding: 14px 13px;
+    margin-bottom: 12px;
+  }
+
+  /* ── M1d. Viewing period bar: let the clock wrap to its own row ── */
+  #home > div:first-child > div:first-child {
+    gap: 6px !important;
+  }
+  #hm_live_clock {
+    font-size: 11px !important;
+  }
+}
+
+/* ── M2. HOME PAGE (≤ 600px) ── */
+@media (max-width: 600px) {
+
+  /* KPI 4-card row → 2×2 grid */
+  #home [style*="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))"],
+  #home [style*="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr))"] {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+  #kpi_monthC, #kpi_walkinC, #kpi_monthE, #kpi_pending {
+    font-size: 1.15rem !important;
+  }
+
+  /* Year balance mini-stats grid: already auto-fit, let it go 2-col */
+  #home [style*="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))"],
+  #home [style*="grid-template-columns: repeat(auto-fit, minmax(130px,1fr))"] {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  /* Member-status tabs: smaller, wrap cleanly */
+  #hm_member_tabs {
+    flex-wrap: wrap !important;
+    gap: 5px !important;
+  }
+  #hm_member_tabs button {
+    font-size: 10px !important;
+    padding: 3px 10px !important;
+  }
+
+  /* Lists: trim height so both cards are visible above fold */
+  #hm_member_list,
+  #hm_walkin_list {
+    max-height: 170px !important;
+  }
+
+  /* Bar chart — now a scrollable 12-row month list in its own full-width
+     card (not the old horizontal flex-bar chart), so it needs real room
+     instead of the old chart's compact height. */
+  #hm_bar_chart {
+    max-height: 180px !important;
+  }
+
+  /* Quick Actions buttons */
+  #home .card button[onclick*="_quickNav"],
+  #home .card button[onclick*="openDashboard"] {
+    padding: 8px 10px !important;
+    font-size: 11px !important;
+  }
+
+  /* Backup-status row: let it wrap on the smallest screens instead of
+     squeezing the date text and "Back up now" button onto one line */
+  #hm_backup_row {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  /* Pending-₹-estimate line: smaller font so a longer estimate doesn't wrap
+     to 2-3 lines and stretch this KPI card taller than its row siblings */
+  #kpi_pending_amt {
+    font-size: 10px !important;
+  }
+
+  /* Home 2-col section → 1-col */
+  #home [style*="grid-template-columns:1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+}
+
+/* ── M3. DASHBOARD / FINANCIAL TRACKER (≤ 768px) ── */
+@media (max-width: 768px) {
+  /* Dashboard tab pills: allow wrapping */
+  #dash-tracker-hdr > div:first-child {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+}
+@media (max-width: 600px) {
+  /* Backup topbar: icon box hidden to save row space */
+  #localDownloadBanner > div:first-child {
+    display: none !important;
+  }
+  /* Stat summary cards → 2-col */
+  #dashboardPage .ct-sum6,
+  #dash_panel_expense .ct-sum6 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  /* Amount range filter inputs stacked */
+  .ct-amt-range {
+    flex-direction: column !important;
+    gap: 4px !important;
+  }
+  .ct-amt-range span { display: none; }
+  .ct-amt-range input { width: 100% !important; }
+}
+
+/* ── M4. SLIDE PANEL — bottom sheet on mobile ── */
+@media (max-width: 640px) {
+  /* Drag handle hint */
+  .sp-panel::before {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 4px;
+    background: rgba(0,0,0,0.14);
+    border-radius: 3px;
+    margin: 10px auto 0;
+    flex-shrink: 0;
+  }
+  body.dark-mode .sp-panel::before {
+    background: rgba(255,255,255,0.12);
+  }
+  .sp-panel-header {
+    padding: 10px 16px 12px !important;
+  }
+  .sp-panel-body {
+    padding: 14px 14px !important;
+  }
+  /* Action bar buttons → 2-col grid */
+  .sp-action-btns {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    width: 100%;
+  }
+  .sp-action-btn {
+    justify-content: center !important;
+    font-size: 12px !important;
+    padding: 8px 10px !important;
+  }
+  /* Save / Cancel stacked full-width */
+  .sp-actions {
+    flex-direction: column !important;
+  }
+  .sp-cancel-btn {
+    width: 100% !important;
+    text-align: center;
+  }
+  /* Panel footer same */
+  .sp-panel-footer {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  .sp-panel-footer .sp-cancel-btn {
+    min-width: unset !important;
+    width: 100% !important;
+  }
+}
+
+/* ── M5. ACTION BAR (≤ 480px) ── */
+@media (max-width: 480px) {
+  .sp-action-bar {
+    padding: 12px 13px !important;
+    gap: 10px !important;
+  }
+  .sp-action-bar-title {
+    font-size: 13px !important;
+  }
+}
+
+/* ── M6. USERS PAGE: status tabs — horizontal scroll on narrow phones ── */
+@media (max-width: 560px) {
+  .status-tabs {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-bottom: 4px !important;
+    gap: 5px !important;
+    /* hide scrollbar but keep scroll */
+    scrollbar-width: none;
+  }
+  .status-tabs::-webkit-scrollbar { display: none; }
+  .status-tab {
+    flex-shrink: 0 !important;
+    padding: 5px 12px !important;
+    font-size: 11.5px !important;
+  }
+  /* Users card header: stack title and tabs */
+  #usersPage .card h3 {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+  #usersPage .card h3 .status-tabs {
+    margin-left: 0 !important;
+    width: 100%;
+  }
+}
+
+/* ── M7. TABLES: compact on small screens ── */
+@media (max-width: 600px) {
+  th, td {
+    padding: 8px 9px !important;
+    font-size: 12px !important;
+  }
+  thead th {
+    font-size: 11px !important;
+  }
+  .action-btns {
+    gap: 4px !important;
+  }
+  .btn-sm {
+    padding: 4px 8px !important;
+    font-size: 11px !important;
+  }
+}
+
+/* ── M8. EVENTS PAGE: stat grid → 2-col, smaller cards ── */
+@media (max-width: 560px) {
+  .ev-card {
+    padding: 13px !important;
+  }
+  .ev-card-header {
+    gap: 8px !important;
+  }
+  .ev-card-title {
+    font-size: 13px !important;
+  }
+  .ev-card-body {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+  .ev-stat-val {
+    font-size: 1rem !important;
+  }
+  .ev-card-footer {
+    gap: 6px !important;
+  }
+  .ev-card-footer button {
+    font-size: 11px !important;
+    padding: 6px 10px !important;
+  }
+}
+
+/* ── M9. YEAR SUMMARY: 2-col cards, smaller amounts ── */
+@media (max-width: 600px) {
+  #yearSummaryPage .grid-layout {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .card-box h2 {
+    font-size: 1.45rem !important;
+  }
+  .card-box h4 {
+    font-size: 0.85rem !important;
+  }
+}
+
+/* ── M10. GOALS PAGE: single column ── */
+@media (max-width: 560px) {
+  #goalsPage .grid-layout {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── M11. CHATBOT PAGE: save bar stacks ── */
+@media (max-width: 480px) {
+  .cbot-section {
+    margin-bottom: 16px !important;
+  }
+  .cbot-save-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .cbot-save-bar button {
+    width: 100% !important;
+  }
+}
+
+/* ── M12. PAGINATION: compact buttons ── */
+@media (max-width: 480px) {
+  .pagination-bar {
+    gap: 4px !important;
+  }
+  .pg-btn {
+    padding: 4px 9px !important;
+    font-size: 11px !important;
+    min-width: 32px;
+  }
+  .pg-info {
+    width: 100% !important;
+    text-align: center !important;
+    font-size: 11px !important;
+  }
+}
+
+/* ── M13. ANNOUNCEMENT PREVIEW BAR: wrap gracefully ── */
+@media (max-width: 560px) {
+  .ann-preview-bar {
+    flex-wrap: wrap !important;
+    font-size: 12px !important;
+    padding: 10px 12px !important;
+    gap: 8px !important;
+  }
+}
+
+/* ── M14. MASTER DATA PAGE: full-width cards ── */
+@media (max-width: 600px) {
+  #masterPage .grid-layout {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── M15. ADMIN HEADER DROPDOWN: no right overflow on 375px phones ── */
+@media (max-width: 420px) {
+  .adm-hdr-dropdown {
+    right: 0 !important;
+    min-width: 188px !important;
+    max-width: calc(100vw - 16px) !important;
+  }
+}
+
+/* ── M16. FILTER ROWS: single column on narrow phones ── */
+@media (max-width: 480px) {
+  .filter-row {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+  .ct-pf-sel, .ct-pf-inp {
+    font-size: 12px !important;
+    padding: 5px 8px !important;
+  }
+  /* Power filter g5 & g6 → 2-col (already done at 600px above,
+     keep here for specificity on very narrow) */
+  .ct-pf-g5,
+  .ct-pf-g6 {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+/* ── M17. CONTRIBUTION SUMMARY CARDS: 1-col on very small ── */
+@media (max-width: 380px) {
+  .ct-sum6,
+  #dashboardPage .ct-sum6,
+  #dash_panel_expense .ct-sum6 {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .ct-scard .sc-val {
+    font-size: 13px !important;
+  }
+}
+
+/* ── M18. SESSION / OFFLINE BANNERS: readable on small screens ── */
+@media (max-width: 480px) {
+  #_offlineBanner,
+  #_sessionExpiryBanner {
+    font-size: 11px !important;
+    padding: 6px 10px !important;
+    gap: 6px !important;
+  }
+}
+
+/* ── M19. CARD HEADERS: prevent icon+title overflowing ── */
+@media (max-width: 480px) {
+  .card h3 {
+    font-size: 0.87rem !important;
+    gap: 6px !important;
+    flex-wrap: wrap !important;
+  }
+}
+
+/* ── M20. LOADING ERROR CARD: fits 375px screens cleanly ── */
+@media (max-width: 400px) {
+  .alo-err-card {
+    width: 94vw !important;
+    border-radius: 18px !important;
+  }
+  .alo-err-header {
+    padding: 14px 14px 12px !important;
+  }
+  .alo-err-body {
+    padding: 12px 14px 14px !important;
+    gap: 9px !important;
+  }
+}
+
+/* ── M21. CONTRIBUTION / EXPENSE PAGE header in card: CSV button full-width ── */
+@media (max-width: 480px) {
+  #contributionPage .card h3,
+  #expensePage .card h3 {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+  #contributionPage .card h3 > button,
+  #expensePage .card h3 > button {
+    align-self: stretch !important;
+    justify-content: center !important;
+    width: 100% !important;
+  }
+}
+
+/* ── M22. VIEWING PERIOD HEADER (home): year dropdown always visible ── */
+@media (max-width: 420px) {
+  #hm_period_label {
+    font-size: 11px !important;
+    padding: 3px 10px !important;
+  }
+  #hm_year_display {
+    font-size: 12px !important;
+  }
+}
+
+/* ── M23. SIDEBAR SUMMARY PANEL: hide on mobile (sidebar already off-screen) ── */
+/* No change needed — sidebar hides via fixed positioning. Verified OK. */
+
+/* ── M24. GOALS FORM: single column inputs on phones ── */
+@media (max-width: 560px) {
+  #goalsPage .form-row {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+}
+
+/* ── M25. TRACKER PAGE: reduce summary badge min-width for very small ── */
+@media (max-width: 380px) {
+  #tr_summary > div {
+    min-width: 84px !important;
+  }
+}
+
+/* ── M26. GALLERY CROP MODAL: full-width on small phones ── */
+@media (max-width: 480px) {
+  #glryCropBox {
+    width: 100vw !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+  }
+  #glryCropRatioBar {
+    gap: 5px !important;
+    padding: 8px 12px !important;
+  }
+  .gcr-ratio-btn {
+    padding: 4px 10px !important;
+    font-size: 11px !important;
+  }
+  #glryCropFooter {
+    padding: 10px 14px !important;
+    gap: 8px !important;
+  }
+}

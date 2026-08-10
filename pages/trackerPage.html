@@ -1,0 +1,186 @@
+<!-- CONTRIBUTION TRACKER PAGE - v5 (restyled: classes instead of inline
+     styles, dark mode, mobile-responsive). All #ids, onclick handlers,
+     and structural elements your admin-tracker.js relies on are
+     unchanged from the fixed v4 markup — only the styling moved into
+     admin-tracker-v5.css. -->
+<!-- This replaces: pages/trackerPage.html -->
+
+<div id="trackerPage" class="page">
+  <div class="card">
+
+    <div class="tr-header-row">
+      <h3><i class="fa-solid fa-chart-pie" style="color:var(--tr-accent);"></i> Contribution Tracker</h3>
+    </div>
+
+    <!-- GLOBAL FILTERS -->
+    <div class="tr-filters">
+      <div class="tr-filters-grid">
+        <div class="tr-field">
+          <label class="tr-field-label"><span class="tr-field-icon">📅</span>Month</label>
+          <select id="tr_month_select_global" onchange="applyGlobalTrackerFilters()" class="tr-select">
+            <option value="">All</option>
+            <option value="01">January</option>
+            <option value="02">February</option>
+            <option value="03">March</option>
+            <option value="04">April</option>
+            <option value="05">May</option>
+            <option value="06">June</option>
+            <option value="07">July</option>
+            <option value="08">August</option>
+            <option value="09">September</option>
+            <option value="10">October</option>
+            <option value="11">November</option>
+            <option value="12">December</option>
+          </select>
+        </div>
+        <div class="tr-field">
+          <label class="tr-field-label"><span class="tr-field-icon">🏷️</span>Type</label>
+          <select id="tr_type_filter" onchange="applyGlobalTrackerFilters()" class="tr-select">
+            <option value="">All</option>
+          </select>
+        </div>
+        <div class="tr-field">
+          <label class="tr-field-label"><span class="tr-field-icon">📆</span>Year</label>
+          <select id="tr_year_filter" onchange="applyGlobalTrackerFilters()" class="tr-select"></select>
+        </div>
+        <div class="tr-field tr-field-toggle">
+          <label class="tr-field-label">&nbsp;</label>
+          <label class="tr-toggle-label" for="tr_hide_inactive_filter">
+            <span class="tr-toggle-switch">
+              <input type="checkbox" id="tr_hide_inactive_filter" onchange="applyGlobalTrackerFilters()"/>
+              <span class="tr-toggle-track"><span class="tr-toggle-thumb"></span></span>
+            </span>
+            <span>Hide Inactive</span>
+          </label>
+        </div>
+      </div>
+      <button onclick="resetTrackerGlobalFilters()" class="tr-reset-btn" title="Reset filters" aria-label="Reset filters">
+        <span class="tr-reset-icon">↺</span><span class="tr-reset-text">Reset</span>
+      </button>
+    </div>
+
+    <!-- TABS -->
+    <div class="tr-tabs-bar">
+      <button class="tracker-tab-btn active" onclick="switchTrackerTab('overview', this)"><span class="tr-tab-icon">📊</span>Overview</button>
+      <button class="tracker-tab-btn" onclick="switchTrackerTab('analytics', this)"><span class="tr-tab-icon">📈</span>Analytics</button>
+      <button class="tracker-tab-btn" onclick="switchTrackerTab('email', this)"><span class="tr-tab-icon">📧</span>Email</button>
+      <button class="tracker-tab-btn" onclick="switchTrackerTab('calendar', this)"><span class="tr-tab-icon">📅</span>Calendar</button>
+      <button class="tracker-tab-btn" onclick="switchTrackerTab('leaderboard', this)"><span class="tr-tab-icon">🏆</span>Leaders</button>
+      <button class="tracker-tab-btn" onclick="switchTrackerTab('predictions', this)"><span class="tr-tab-icon">🤖</span>Predict</button>
+    </div>
+
+    <!-- TAB 1: OVERVIEW -->
+    <div id="tracker-tab-overview" style="display:block;">
+
+      <div class="tr-lists-row">
+        <div class="tr-panel">
+          <div class="tr-panel-head">
+            <h4><span class="tr-dot tr-dot-success"></span>Paid Members</h4>
+          </div>
+          <div id="tr_paid_list"></div>
+        </div>
+
+        <div class="tr-panel">
+          <div class="tr-panel-head">
+            <h4><span class="tr-dot tr-dot-danger"></span>Pending Members</h4>
+          </div>
+          <div id="tr_pending_list"></div>
+        </div>
+      </div>
+
+      <div class="tr-panel">
+        <h4 style="margin-bottom:12px;">Year Overview</h4>
+        <div class="tr-stats-grid">
+          <div class="tr-stat-card tr-stat-success">
+            <div class="tr-stat-label">Total Members</div>
+            <div class="tr-stat-value" id="tr_total_members">0</div>
+          </div>
+          <div class="tr-stat-card tr-stat-danger">
+            <div class="tr-stat-label">Pending</div>
+            <div class="tr-stat-value" id="tr_pending_count">0</div>
+          </div>
+          <div class="tr-stat-card tr-stat-warning">
+            <div class="tr-stat-label">Collection %</div>
+            <div class="tr-stat-value" id="tr_collection_rate">0%</div>
+          </div>
+          <div class="tr-stat-card tr-stat-info">
+            <div class="tr-stat-label">Inactive</div>
+            <div class="tr-stat-value" id="tr_inactive_count">0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tr-panel-plain">
+        <div class="tr-panel-plain-head">
+          <h4>Member Ledger</h4>
+        </div>
+        <div id="tr_grid_table"></div>
+      </div>
+    </div>
+
+    <!-- TAB 2: ANALYTICS -->
+    <div id="tracker-tab-analytics" style="display:none;">
+      <div id="tracker_analytics_content" class="text-center text-muted" style="padding:16px;">
+        📈 Analytics - showing contribution trends
+      </div>
+    </div>
+
+    <!-- TAB 3: EMAIL — User-Wise send only (Bulk Send / Template Editor removed:
+         Bulk Send had no working backend for "All Paid"/"All", and the Template
+         Editor only edited a local JS object the send functions never read from) -->
+    <div id="tracker-tab-email" style="display:none;">
+      <div class="tr-email-panel">
+        <h4 style="margin-bottom:16px;">👤 Send to Members</h4>
+
+        <div class="tr-panel" style="margin-bottom:16px;">
+          <div class="tr-email-sub">Select Members (Receipt for Paid, Reminder for Pending — sent automatically per member)</div>
+          <div id="tr_individual_members_list"></div>
+        </div>
+
+        <div class="tr-actions-row">
+          <button onclick="sendTrackerIndividualEmails()" class="tr-btn tr-btn-primary">📧 Send Selected</button>
+          <button onclick="clearTrackerIndividualSelection()" class="tr-btn tr-btn-secondary">Clear All</button>
+        </div>
+
+        <div id="tr_individual_status" style="display:none;" class="tr-status-box">
+          <div class="tr-status-box-title">✓ Emails Sent</div>
+          <div id="tr_individual_status_detail" class="tr-status-box-detail"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Send confirmation dialog — reuses the .modal/.modal-content/.modal-close
+         classes already in admin-tracker-v5.css instead of the browser's native
+         confirm() popup. Controlled by _trShowConfirm()/_trCloseConfirmModal()
+         in admin-tracker.js. -->
+    <div id="tr_confirm_modal" class="modal" onclick="if(event.target===this) _trCloseConfirmModal(false)">
+      <div class="modal-content" style="max-width:360px;">
+        <span class="modal-close" onclick="_trCloseConfirmModal(false)">&times;</span>
+        <div style="text-align:center;padding:6px 4px 2px;">
+          <div style="font-size:30px;margin-bottom:8px;">📧</div>
+          <div id="tr_confirm_modal_message" style="font-size:13px;line-height:1.6;margin-bottom:22px;color:var(--tr-text);"></div>
+          <div class="tr-actions-row">
+            <button onclick="_trCloseConfirmModal(true)" class="tr-btn tr-btn-primary">Send</button>
+            <button onclick="_trCloseConfirmModal(false)" class="tr-btn tr-btn-secondary">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: CALENDAR -->
+    <div id="tracker-tab-calendar" style="display:none;">
+      <div id="tracker_calendar_content"></div>
+    </div>
+
+    <!-- TAB 5: LEADERBOARD -->
+    <div id="tracker-tab-leaderboard" style="display:none;">
+      <div id="tracker_leaderboard_content"></div>
+    </div>
+
+    <!-- TAB 6: PREDICTIONS -->
+    <div id="tracker-tab-predictions" style="display:none;">
+      <div id="tracker_predictions_content"></div>
+    </div>
+
+  </div>
+</div>

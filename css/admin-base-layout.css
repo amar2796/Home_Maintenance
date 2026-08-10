@@ -1,0 +1,354 @@
+* {
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+body {
+  margin: 0;
+  font-family: "Poppins", sans-serif;
+  background: #f4f6f9;
+  color: #333;
+}
+
+.layout {
+  display: flex;
+  min-height: 100vh;
+  align-items: flex-start;
+}
+
+.sidebar {
+  width: 245px;
+  background: linear-gradient(180deg, #1e293b 0%, #253347 100%);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 3px 0 18px rgba(0, 0, 0, 0.18);
+  z-index: 1000;
+  transition: left 0.3s ease;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+  /* FIX #4: Sticky sidebar — always stays in view on desktop */
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  flex-shrink: 0;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+}
+
+.sidebar h2 {
+  text-align: center;
+  color: #0F766E;
+  margin: 25px 0;
+  font-weight: 700;
+  font-size: 1.5rem;
+}
+
+.sidebar ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar li {
+  padding: 10px 20px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 400;
+  font-size: 13px;
+}
+
+.sidebar li:hover,
+.sidebar li.active-nav {
+  background: #0F766E;
+  color: white;
+  padding-left: 30px;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 100vh;
+}
+
+.header {
+  background: white;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  flex-wrap: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  border-bottom: 2px solid #0F766E22;
+}
+
+/* FIX #4: hdr-hidden removed — header always sticky */
+.header h3 {
+  margin: 0;
+  color: #946c44;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+button {
+  padding: 10px 20px;
+  background: #0F766E;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease, filter 0.15s ease;
+  box-shadow: 0 4px 10px rgba(15, 118, 110, 0.3);
+}
+
+/* Universal hover feedback — filter-based so it works no matter how the
+   button's color was set (CSS class or inline style="background:..."). An
+   inline background always wins the cascade over a background set here, so a
+   plain background swap on :hover is invisible on most buttons in this app;
+   brightness/lift are separate properties and always show through. */
+button:hover:not(:disabled):not(.btn-loading) {
+  filter: brightness(1.08);
+  transform: translateY(-2px);
+}
+
+button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 12px;
+  margin: 0;
+  box-shadow: none;
+}
+
+.btn-danger {
+  background: #e74c3c;
+  box-shadow: 0 4px 10px rgba(231, 76, 60, 0.3);
+}
+
+.btn-danger:hover {
+  background: #c0392b;
+}
+
+.btn-info {
+  background: #2980b9;
+  box-shadow: none;
+}
+
+.btn-info:hover {
+  background: #1a6fa0;
+}
+
+/* ── Admin Avatar Dropdown ── */
+.adm-hdr-dropdown {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 50px;
+  background: #fff;
+  border-radius: 14px;
+  min-width: 200px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.16);
+  border: 1px solid rgba(0,0,0,0.07);
+  z-index: 999;
+  overflow: hidden;
+  animation: admDropFade .18s ease;
+}
+@keyframes admDropFade {
+  from { opacity:0; transform:translateY(-5px) scale(.98); }
+  to   { opacity:1; transform:translateY(0) scale(1); }
+}
+.adm-hdr-dropdown.open { display: block; }
+.adm-drop-head {
+  background: linear-gradient(135deg, #141b2d 0%, #2a0f00 60%, #3c1a00 100%);
+  padding: 13px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 2px solid rgba(15, 118, 110,0.5);
+}
+.adm-drop-head img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid #0F766E;
+  object-fit: cover;
+  background: #faeeda;
+  flex-shrink: 0;
+}
+.adm-drop-head-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+.adm-drop-head-sub {
+  font-size: 10px;
+  color: #94a3b8;
+  margin-top: 1px;
+}
+.adm-drop-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  transition: background .15s;
+  border-bottom: 1px solid #f4f5f8;
+}
+.adm-drop-item:last-child { border-bottom: none; }
+.adm-drop-item:hover { background: #fdf8f0; color: #0F766E; }
+.adm-drop-item i { width: 16px; text-align: center; color: #0F766E; font-size: 13px; }
+.adm-drop-item.danger { color: #e74c3c; }
+.adm-drop-item.danger i { color: #e74c3c; }
+.adm-drop-item.danger:hover { background: #fff5f5; color: #e74c3c; }
+
+.adm-notif-dropdown { min-width: 340px; max-width: calc(100vw - 32px); }
+@media (max-width: 480px) {
+  .adm-notif-dropdown { min-width: calc(100vw - 32px); }
+}
+.adm-notif-list { max-height: 380px; overflow-y: auto; }
+.adm-notif-item {
+  display: flex;
+  gap: 10px;
+  padding: 11px 16px;
+  border-bottom: 1px solid #f4f5f8;
+  position: relative;
+}
+.adm-notif-item:last-child { border-bottom: none; }
+.adm-notif-item.unread { background: #F0FDFA; }
+.adm-notif-icon { font-size: 1rem; flex-shrink: 0; line-height: 1.4; }
+.adm-notif-body { min-width: 0; flex: 1; }
+.adm-notif-title { font-size: 12.5px; font-weight: 700; color: #1e293b; margin-bottom: 2px; }
+.adm-notif-title.error { color: #dc2626; }
+.adm-notif-msg {
+  font-size: 11.5px;
+  color: #64748b;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.adm-notif-meta { font-size: 10px; color: #aaa; margin-top: 3px; }
+.adm-notif-clear-all {
+  border: none;
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.adm-notif-clear-all:hover { background: rgba(255,255,255,0.22); }
+.adm-notif-item-close {
+  border: none;
+  background: none;
+  color: #cbd5e1;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+.adm-notif-item-close:hover { color: #475569; }
+.adm-notif-empty { padding: 26px 16px; text-align: center; font-size: 12.5px; color: #aaa; }
+
+.btn-green {
+  background: #27ae60;
+  box-shadow: none;
+}
+
+.btn-green:hover {
+  background: #1e8449;
+}
+
+.btn-secondary {
+  background: #334155;
+}
+
+.btn-secondary:hover {
+  background: #1e293b;
+}
+
+.page {
+  display: none;
+  padding: 20px;
+  opacity: 0;
+}
+
+.page.active {
+  display: block;
+  animation: fadeIn 0.18s ease forwards;
+}
+
+.page.page-exit {
+  display: block;
+  animation: fadeOut 0.12s ease forwards;
+  pointer-events: none;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-4px); }
+}
+
+.grid-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.card {
+  background: white;
+  padding: 22px;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+  border-top: 4px solid #0F766E;
+  margin-bottom: 20px;
+  transition: box-shadow 0.25s ease;
+  min-width: 0; /* FIX: without this, a .card used as a grid/flex item refuses to
+                   shrink below its content's natural width (e.g. a non-wrapping
+                   h3 title + badge), forcing it wider than its column/track and
+                   causing the whole page to scroll horizontally on narrow screens. */
+}
+

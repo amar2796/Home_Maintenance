@@ -1,0 +1,62 @@
+/* ════════════════════════════════════════════════════════════════════════
+   FINAL UI POLISH — Desktop + Mobile
+   • All structural rules inside @media blocks (mobile only)
+   • Desktop improvements are non-breaking additions (hover, spacing, etc.)
+   • Zero logic / feature changes
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ╔══════════════════════════════════════════════════════╗
+   ║  DESKTOP IMPROVEMENTS (all screen sizes)            ║
+   ╚══════════════════════════════════════════════════════╝ */
+
+/* ── D1. Page content: give the main area a comfortable max-width on very
+        wide monitors so text lines don't stretch to 1800px ── */
+.page {
+  max-width: 1600px;
+}
+
+/* ── D2. Card: sharper hover elevation (non-breaking, just feels better) ── */
+.card:hover {
+  box-shadow: 0 14px 32px rgba(0,0,0,0.09);
+  transform: translateY(-1px);
+}
+
+/* ── D3. card-box number: use tabular numerals so amounts don't jitter ── */
+.card-box h2 {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── D4. Sidebar: tighten the nav item gap slightly for tall monitors ── */
+.sidebar li {
+  padding: 9px 20px;
+}
+.sidebar li:hover:not(.active-nav):not(.nav-section-label),
+.sidebar li.active-nav {
+  padding-left: 28px;
+}
+
+/* ── D5. Contribution tracker table: fix the min-width so no blank gap on
+        desktop when few columns are visible ── */
+.ct-tbl {
+  min-width: 700px;
+}
+
+/* ── D6. Admin avatar: subtle scale on hover (desktop only, no touch lag) ── */
+@media (hover: hover) {
+  #adminAvatar:hover {
+    transform: scale(1.08);
+    box-shadow: 0 4px 14px rgba(15, 118, 110,0.45) !important;
+  }
+}
+
+/* ── D7. Dark-mode card: slightly warmer top border ── */
+body.dark-mode .card {
+  border-top-color: #0F766E !important;
+}
+
+/* ── D8. Viewing-period month pills: ensure consistent pill height ── */
+#hm_month_pills > * {
+  flex-shrink: 0;
+}
+
+

@@ -1,0 +1,44 @@
+      <div id="usersPage" class="page">
+        <!-- Action Bar -->
+        <div class="sp-action-bar">
+          <div class="sp-action-bar-title">
+            <i class="fa-solid fa-users"></i> Users
+          </div>
+          <div class="sp-action-btns">
+            <button class="sp-action-btn sp-btn-indigo" onclick="spOpen('user')">
+              <i class="fa-solid fa-user-plus"></i> Add User
+            </button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>
+            <span><i class="fa-solid fa-users-gear"></i> Manage Users <span style="font-size:11px;font-weight:400;color:#999;">(click row to view · edit via button)</span></span>
+            <div class="status-tabs" id="userStatusTabs" style="margin-left:auto;">
+              <button class="status-tab active" onclick="filterUsers('all',this)"><i class="fa-solid fa-list"></i> All <span class="tab-ct" id="ct_all">0</span></button>
+              <button class="status-tab tab-pending" onclick="filterUsers('pending',this)"><i class="fa-solid fa-clock"></i> Pending <span class="tab-ct" id="ct_pending">0</span></button>
+              <button class="status-tab tab-approved" onclick="filterUsers('active',this)"><i class="fa-solid fa-circle-check"></i> Approved <span class="tab-ct" id="ct_approved">0</span></button>
+              <button class="status-tab tab-rejected" onclick="filterUsers('rejected',this)"><i class="fa-solid fa-circle-xmark"></i> Rejected <span class="tab-ct" id="ct_rejected">0</span></button>
+            </div>
+          </h3>
+          <input class="search-bar" id="userSearchInput" placeholder="🔍 Search by Name or Mobile..."
+            onkeyup="renderUsers()" />
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Photo</th>
+                  <th>Name</th>
+                  <th>Mobile</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="userTable"></tbody>
+            </table>
+          </div>
+          <div id="users_pagination" class="pagination-bar"></div>
+        </div>
+      </div>
+
+      <!-- GOALS -->

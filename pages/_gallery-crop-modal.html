@@ -1,0 +1,49 @@
+
+      <!-- ── GALLERY CROP MODAL (outside page, fixed overlay) ── -->
+      <div id="glryCropOverlay">
+        <div id="glryCropBox">
+          <!-- Header -->
+          <div id="glryCropHeader">
+            <h4><i class="fa-solid fa-crop-simple" style="color:#0F766E;"></i> Crop Photo</h4>
+            <button id="glryCropCloseBtn" onclick="glryCloseCrop()" title="Cancel">✕</button>
+          </div>
+          <!-- Ratio buttons -->
+          <div id="glryCropRatioBar">
+            <span>Aspect:</span>
+            <button class="gcr-ratio-btn active" onclick="glrySetRatio(4,3,this)">4:3</button>
+            <button class="gcr-ratio-btn" onclick="glrySetRatio(3,4,this)">3:4</button>
+            <button class="gcr-ratio-btn" onclick="glrySetRatio(16,9,this)">16:9</button>
+            <button class="gcr-ratio-btn" onclick="glrySetRatio(1,1,this)">1:1</button>
+            <button class="gcr-ratio-btn" onclick="glrySetRatio(3,2,this)">3:2</button>
+          </div>
+          <!-- Canvas + frame -->
+          <div id="glryCropCanvasWrap">
+            <canvas id="glryCropCanvas"></canvas>
+            <!-- SVG darken overlay (4 rects around crop frame) -->
+            <svg id="glryCropDarken" xmlns="http://www.w3.org/2000/svg"></svg>
+            <div id="glryCropFrame">
+              <div class="gcr-corner tl" data-handle="tl"></div>
+              <div class="gcr-corner tr" data-handle="tr"></div>
+              <div class="gcr-corner bl" data-handle="bl"></div>
+              <div class="gcr-corner br" data-handle="br"></div>
+              <div class="gcr-edge t" data-handle="t"></div>
+              <div class="gcr-edge b" data-handle="b"></div>
+              <div class="gcr-edge l" data-handle="l"></div>
+              <div class="gcr-edge r" data-handle="r"></div>
+            </div>
+          </div>
+          <!-- Footer -->
+          <div id="glryCropFooter">
+            <div id="glryCropInfo">Select crop area</div>
+            <button id="glryCropCancelBtn" onclick="glryCloseCrop()">Cancel</button>
+            <button id="glryCropConfirmBtn" onclick="glryConfirmCrop()"><i class="fa-solid fa-check"></i> Crop &amp;
+              Use</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ANNOUNCEMENT PAGE -->
+      <!-- ═════════════════════════════════════════════════════════════════════════
+     TRACKER SECTION - REDESIGNED (Drop-in replacement)
+     Replace lines 1934-2096 in your admin.html with this section
+     ═════════════════════════════════════════════════════════════════════════ -->

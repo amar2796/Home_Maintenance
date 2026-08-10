@@ -1,0 +1,440 @@
+      <div id="dashboardPage" class="page">
+
+        <!-- Ghost elements: JS writes to these; hidden from UI -->
+        <div style="display:none;" aria-hidden="true">
+          <span id="dash_yearTitle"></span><span id="dash_opening"></span>
+          <span id="dash_yearFullC"></span><span id="dash_yearTotalC"></span>
+          <span id="dash_yearTotalE"></span><span id="dash_closing"></span>
+          <span id="dash_grandTotal"></span><span id="dash_filteredCountLabel"></span>
+          <div id="dash_monthlyBarChart"></div>
+          <select id="dash_yearSelect" onchange="dash_applyFilter()"></select>
+          <input id="dash_userSearch" data-debounce="dash_applyFilter" />
+          <input id="dash_trackingSearch" data-debounce="dash_applyFilter" />
+          <input id="dash_startDate" readonly /><input id="dash_endDate" readonly />
+          <tbody id="dash_monthWiseBody"></tbody><tbody id="dash_userWiseBody"></tbody>
+          <tbody id="dash_detailBody"></tbody><div id="dash_txnPagination"></div>
+          <div id="dash_loadingMsg"></div>
+        </div>
+
+        <!-- ── Row 1: Top bar — Backup + Refresh ── -->
+        <div id="dash-topbar" style="margin-bottom:16px;background:#fff;border-radius:12px;padding:10px 14px;box-shadow:0 2px 8px rgba(0,0,0,0.06);border:1px solid #f1f5f9;">
+          <!-- Row A: Backup icon + title + Download button -->
+          <div id="localDownloadBanner" style="display:flex;align-items:center;gap:10px;">
+            <div style="width:32px;height:32px;border-radius:8px;background:#fef3c7;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <i class="fa-solid fa-hard-drive" style="color:#d97706;font-size:14px;"></i>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:12px;font-weight:700;color:#78350f;">Monthly Backup</div>
+              <div id="lastDownloadMsg" style="font-size:11px;color:#92400e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+            </div>
+            <button onclick="downloadLocalBackup()" style="background:#0F766E;box-shadow:none;padding:6px 12px;font-size:11px;font-weight:600;border-radius:7px;white-space:nowrap;flex-shrink:0;">
+              <i class="fa-solid fa-download"></i> Download
+            </button>
+          </div>
+          <!-- Row B: Refresh bar — always on its own line -->
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid #f1f5f9;">
+            <span style="font-size:11px;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;" id="dash_lastLoaded">Loaded at start</span>
+            <button onclick="refreshDashboardData()" style="background:#334155;box-shadow:none;padding:5px 11px;font-size:11px;border-radius:7px;white-space:nowrap;flex-shrink:0;">
+              <i class="fa-solid fa-rotate-right"></i> Refresh
+            </button>
+          </div>
+        </div>
+
+        <!-- ── Row 2: Tracker header + Export ── -->
+        <div id="dash-tracker-hdr" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+          <!-- Left: icon + title -->
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#0F766E,#f59e0b);display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(15, 118, 110,0.35);flex-shrink:0;">
+              <i class="fa-solid fa-chart-line" style="color:#fff;font-size:15px;"></i>
+            </div>
+            <div>
+              <div style="font-size:15px;font-weight:700;color:#1e293b;">Financial Tracker</div>
+              <div style="font-size:11px;color:#94a3b8;margin-top:1px;">Power Filtered — Full Track</div>
+            </div>
+          </div>
+          <!-- Right: Export buttons -->
+          <div id="dash-export-btns" style="display:flex;gap:7px;flex-wrap:wrap;">
+            <button onclick="dash_whatsApp()" style="background:#25d366;box-shadow:none;padding:7px 13px;font-size:11px;font-weight:600;border-radius:8px;display:flex;align-items:center;gap:6px;">
+              <i class="fa-brands fa-whatsapp"></i> WhatsApp
+            </button>
+            <button onclick="dash_email()" style="background:#2980b9;box-shadow:none;padding:7px 13px;font-size:11px;font-weight:600;border-radius:8px;display:flex;align-items:center;gap:6px;">
+              <i class="fa-solid fa-envelope"></i> Email
+            </button>
+            <button onclick="dash_exportPDF()" style="background:#e74c3c;box-shadow:none;padding:7px 13px;font-size:11px;font-weight:600;border-radius:8px;display:flex;align-items:center;gap:6px;">
+              <i class="fa-solid fa-file-pdf"></i> PDF
+            </button>
+          </div>
+        </div>
+
+        <!-- ── Row 2b: Full-width folder-style tab switcher ── -->
+        <div class="dash-tab-folder" id="dash_tab_switch">
+          <button id="dash_tab_contrib" class="dash-tab-btn tab-type-contrib is-active" onclick="dash_switchTab('contrib')">
+            <i class="fa-solid fa-hand-holding-dollar"></i> Contributions
+          </button>
+          <button id="dash_tab_expense" class="dash-tab-btn tab-type-expense" onclick="dash_switchTab('expense')">
+            <i class="fa-solid fa-file-invoice-dollar"></i> Expenses
+          </button>
+        </div>
+
+        <!-- ══ CONTRIBUTION PANEL ══ -->
+        <div id="dash_panel_contrib" class="dash-tab-panel tab-type-contrib">
+          <!-- Section divider -->
+          <div class="ct-sec-divider" style="margin-bottom:14px;">
+            <span></span>
+            <i class="fa-solid fa-hand-holding-dollar" style="color:#22c55e;"></i>
+            Contribution Tracker — Full Track
+            <span></span>
+          </div>
+
+        <!-- Summary strip -->
+        <div class="ct-sum6">
+          <div class="ct-scard sc-g">
+            <div class="sc-lbl">Total Collected</div>
+            <div class="sc-val" id="ct_totalCollected">₹0</div>
+            <div class="sc-sub">Filtered period</div>
+          </div>
+          <div class="ct-scard sc-b">
+            <div class="sc-lbl">Members Paid</div>
+            <div class="sc-val" id="ct_membersPaid">0 / 0</div>
+            <div class="sc-sub" id="ct_membersPaidSub">This month</div>
+          </div>
+          <div class="ct-scard sc-r">
+            <div class="sc-lbl">Pending</div>
+            <div class="sc-val" id="ct_pending">0</div>
+            <div class="sc-sub">Not paid · filtered month</div>
+          </div>
+          <div class="ct-scard sc-t">
+            <div class="sc-lbl">Walk-in Total</div>
+            <div class="sc-val" id="ct_walkinTotal">₹0</div>
+            <div class="sc-sub" id="ct_walkinCount">0 entries</div>
+          </div>
+          <div class="ct-scard sc-a">
+            <div class="sc-lbl">Avg / Member</div>
+            <div class="sc-val" id="ct_avgMember">₹0</div>
+            <div class="sc-sub">Filtered period</div>
+          </div>
+          <div class="ct-scard sc-o">
+            <div class="sc-lbl">Highest Month</div>
+            <div class="sc-val" id="ct_highMonth">—</div>
+            <div class="sc-sub" id="ct_highMonthAmt"></div>
+          </div>
+        </div>
+
+        <!-- Power Filter panel -->
+        <div class="ct-pf-panel">
+          <div class="ct-pf-header">
+            <div class="ct-pf-title">
+              <i class="fa-solid fa-sliders" style="color:#3b82f6;"></i>
+              Power Filters
+              <span style="font-size:10px;font-weight:400;color:#94a3b8;" id="ct_filterCount"></span>
+            </div>
+            <div class="ct-pf-hint">All filters combine together</div>
+          </div>
+
+          <div class="ct-pf-g5">
+            <div>
+              <span class="ct-pf-lbl">Year</span>
+              <select class="ct-pf-sel" id="ct_filterYear" onchange="ct_applyFilter()"></select>
+            </div>
+            <div>
+              <span class="ct-pf-lbl">Month</span>
+              <select class="ct-pf-sel" id="ct_filterMonth" onchange="ct_applyFilter()">
+                <option value="">All Months</option>
+                <option>January</option><option>February</option><option>March</option>
+                <option>April</option><option>May</option><option>June</option>
+                <option>July</option><option>August</option><option>September</option>
+                <option>October</option><option>November</option><option>December</option>
+              </select>
+            </div>
+            <div>
+              <span class="ct-pf-lbl">Member / Name</span>
+              <input class="ct-pf-inp" id="ct_filterName" placeholder="Search name or mobile…" oninput="ct_debounceFilter()" />
+            </div>
+            <div>
+              <span class="ct-pf-lbl">Tracking ID</span>
+              <input class="ct-pf-inp" id="ct_filterTrackID" placeholder="Tracking ID…" oninput="ct_debounceFilter()" />
+            </div>
+            <div>
+              <span class="ct-pf-lbl">Contribution Type</span>
+              <select class="ct-pf-sel" id="ct_filterType" onchange="ct_applyFilter()">
+                <option value="">All Types</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="ct-pf-g6">
+            <div>
+              <span class="ct-pf-lbl">Occasion</span>
+              <select class="ct-pf-sel" id="ct_filterOccasion" onchange="ct_applyFilter()">
+                <option value="">All Occasions</option>
+              </select>
+            </div>
+            <div>
+              <span class="ct-pf-lbl">Member Type</span>
+              <select class="ct-pf-sel" id="ct_filterMemberType" onchange="ct_applyFilter()">
+                <option value="">All</option>
+                <option value="member">Members Only</option>
+                <option value="walkin">Walk-in Only</option>
+              </select>
+            </div>
+            <div>
+              <span class="ct-pf-lbl">Payment Status</span>
+              <select class="ct-pf-sel" id="ct_filterStatus" onchange="ct_applyFilter()">
+                <option value="">All</option>
+                <option value="paid">Paid</option>
+                <option value="pending">Pending</option>
+              </select>
+            </div>
+            <div>
+              <span class="ct-pf-lbl">Amount Range</span>
+              <div class="ct-amt-range">
+                <input class="ct-pf-inp" id="ct_filterAmtMin" placeholder="₹ Min" type="number" min="0" oninput="ct_debounceFilter()" />
+                <span>–</span>
+                <input class="ct-pf-inp" id="ct_filterAmtMax" placeholder="₹ Max" type="number" min="0" oninput="ct_debounceFilter()" />
+              </div>
+            </div>
+            <button onclick="ct_applyFilter()" style="background:#0F766E;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:11px;font-weight:600;cursor:pointer;height:34px;align-self:end;white-space:nowrap;">
+              <i class="fa-solid fa-filter"></i> Filter
+            </button>
+            <button onclick="ct_clearFilter()" style="background:transparent;border:1px solid #cbd5e1;color:#475569;border-radius:8px;padding:8px 12px;font-size:11px;font-weight:600;cursor:pointer;height:34px;align-self:end;white-space:nowrap;">
+              Clear All
+            </button>
+          </div>
+
+          <!-- Active filter tags -->
+          <div class="ct-tags" id="ct_activeTags"></div>
+        </div>
+
+        <!-- View toggle + sort bar -->
+        <div class="ct-view-bar">
+          <div class="ct-vtoggle">
+            <button class="ct-vbtn active" id="ct_vbtn_table" onclick="ct_switchView('table',this)">
+              <i class="fa-solid fa-table-list"></i> Table View
+            </button>
+            <button class="ct-vbtn" id="ct_vbtn_cards" onclick="ct_switchView('cards',this)">
+              <i class="fa-solid fa-id-card"></i> Member Cards
+            </button>
+            <button class="ct-vbtn" id="ct_vbtn_grid" onclick="ct_switchView('grid',this)">
+              <i class="fa-solid fa-calendar-days"></i> Month Grid
+            </button>
+          </div>
+          <div class="ct-sort-row">
+            Sort by:
+            <select class="ct-sort-sel" id="ct_sortBy" onchange="ct_applyFilter()">
+              <option value="date_desc">Date (Newest first)</option>
+              <option value="date_asc">Date (Oldest first)</option>
+              <option value="amount_desc">Amount (High → Low)</option>
+              <option value="amount_asc">Amount (Low → High)</option>
+              <option value="name_asc">Name A → Z</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- TABLE VIEW -->
+        <div class="card ct-view-panel" id="ct_view_table">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
+            <h3 style="margin:0;font-size:13px;">
+              <i class="fa-solid fa-list-check" style="color:#0F766E;"></i>
+              All Contributions — Power Tracker
+              <span style="font-size:11px;font-weight:400;color:#999;">— click row for receipt</span>
+            </h3>
+            <span id="ct_visibleAmt" style="font-size:11px;font-weight:600;color:#15803d;"></span>
+          </div>
+          <div class="ct-tbl-wrap">
+            <table class="ct-tbl">
+              <thead>
+                <tr>
+                  <th onclick="ct_setSort('date_desc','date_asc')" title="Sort by date">Date ↕</th>
+                  <th>Tracking ID</th>
+                  <th onclick="ct_setSort('name_asc','name_desc')" title="Sort by name">Name ↕</th>
+                  <th>Type</th>
+                  <th>Occasion</th>
+                  <th>For Month</th>
+                  <th>Kind</th>
+                  <th onclick="ct_setSort('amount_desc','amount_asc')" title="Sort by amount">Amount ↕</th>
+                  <th title="12-month payment streak">12-Mo Streak</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="ct_tableBody"></tbody>
+            </table>
+          </div>
+          <div class="ct-tbl-footer">
+            <span id="ct_pageInfo"></span>
+            <div class="ct-pg-btns" id="ct_pagination"></div>
+          </div>
+        </div>
+
+        <!-- MEMBER CARDS VIEW (hidden by default) -->
+        <div class="ct-view-panel" id="ct_view_cards" style="display:none;">
+          <div id="ct_cardsBody" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;"></div>
+        </div>
+
+        <!-- MONTH GRID VIEW (hidden by default) -->
+        <div class="ct-view-panel" id="ct_view_grid" style="display:none;">
+          <div class="card">
+            <h3 style="font-size:13px;margin-bottom:12px;">
+              <i class="fa-solid fa-calendar-days" style="color:#0F766E;"></i> Month × Member Payment Grid
+            </h3>
+            <div class="ct-tbl-wrap">
+              <table class="ct-tbl" id="ct_gridTable" style="min-width:600px;"></table>
+            </div>
+          </div>
+        </div>
+
+        </div><!-- end #dash_panel_contrib -->
+
+        <!-- ══ EXPENSE PANEL ══ -->
+        <div id="dash_panel_expense" class="dash-tab-panel tab-type-expense" style="display:none;">
+
+          <div class="ct-sec-divider" style="margin-bottom:14px;">
+            <span></span>
+            <i class="fa-solid fa-file-invoice-dollar" style="color:#ef4444;"></i>
+            Expense Tracker — Power Filtered
+            <span></span>
+          </div>
+
+          <!-- Expense 5 stat cards -->
+          <div class="ct-sum6" style="grid-template-columns:repeat(5,1fr);">
+            <div class="ct-scard sc-r">
+              <div class="sc-lbl">Total Expenses</div>
+              <div class="sc-val" id="et_totalExpense">₹0</div>
+              <div class="sc-sub" id="et_count">0 entries</div>
+            </div>
+            <div class="ct-scard sc-o">
+              <div class="sc-lbl">Avg per Entry</div>
+              <div class="sc-val" id="et_avgExpense">₹0</div>
+              <div class="sc-sub">Filtered period</div>
+            </div>
+            <div class="ct-scard sc-b">
+              <div class="sc-lbl">Highest Month</div>
+              <div class="sc-val" id="et_highMonth">—</div>
+              <div class="sc-sub" id="et_highMonthAmt"></div>
+            </div>
+            <div class="ct-scard sc-t">
+              <div class="sc-lbl">Top Category</div>
+              <div class="sc-val" id="et_topType" style="font-size:12px;">—</div>
+              <div class="sc-sub" id="et_topTypeAmt"></div>
+            </div>
+            <div class="ct-scard sc-a">
+              <div class="sc-lbl">Records</div>
+              <div class="sc-val" id="et_filterCount">0</div>
+              <div class="sc-sub">Matching filters</div>
+            </div>
+          </div>
+
+          <!-- Expense Power Filter panel -->
+          <div class="ct-pf-panel">
+            <div class="ct-pf-header">
+              <div class="ct-pf-title">
+                <i class="fa-solid fa-sliders" style="color:#ef4444;"></i>
+                Power Filters
+                <span style="font-size:10px;font-weight:400;color:#94a3b8;" id="et_filterCount2"></span>
+              </div>
+              <div class="ct-pf-hint">All filters combine together</div>
+            </div>
+            <div class="ct-pf-g5">
+              <div>
+                <span class="ct-pf-lbl">Year</span>
+                <select class="ct-pf-sel" id="et_filterYear"></select>
+              </div>
+              <div>
+                <span class="ct-pf-lbl">Month</span>
+                <select class="ct-pf-sel" id="et_filterMonth" onchange="_et_applyFilter()">
+                  <option value="">All Months</option>
+                  <option>January</option><option>February</option><option>March</option>
+                  <option>April</option><option>May</option><option>June</option>
+                  <option>July</option><option>August</option><option>September</option>
+                  <option>October</option><option>November</option><option>December</option>
+                </select>
+              </div>
+              <div>
+                <span class="ct-pf-lbl">Title / Search</span>
+                <input class="ct-pf-inp" id="et_filterTitle" placeholder="Search title…" oninput="_et_debounceFilter()" />
+              </div>
+              <div>
+                <span class="ct-pf-lbl">Expense Type</span>
+                <select class="ct-pf-sel" id="et_filterType" onchange="_et_applyFilter()">
+                  <option value="">All Types</option>
+                </select>
+              </div>
+              <div>
+                <span class="ct-pf-lbl">Amount Range</span>
+                <div class="ct-amt-range">
+                  <input class="ct-pf-inp" id="et_filterAmtMin" placeholder="₹ Min" type="number" min="0" oninput="_et_debounceFilter()" />
+                  <span>–</span>
+                  <input class="ct-pf-inp" id="et_filterAmtMax" placeholder="₹ Max" type="number" min="0" oninput="_et_debounceFilter()" />
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap;">
+              <button onclick="_et_applyFilter()" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">
+                <i class="fa-solid fa-filter"></i> Filter
+              </button>
+              <button onclick="_et_clearFilter()" style="background:transparent;border:1px solid #cbd5e1;color:#475569;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">
+                Clear All
+              </button>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;" id="et_activeTags"></div>
+            </div>
+          </div>
+
+          <!-- View toggle + sort -->
+          <div class="ct-view-bar" style="margin-bottom:10px;">
+            <div style="font-size:12px;font-weight:600;color:#475569;">
+              <i class="fa-solid fa-table-list" style="color:#ef4444;"></i> Expense Records
+            </div>
+            <div class="ct-sort-row">
+              Sort by:
+              <select class="ct-sort-sel" id="et_sortBy" onchange="_et_applyFilter()">
+                <option value="date_desc">Date (Newest)</option>
+                <option value="date_asc">Date (Oldest)</option>
+                <option value="amount_desc">Amount (High→Low)</option>
+                <option value="amount_asc">Amount (Low→High)</option>
+                <option value="title_asc">Title A→Z</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Expense Table -->
+          <div class="card" style="padding:0;">
+            <div class="ct-tbl-wrap">
+              <table class="ct-tbl">
+                <thead>
+                  <tr>
+                    <th onclick="_et_applyFilter()" title="Sort by date">Date</th>
+                    <th>Title</th>
+                    <th>Type</th>
+                    <th>Month</th>
+                    <th>Year</th>
+                    <th onclick="document.getElementById('et_sortBy').value='amount_desc';_et_applyFilter();" title="Sort by amount">Amount ↕</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="et_tableBody"></tbody>
+              </table>
+            </div>
+            <div class="ct-tbl-footer">
+              <span id="et_pageInfo"></span>
+              <div class="ct-pg-btns" id="et_pagination"></div>
+            </div>
+          </div>
+
+        </div><!-- end #dash_panel_expense -->
+
+        <!-- Custom Calendar Popup (dashboard date picker) -->
+        <div id="dash_calPop" style="display:none;position:fixed;background:#fff;border:1px solid #eef1f4;border-radius:14px;box-shadow:0 12px 32px rgba(15,23,42,0.14);z-index:77777;padding:14px 16px 16px;min-width:264px;font-family:Poppins,sans-serif;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <button onclick="dash_calNav(-1)" class="dc-nav-btn" style="background:#F0FDFA;border:1px solid #ccfbf1;color:#0F766E;font-size:13px;cursor:pointer;box-shadow:none;width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;transform:none!important;transition:background .15s;">&#8592;</button>
+            <span id="dash_calTitle" style="font-weight:700;font-size:13.5px;color:#1e293b;letter-spacing:.01em;"></span>
+            <button onclick="dash_calNav(1)" class="dc-nav-btn" style="background:#F0FDFA;border:1px solid #ccfbf1;color:#0F766E;font-size:13px;cursor:pointer;box-shadow:none;width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;transform:none!important;transition:background .15s;">&#8594;</button>
+          </div>
+          <style>
+            .dc-nav-btn:hover { background:#0F766E!important; color:#fff!important; }
+            .dc-day:not(.dc-empty):not(.dc-sel):not(.dc-today):hover { background:#f1f5f9!important; }
+          </style>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:2px;" id="dash_calGrid"></div>
+        </div>
+      </div>
+
+      <!-- CONTRIBUTIONS -->

@@ -31,7 +31,7 @@
       /* ── VERSION ───────────────────────────────────────────────────────
          Shown in admin sidebar footer and login page version label.
          ✔ SYNC with CFG.version in appscript.txt whenever you update. */
-      version: "3.0.0",
+      version: "4.0.0",
     
     
       /* ── IDENTITY ──────────────────────────────────────────────────────

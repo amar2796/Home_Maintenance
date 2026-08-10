@@ -1,0 +1,52 @@
+      <div id="feedbackAdminPage" class="page">
+        <div class="card">
+          <h3>
+            <i class="fa-solid fa-comment-dots" style="color: #a3e635"></i>
+            Member Feedback
+            <span style="font-size: 11px; font-weight: 400; color: #999">(submitted from Home page)</span>
+          </h3>
+          <div style="
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
+                margin-bottom: 14px;
+                align-items: center;
+              " class="search-refresh-row">
+            <input class="search-bar" id="fbAdminSearch" placeholder="🔍 Search by name, mobile or message..."
+              onkeyup="filterFeedbackAdmin()" style="margin: 0; flex: 1; min-width: 200px" />
+            <button onclick="loadFeedbackAdmin()" style="
+                  background: #334155;
+                  box-shadow: none;
+                  padding: 9px 14px;
+                  flex-shrink: 0;
+                ">
+              <i class="fa-solid fa-rotate"></i> Refresh
+            </button>
+          </div>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Timestamp</th>
+                  <th>Name</th>
+                  <th>Mobile</th>
+                  <th>Address</th>
+                  <th>Message</th>
+                  <th>Status</th>
+                  <th style="min-width:120px;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="fbAdminTableBody">
+                <tr>
+                  <td colspan="6" style="text-align: center; color: #aaa; padding: 20px">
+                    Click Refresh to load feedback
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="fb_pagination" class="pagination-bar"></div>
+        </div>
+      </div>
+      <!-- ══ EMAIL AUTOMATION PAGE ══ -->

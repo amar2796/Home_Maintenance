@@ -1,0 +1,99 @@
+      <div id="yearSummaryPage" class="page">
+
+        <!-- Header card -->
+        <div class="card" style="margin-bottom:18px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+            <h3 style="margin:0;">
+              <i class="fa-solid fa-calendar-check" style="color:#0F766E;"></i>
+              Year-by-Year Financial Summary
+            </h3>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button onclick="loadYearSummary()"
+                style="background:#334155;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                <i class="fa-solid fa-rotate-right"></i> Refresh
+              </button>
+              <button onclick="exportAnnualReportPDF()"
+                style="background:#e74c3c;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;"
+                title="Export full year report as PDF">
+                <i class="fa-solid fa-file-pdf"></i> Export Year Report PDF
+              </button>
+              <button onclick="downloadLocalBackup()"
+                style="background:#27ae60;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;"
+                title="Download all data as CSV for local backup (H10)">
+                <i class="fa-solid fa-download"></i> Local Backup
+              </button>
+            </div>
+          </div>
+          <p style="color:#64748b;font-size:12px;margin:8px 0 0;">
+            Opening balance per year comes from <strong>YEAR_CONFIG</strong> sheet.
+            If not set, the previous year's closing balance carries forward automatically.
+          </p>
+        </div>
+
+        <!-- Loading state -->
+        <div id="ys_loading" style="text-align:center;padding:40px;color:#94a3b8;font-size:14px;">
+          <i class="fa-solid fa-spinner fa-spin"></i> Loading year summary…
+        </div>
+
+        <!-- Error state -->
+        <div id="ys_error"
+          style="display:none;background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:16px 20px;color:#991b1b;font-size:13px;margin-bottom:16px;">
+        </div>
+
+        <!-- Summary totals row (filled by JS) -->
+        <div id="ys_totals"
+          style="display:none;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:18px;">
+          <div class="card-box" style="text-align:center;">
+            <h4 style="font-size:11px;color:#64748b;margin:0 0 6px;">Total Years</h4>
+            <h2 id="ys_t_years" style="color:#334155;font-size:1.4rem;margin:0;">—</h2>
+          </div>
+          <div class="card-box" style="text-align:center;">
+            <h4 style="font-size:11px;color:#64748b;margin:0 0 6px;">All-time Collection</h4>
+            <h2 id="ys_t_collection" style="color:#27ae60;font-size:1.4rem;margin:0;">—</h2>
+          </div>
+          <div class="card-box" style="text-align:center;">
+            <h4 style="font-size:11px;color:#64748b;margin:0 0 6px;">All-time Expenses</h4>
+            <h2 id="ys_t_expense" style="color:#e74c3c;font-size:1.4rem;margin:0;">—</h2>
+          </div>
+          <div class="card-box" style="text-align:center;">
+            <h4 style="font-size:11px;color:#64748b;margin:0 0 6px;">Current Balance</h4>
+            <h2 id="ys_t_balance" style="color:#0F766E;font-size:1.4rem;margin:0;">—</h2>
+          </div>
+        </div>
+
+        <!-- Main table card -->
+        <div class="card" id="ys_table_card" style="display:none;">
+          <div class="table-responsive">
+            <table id="ys_table">
+              <thead>
+                <tr>
+                  <th style="text-align:center;">Year</th>
+                  <th style="text-align:right;">Opening Balance</th>
+                  <th style="text-align:right;">Total Collection</th>
+                  <th style="text-align:right;">Total Expenses</th>
+                  <th style="text-align:right;">Closing Balance</th>
+                  <th style="text-align:right;">Carry-forward →</th>
+                  <th style="text-align:right;">Receipts</th>
+                  <th style="text-align:right;">Members</th>
+                  <th style="text-align:right;">Avg/Receipt</th>
+                </tr>
+              </thead>
+              <tbody id="ys_tbody"></tbody>
+              <!-- Totals footer -->
+              <tfoot id="ys_tfoot"></tfoot>
+            </table>
+          </div>
+          <p style="color:#94a3b8;font-size:11px;margin:12px 0 0;text-align:right;">
+            * Carry-forward = this year's closing balance passed to next year as opening balance.
+          </p>
+        </div>
+
+        <!-- Empty state -->
+        <div id="ys_empty" style="display:none;text-align:center;padding:40px;color:#94a3b8;font-size:14px;">
+          <i class="fa-solid fa-folder-open" style="font-size:32px;margin-bottom:12px;display:block;"></i>
+          No financial data found. Add contributions or expenses to see the summary.
+        </div>
+
+      </div>
+
+      <!-- CONTRIBUTION REQUESTS -->

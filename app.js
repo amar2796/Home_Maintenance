@@ -181,6 +181,98 @@ function postData(data) {
   return _postDataOnce(data, /*isRetry*/false);
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   [SEC] endSessionAndRedirect / sendLogoutBeacon — the ONE reliable
+   way to end a session, used by both admin.js and user.js.
+   ═══════════════════════════════════════════════════════════════
+   WHY THIS EXISTS:
+   postData()/getData() above are JSONP — a <script src="..."> tag,
+   which under the hood is always a GET request. Browsers cancel any
+   pending <script> tag request the moment the page navigates away.
+   That's fine for most actions (you wait for the response before doing
+   anything else), but it's fundamentally the wrong tool for "clear my
+   session AND leave this page" — the two race, and whichever the code
+   is waiting on can lose to the navigation.
+
+   This was previously solved (three separate times, independently, in
+   admin.js and user.js: logout(), beforeunload, and a 30-min visibility
+   timeout) by firing postData() and racing it against a hardcoded
+   setTimeout — redirecting whichever finishes first. That's a real race:
+   if the server takes longer than the timer, the page navigates away,
+   the browser cancels the still-pending request, and the token is never
+   actually cleared server-side — even though the UI already redirected
+   as if it had succeeded. That's the exact bug this replaces.
+
+   THE FIX: navigator.sendBeacon() is the browser API purpose-built for
+   "fire this request and guarantee it survives page unload" — it does
+   NOT get cancelled by navigation, and does NOT need a response to be
+   useful here (we're leaving the page either way). So there's nothing
+   to race against — we fire the beacon and redirect immediately.
+
+   sendBeacon always does a real POST, so this hits doPost (not doGet) —
+   see appscript.txt's doPost, action:"logout" (pre-auth, mirrors
+   clearSessionToken) — which clears SessionToken/TokenExpiry AND logs
+   the reason in one request, using the same wire format (a raw JSON
+   string body) that this codebase's other real POST calls already use
+   (e.g. uploadAndSaveProfile), so no new backend parsing was needed.
+
+   USAGE:
+     endSessionAndRedirect("User clicked logout button");                          // logout button
+     endSessionAndRedirect("Session expired - 30 min inactivity", {clearAll:true}); // forced logout, stays in-app until redirect
+     sendLogoutBeacon("Admin tab or browser closed");                              // beforeunload ONLY — no redirect (see below)
+
+   [IMPORTANT] beforeunload fires when the page is leaving for ANY reason —
+   tab close, typing a new URL, clicking an external link — not just when the
+   user is logging out. Redirecting to login.html from inside a beforeunload
+   handler would fight whatever navigation is already happening. That's why
+   this is split in two: sendLogoutBeacon() only fires the clear request (no
+   redirect, no storage wipe) — safe to call from beforeunload.
+   endSessionAndRedirect() calls it internally AND THEN also clears storage
+   and redirects — only for flows that are deliberately taking the user to
+   the login screen (the logout button, forced-timeout handlers).
+   `options.extraKeys` — additional specific localStorage keys to remove
+     (e.g. user.js's remember-me token, dark mode, language prefs).
+   `options.clearAll`  — wipe localStorage entirely instead of removing
+     specific keys (matches admin.js's original logout behavior).
+   ═══════════════════════════════════════════════════════════════ */
+function sendLogoutBeacon(reason) {
+  try {
+    const s = JSON.parse(localStorage.getItem("session") || "null");
+    if (s && s.userId) {
+      const devInfo = typeof window._getDeviceInfo === "function" ? window._getDeviceInfo() : "";
+      const payload = JSON.stringify({
+        action:       "logout",
+        userId:       s.userId,
+        sessionToken: s.sessionToken || "",
+        userName:     s.name || "User",
+        deviceInfo:   devInfo,
+        logoutReason: reason || "Session ended"
+      });
+      // No .then()/.catch()/timer needed — sendBeacon's delivery guarantee
+      // is the reliability mechanism, not a race we have to win.
+      navigator.sendBeacon(API_URL, payload);
+    }
+  } catch (e) { /* best effort — cleanupExpiredSessions() daily sweep is the backstop */ }
+}
+window.sendLogoutBeacon = sendLogoutBeacon;
+
+function endSessionAndRedirect(reason, options) {
+  options = options || {};
+  window._navFlag = true; // beforeunload handlers check this to avoid double-firing
+  sendLogoutBeacon(reason);
+
+  if (options.clearAll) {
+    try { localStorage.clear(); } catch (e) {}
+  } else {
+    try { localStorage.removeItem("session"); } catch (e) {}
+    (options.extraKeys || []).forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
+  }
+  try { sessionStorage.clear(); } catch (e) {}
+  history.replaceState(null, "", "login.html");
+  location.replace("login.html");
+}
+window.endSessionAndRedirect = endSessionAndRedirect;
+
 function _postDataOnce(data, isRetry) {
   return new Promise((resolve,reject)=>{
     _cbId++; const cb="cb_post_"+_cbId+"_"+Date.now(); const script=document.createElement("script"); let done=false;

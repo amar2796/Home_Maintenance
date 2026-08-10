@@ -1,0 +1,103 @@
+      <div id="announcementPage" class="page">
+        <div class="card">
+          <h3><i class="fa-solid fa-bullhorn" style="color:#0F766E;"></i> Manage Announcement Banner</h3>
+          <p style="color:#666;font-size:14px;margin-bottom:20px;">
+            Set a banner that appears at the top of the home page. Members see it until they dismiss it.
+          </p>
+
+          <!-- Live preview -->
+          <div id="annAdminPreview" style="display:none;margin-bottom:22px;">
+            <div style="font-size:12px;font-weight:600;color:#888;margin-bottom:8px;">Live Preview</div>
+            <div class="ann-preview-bar">
+              <span class="ann-preview-icon" id="annPrevIcon">🔔</span>
+              <span id="annPrevText" style="flex:1;line-height:1.45;"></span>
+              <span id="annPrevBadge"
+                style="display:none;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.35);border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700;"></span>
+            </div>
+          </div>
+
+          <!-- Form -->
+          <div
+            style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;max-width:600px;margin-bottom:28px;">
+            <h4 style="margin:0 0 16px;color:#334155;font-size:14px;"><i class="fa-solid fa-pen"
+                style="color:#0F766E;margin-right:6px;"></i>New / Update Announcement</h4>
+
+            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Message <span
+                style="color:#e74c3c">*</span></label>
+            <textarea id="ann_message" rows="3"
+              placeholder="e.g. 🙏 Ram Navami Mahotsav on 6 April — All members are invited!"
+              style="width:100%;padding:10px 12px;border:1.5px solid #ddd;border-radius:8px;font-family:Poppins,sans-serif;font-size:13px;resize:vertical;outline:none;box-sizing:border-box;transition:border-color 0.2s;margin-bottom:12px;"
+              oninput="updateAnnPreview()" onfocus="this.style.borderColor='#0F766E'"
+              onblur="this.style.borderColor='#ddd'"></textarea>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+              <div>
+                <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Badge Label
+                  <span style="color:#aaa;font-weight:400;">(optional)</span></label>
+                <input id="ann_badge" placeholder="e.g. Important" maxlength="20"
+                  style="width:100%;padding:9px 12px;border:1.5px solid #ddd;border-radius:8px;font-family:Poppins,sans-serif;font-size:13px;outline:none;transition:border-color 0.2s;box-sizing:border-box;"
+                  oninput="updateAnnPreview()" onfocus="this.style.borderColor='#0F766E'"
+                  onblur="this.style.borderColor='#ddd'">
+              </div>
+              <div>
+                <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Icon Emoji
+                  <span style="color:#aaa;font-weight:400;">(optional)</span></label>
+                <input id="ann_icon" placeholder="e.g. 🙏 or 📢" maxlength="4"
+                  style="width:100%;padding:9px 12px;border:1.5px solid #ddd;border-radius:8px;font-family:Poppins,sans-serif;font-size:13px;outline:none;transition:border-color 0.2s;box-sizing:border-box;"
+                  oninput="updateAnnPreview()" onfocus="this.style.borderColor='#0F766E'"
+                  onblur="this.style.borderColor='#ddd'">
+              </div>
+            </div>
+
+            <!-- Banner Color Picker -->
+            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:8px;">Banner
+              Color</label>
+            <div id="ann_color_picker" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+              <div onclick="selectAnnColor('purple',this)" data-color="purple"
+                style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#4c1a6e,#7c3aed);cursor:pointer;border:3px solid #7c3aed;box-shadow:0 0 0 2px #7c3aed;transition:transform 0.15s;"
+                title="Purple"></div>
+              <div onclick="selectAnnColor('orange',this)" data-color="orange"
+                style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#0F766E,#d35400);cursor:pointer;border:3px solid transparent;transition:transform 0.15s;"
+                title="Orange"></div>
+              <div onclick="selectAnnColor('red',this)" data-color="red"
+                style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#dc2626,#991b1b);cursor:pointer;border:3px solid transparent;transition:transform 0.15s;"
+                title="Red"></div>
+              <div onclick="selectAnnColor('green',this)" data-color="green"
+                style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#16a34a,#15803d);cursor:pointer;border:3px solid transparent;transition:transform 0.15s;"
+                title="Green"></div>
+              <div onclick="selectAnnColor('blue',this)" data-color="blue"
+                style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#0F766E,#115E59);cursor:pointer;border:3px solid transparent;transition:transform 0.15s;"
+                title="Blue"></div>
+              <div onclick="selectAnnColor('teal',this)" data-color="teal"
+                style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#0d9488,#0f766e);cursor:pointer;border:3px solid transparent;transition:transform 0.15s;"
+                title="Teal"></div>
+              <div onclick="selectAnnColor('pink',this)" data-color="pink"
+                style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#db2777,#be185d);cursor:pointer;border:3px solid transparent;transition:transform 0.15s;"
+                title="Pink"></div>
+              <div onclick="selectAnnColor('dark',this)" data-color="dark"
+                style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#1e293b,#334155);cursor:pointer;border:3px solid transparent;transition:transform 0.15s;"
+                title="Dark"></div>
+            </div>
+            <input type="hidden" id="ann_color" value="purple">
+
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <button onclick="saveAnnouncement()"
+                style="background:linear-gradient(135deg,#0F766E,#d35400);color:#fff;border:none;padding:10px 26px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;box-shadow:0 3px 12px rgba(15, 118, 110,0.35);transition:all 0.2s;">
+                <i class="fa-solid fa-bullhorn"></i>&nbsp; Publish Announcement
+              </button>
+              <button onclick="clearAnnouncement()"
+                style="background:#f0f0f0;color:#555;border:none;padding:10px 20px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;box-shadow:none;transition:all 0.2s;">
+                <i class="fa-solid fa-ban"></i>&nbsp; Remove Banner
+              </button>
+            </div>
+          </div>
+
+          <!-- Current + history -->
+          <h4 style="color:#946c44;font-size:14px;margin-bottom:12px;">Announcement History</h4>
+          <div id="annHistoryList">
+            <p style="color:#aaa;font-size:13px;"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- BROADCAST PAGE -->
