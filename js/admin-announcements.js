@@ -629,7 +629,6 @@
         _summaryCache.users    === users
       ) {
         _applySummaryResult(_summaryCache.result);
-        updateSidebarSummary();
         _hmInitSelectors();
         _hmOnPeriodChange();
         return;
@@ -676,7 +675,6 @@
       _summaryCache = { data, expenses, users, result: _res };
       _applySummaryResult(_res);
 
-      updateSidebarSummary();
       _hmInitSelectors();
       _hmOnPeriodChange();
     }
