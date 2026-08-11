@@ -176,6 +176,24 @@ class MobileGlassMenubar {
 
     // Handle window resize to show/hide menubar
     window.addEventListener('resize', () => this.handleResize());
+
+    // Keep the Members tile badge in sync with the sidebar's own
+    // pendingBadge — reads its value on load and whenever it changes, so
+    // the menubar never drifts out of sync with the real pending count.
+    this.badgeEl = document.getElementById('mobPendingBadge');
+    this.sourceBadge = document.getElementById('pendingBadge');
+    if (this.badgeEl && this.sourceBadge) {
+      this.syncBadge();
+      new MutationObserver(() => this.syncBadge()).observe(this.sourceBadge, {
+        childList: true, characterData: true, subtree: true
+      });
+    }
+  }
+
+  syncBadge() {
+    const count = parseInt(this.sourceBadge.textContent, 10) || 0;
+    this.badgeEl.textContent = count;
+    this.badgeEl.style.display = count > 0 ? 'flex' : 'none';
   }
 
   handleMenuClick(item, index) {
@@ -252,6 +270,18 @@ class MobileGlassMenubar {
     const pinned = ['home', 'usersPage', 'expensePage'];
     const sidebarItems = Array.from(document.querySelectorAll('.sidebar li[onclick]'));
 
+    // Reuse the sidebar's own category classes (nav-finance, nav-members,
+    // nav-content, nav-system, nav-event) so each tile picks up the same
+    // color grouping already established there — items with no matching
+    // category (e.g. Dashboard) fall back to a neutral slate tile.
+    const categoryTints = {
+      'nav-finance': 'tint-finance',
+      'nav-members': 'tint-members',
+      'nav-content': 'tint-content',
+      'nav-system': 'tint-system',
+      'nav-event': 'tint-events'
+    };
+
     this.moreGrid.innerHTML = '';
     sidebarItems.forEach(li => {
       const onclickAttr = li.getAttribute('onclick') || '';
@@ -260,10 +290,12 @@ class MobileGlassMenubar {
 
       const iconClass = li.querySelector('i') ? li.querySelector('i').className : 'fa-solid fa-circle';
       const label = li.getAttribute('data-label') || li.textContent.trim();
+      const tint = Object.keys(categoryTints).find(cls => li.classList.contains(cls));
+      const tintClass = tint ? categoryTints[tint] : 'tint-more';
 
       const tile = document.createElement('button');
       tile.className = 'more-sheet-item';
-      tile.innerHTML = `<i class="${iconClass}"></i><span>${label}</span>`;
+      tile.innerHTML = `<span class="more-tile ${tintClass}"><i class="${iconClass}"></i></span><span>${label}</span>`;
       tile.addEventListener('click', () => {
         li.click();
         this.closeMoreSheet();

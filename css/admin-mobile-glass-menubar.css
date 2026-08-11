@@ -48,12 +48,11 @@
     transform: translateZ(0);
     will-change: transform;
 
-    /* Enhanced Glass effect - more prominent backdrop */
-    background: rgba(25, 35, 55, 0.88); /* Slightly darker for contrast */
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px); /* Safari support */
-    border-top: 0.8px solid rgba(255, 255, 255, 0.15);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    /* Glass effect */
+    background: rgba(30, 41, 59, 0.75); /* Dark slate with transparency */
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px); /* Safari support */
+    border-top: 0.5px solid rgba(255, 255, 255, 0.1);
     
     /* Layout */
     display: flex;
@@ -73,145 +72,101 @@
     flex-direction: column;
     align-items: center;
     gap: 4px;
-    padding: 8px 12px;
+    padding: 4px 10px 6px;
     background: none;
     border: none;
     cursor: pointer;
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.55);
     font-size: 10px;
     font-weight: 500;
     font-family: Poppins, sans-serif;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: color 0.2s ease;
     flex: 1;
     max-width: 80px;
   }
 
-  /* Active tab gets a soft pill behind the icon (common iOS pattern) rather
-     than color alone, so it reads at a glance instead of needing a second look.
-     The same pill doubles as tap feedback: it's always in the DOM (opacity 0
-     at rest) and snaps to full opacity on :active, so pressing ANY tab gives
-     an instant, contained flash instead of a dynamically-sized ripple that
-     could escape the bar's blurred/GPU-layered container. */
-  .mobile-menu-item::before {
-    content: '';
-    position: absolute;
-    top: 2px;
-    left: 50%;
-    transform: translateX(-50%) scale(0.7);
-    width: 38px;
-    height: 38px;
-    background: rgba(247, 195, 90, 0.22);
-    border-radius: 14px;
-    z-index: 0;
-    opacity: 0;
-    transition: opacity 0.18s ease, transform 0.18s ease, background 0.18s ease;
-    border: 1px solid rgba(247, 195, 90, 0.15);
+  /* Colored glass tile behind each icon — the app's own category colors
+     (finance amber, members teal, system green) applied per item so each
+     icon reads as its own "app", the same way iOS icons carry their own
+     color rather than sharing one flat glyph tint. */
+  .mobile-menu-tile {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    border-radius: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    color: #fff;
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.16),
+      inset 0 -5px 8px rgba(0, 0, 0, 0.16),
+      0 4px 10px rgba(0, 0, 0, 0.22);
   }
 
-  .mobile-menu-item.active::before {
-    opacity: 1;
-    transform: translateX(-50%) scale(1);
-    background: rgba(247, 195, 90, 0.28);
-    border-color: rgba(247, 195, 90, 0.25);
-    box-shadow: 0 4px 12px rgba(247, 195, 90, 0.15);
-  }
-
-  /* Instant press flash — snappier than the resting transition so it reads
-     as immediate tap feedback, and works even on tabs that aren't active. */
-  .mobile-menu-item:active::before {
-    opacity: 1;
-    transform: translateX(-50%) scale(1);
-    transition: opacity 0.08s ease, transform 0.08s ease;
-  }
-
-  .mobile-menu-item i,
-  .mobile-menu-item span {
+  .mobile-menu-tile i {
     position: relative;
     z-index: 1;
   }
 
-  /* Icon styling — display:flex + centering here (not just a fixed box)
-     matters because icon-font glyphs (Font Awesome) aren't drawn centered
-     within their own advance width; without this the glyph visually sits
-     left of the box, which reads as "icon not centered over its label". */
-  .mobile-menu-item i,
-  .mobile-menu-item svg {
-    display: inline-flex;
+  /* Per-item tints, matching the sidebar's own nav-finance / nav-members /
+     nav-content / nav-system color groups so the bar reads as the same app */
+  .mobile-menu-tile.tint-home    { background: linear-gradient(155deg, #1e9e75, #0f6e56); }
+  .mobile-menu-tile.tint-members { background: linear-gradient(155deg, #2dd4bf, #0f766e); }
+  .mobile-menu-tile.tint-finance { background: linear-gradient(155deg, #fbbf24, #c8860d); }
+  .mobile-menu-tile.tint-more    { background: linear-gradient(155deg, #94a3b8, #475569); }
+
+  .mobile-menu-label {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Active state — the tile itself lifts and glows instead of a separate
+     pill behind it, so the color carries the "you are here" signal. */
+  .mobile-menu-item.active {
+    color: #fff;
+  }
+
+  .mobile-menu-item.active .mobile-menu-tile {
+    transform: translateY(-3px) scale(1.06);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      inset 0 -5px 8px rgba(0, 0, 0, 0.14),
+      0 6px 14px rgba(0, 0, 0, 0.3),
+      0 0 0 2px rgba(255, 255, 255, 0.14);
+  }
+
+  /* Hover state (tablets/large phones with a pointer) */
+  .mobile-menu-item:hover .mobile-menu-tile {
+    transform: translateY(-2px);
+  }
+
+  /* Press/tap feedback */
+  .mobile-menu-item:active .mobile-menu-tile {
+    transform: scale(0.93);
+  }
+
+  /* Badge — mirrors the sidebar's own nav-badge (e.g. pending members),
+     kept live in sync by admin-sidebar-toggle.js */
+  .mobile-menu-badge {
+    position: absolute;
+    top: -5px;
+    right: -6px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: #e24b4a;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 20px;
-    width: 20px;
-    height: 20px;
-    transition: all 0.3s ease;
-  }
-
-  /* ── COLORED ICONS FOR EACH MENU ITEM (iOS Style) ── */
-  
-  /* Home - Green */
-  .mobile-menu-item[data-page="home"] i {
-    color: #34c759;
-  }
-
-  .mobile-menu-item[data-page="home"]:hover i,
-  .mobile-menu-item[data-page="home"].active i {
-    color: #30b550;
-  }
-
-  /* Members/Users - Blue */
-  .mobile-menu-item[data-page="usersPage"] i {
-    color: #3b82f6;
-  }
-
-  .mobile-menu-item[data-page="usersPage"]:hover i,
-  .mobile-menu-item[data-page="usersPage"].active i {
-    color: #2563eb;
-  }
-
-  /* Expense - Orange */
-  .mobile-menu-item[data-page="expensePage"] i {
-    color: #ff9500;
-  }
-
-  .mobile-menu-item[data-page="expensePage"]:hover i,
-  .mobile-menu-item[data-page="expensePage"].active i {
-    color: #e68900;
-  }
-
-  /* More - Purple */
-  .mobile-menu-item[data-page="moreMenu"] i {
-    color: #af52de;
-  }
-
-  .mobile-menu-item[data-page="moreMenu"]:hover i,
-  .mobile-menu-item[data-page="moreMenu"].active i {
-    color: #9d4edd;
-  }
-
-  /* Active state - highlight text */
-  .mobile-menu-item.active {
-    color: #f7c35a; /* Amber highlight for label */
-  }
-
-  .mobile-menu-item.active i,
-  .mobile-menu-item.active svg {
-    font-size: 22px;
-    filter: drop-shadow(0 0 6px rgba(247, 140, 10, 0.6));
-  }
-
-  /* Hover state */
-  .mobile-menu-item:hover {
-    color: #f7c35a;
-  }
-
-  .mobile-menu-item:hover i,
-  .mobile-menu-item:hover svg {
-    transform: translateY(-3px);
-    filter: drop-shadow(0 2px 4px rgba(247, 140, 10, 0.3));
-  }
-
-  /* Press/active animation */
-  .mobile-menu-item:active {
-    transform: scale(0.95);
+    box-shadow: 0 0 0 2px rgba(30, 41, 59, 0.85);
+    z-index: 2;
   }
 
   /* ── RESPONSIVE ADJUSTMENTS ── */
@@ -226,11 +181,11 @@
       font-size: 9px;
     }
 
-    .mobile-menu-item i,
-    .mobile-menu-item svg {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
+    .mobile-menu-tile {
+      width: 36px;
+      height: 36px;
+      font-size: 15px;
+      border-radius: 11px;
     }
   }
 
@@ -282,11 +237,11 @@
     font-size: 9px;
   }
 
-  .mobile-menu-item i,
-  .mobile-menu-item svg {
-    font-size: 16px;
-    width: 16px;
-    height: 16px;
+  .mobile-menu-tile {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+    border-radius: 10px;
   }
 
   .page {
@@ -412,29 +367,43 @@
   font-family: Poppins, sans-serif;
   cursor: pointer;
   padding: 4px 2px;
-  transition: transform 0.15s ease, opacity 0.15s ease;
+  transition: opacity 0.15s ease;
 }
 
-#mobileMoreSheet .more-sheet-item i {
-  font-size: 17px;
+/* Colored glass tile, same recipe as the bottom bar's tint tiles — each
+   category (finance/members/content/system/events) keeps its own color so
+   the grid reads as grouped sections at a glance, not a wall of identical
+   gray squares. Tint class is assigned in JS from the source sidebar item. */
+#mobileMoreSheet .more-tile {
+  position: relative;
   width: 36px;
   height: 36px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  transition: background 0.15s ease, color 0.15s ease;
-  color: #f7c35a; /* Default amber color */
+  font-size: 16px;
+  color: #fff;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -4px 7px rgba(0, 0, 0, 0.16),
+    0 3px 8px rgba(0, 0, 0, 0.2);
 }
 
+#mobileMoreSheet .more-tile.tint-finance { background: linear-gradient(155deg, #fbbf24, #c8860d); }
+#mobileMoreSheet .more-tile.tint-members { background: linear-gradient(155deg, #2dd4bf, #0f766e); }
+#mobileMoreSheet .more-tile.tint-content { background: linear-gradient(155deg, #a78bfa, #6d28d9); }
+#mobileMoreSheet .more-tile.tint-system  { background: linear-gradient(155deg, #34d399, #047857); }
+#mobileMoreSheet .more-tile.tint-events  { background: linear-gradient(155deg, #38bdf8, #0369a1); }
+#mobileMoreSheet .more-tile.tint-more    { background: linear-gradient(155deg, #94a3b8, #475569); }
+
 #mobileMoreSheet .more-sheet-item:active {
-  transform: scale(0.93);
   opacity: 0.8;
 }
 
-#mobileMoreSheet .more-sheet-item:active i {
-  background: rgba(247, 195, 90, 0.18);
+#mobileMoreSheet .more-sheet-item:active .more-tile {
+  transform: scale(0.92);
 }
 
 /* Small phones: tighter grid so 4 columns don't feel cramped */
@@ -447,9 +416,9 @@
     font-size: 9.5px;
   }
 
-  #mobileMoreSheet .more-sheet-item i {
-    font-size: 15px;
+  #mobileMoreSheet .more-tile {
     width: 32px;
     height: 32px;
+    font-size: 15px;
   }
 }

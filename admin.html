@@ -22,15 +22,13 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js" defer></script>
   <!-- admin.css split into feature files (see css/MANIFEST.txt) -->
-  
+  <link rel="stylesheet" href="css/admin-sidebar-collapse.css" />
+  <link rel="stylesheet" href="css/admin-mobile-glass-menubar.css" />
   <link rel="stylesheet" href="css/admin-base-layout.css" />
   <link rel="stylesheet" href="css/admin-widgets-fixes.css" />
-  <link rel="stylesheet" href="css/admin-sidebar-collapse.css" />
   <link rel="stylesheet" href="css/admin-sidebar-nav.css" />
-  <link rel="stylesheet" href="css/admin-sidebar-desktop-polish.css" />
   <link rel="stylesheet" href="css/admin-gallery-modal.css" />
   <link rel="stylesheet" href="css/admin-users-chatbot.css" />
-  <link rel="stylesheet" href="css/admin-mobile-glass-menubar.css" />
   <link rel="stylesheet" href="css/admin-pagination.css" />
   <link rel="stylesheet" href="css/admin-dark-mode.css" />
   <link rel="stylesheet" href="css/admin-panels-modals.css" />
@@ -1369,26 +1367,29 @@
   <div id="mobileGlassMenubar">
     <!-- HOME -->
     <button class="mobile-menu-item active" data-page="home" title="Home">
-      <i class="fa-solid fa-house"></i>
-      <span>Home</span>
+      <span class="mobile-menu-tile tint-home"><i class="fa-solid fa-house"></i></span>
+      <span class="mobile-menu-label">Home</span>
     </button>
 
     <!-- MEMBERS -->
     <button class="mobile-menu-item" data-page="usersPage" title="Members">
-      <i class="fa-solid fa-users"></i>
-      <span>Members</span>
+      <span class="mobile-menu-tile tint-members">
+        <i class="fa-solid fa-users"></i>
+        <span class="mobile-menu-badge" id="mobPendingBadge" style="display:none;">0</span>
+      </span>
+      <span class="mobile-menu-label">Members</span>
     </button>
 
     <!-- EXPENSE -->
     <button class="mobile-menu-item" data-page="expensePage" title="Expense">
-      <i class="fa-solid fa-money-bill-wave"></i>
-      <span>Expense</span>
+      <span class="mobile-menu-tile tint-finance"><i class="fa-solid fa-money-bill-wave"></i></span>
+      <span class="mobile-menu-label">Expense</span>
     </button>
 
     <!-- MORE -->
     <button class="mobile-menu-item" data-page="moreMenu" title="More options">
-      <i class="fa-solid fa-ellipsis"></i>
-      <span>More</span>
+      <span class="mobile-menu-tile tint-more"><i class="fa-solid fa-ellipsis"></i></span>
+      <span class="mobile-menu-label">More</span>
     </button>
   </div>
 
