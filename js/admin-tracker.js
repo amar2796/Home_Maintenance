@@ -132,7 +132,6 @@ function _trackerSplitPaidPending(members, contribs, monthName, yearOverride) {
 let _trMonthDefaulted = false;
 
 function populateTrackerDropdowns() {
-  console.log('🔄 Populating dropdowns...');
 
   // Populate Type dropdown
   const typeSelect = document.getElementById('tr_type_filter');
@@ -148,7 +147,6 @@ function populateTrackerDropdowns() {
     });
     // Set Type to first position (All)
     typeSelect.value = '';
-    console.log('✓ Type dropdown populated with', types.length, 'types');
   }
 
   // Populate Year dropdown
@@ -162,7 +160,6 @@ function populateTrackerDropdowns() {
       yearSelect.appendChild(option);
     }
     yearSelect.value = currentYear;
-    console.log('✓ Year dropdown populated with years', currentYear - 5, 'to', currentYear);
   }
 
   // Set GLOBAL Month to current month
@@ -170,7 +167,6 @@ function populateTrackerDropdowns() {
   if (monthSelectGlobal) {
     const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
     monthSelectGlobal.value = currentMonth;
-    console.log('✓ Global month select defaulted to current month');
   }
 
   // FIX: #tr_month_select's options already exist in the HTML (values
@@ -181,7 +177,6 @@ function populateTrackerDropdowns() {
   if (monthSelect && !_trMonthDefaulted) {
     monthSelect.value = String(new Date().getMonth() + 1).padStart(2, '0');
     _trMonthDefaulted = true;
-    console.log('✓ Month dropdown defaulted to current month');
   }
 }
 
@@ -200,7 +195,6 @@ function applyGlobalTrackerFilters() {
     monthSelect.value = monthGlobalSelect.value;
   }
   
-  console.log('✓ Tracker filters applied:', trackerModuleState.filters);
   runTrackerMain();
   // FIX: Type/Year/Hide-Inactive only ever refreshed Overview (via
   // runTrackerMain). If the admin changed a filter while sitting on
@@ -230,7 +224,6 @@ function resetTrackerGlobalFilters() {
   document.getElementById('tr_year_filter').value = new Date().getFullYear();
   document.getElementById('tr_hide_inactive_filter').checked = false;
   applyGlobalTrackerFilters();
-  console.log('✓ Tracker filters reset');
 }
 
 // ═══ TAB SWITCHING ═══
@@ -271,7 +264,6 @@ function switchTrackerTab(tabName, btn) {
   }
 
   // Load tab content
-  console.log(`✓ Switched to ${tabName} tab`);
   if (tabName === 'analytics') renderTrackerAnalytics();
   else if (tabName === 'calendar') renderTrackerCalendar();
   else if (tabName === 'leaderboard') renderTrackerLeaderboard();
@@ -335,7 +327,6 @@ function _trackerPaidUserIdSet(contribs, monthNum) {
 
 function runTrackerMain() {
   trackerModuleState.currentMonth = _trackerSelectedMonth();
-  console.log('Running tracker with filters:', trackerModuleState.filters, 'month:', trackerModuleState.currentMonth);
 
   // Base member list — Type filter does NOT remove members (it isn't a
   // member field; it narrows which contributions count as "paid" below).
@@ -628,7 +619,6 @@ function updateStatusIfAllComplete() {
         <br>
         ${statusDetails.join('<br>')}
       `;
-      console.log(`✓ Individual emails processed: ${sentCount} sent, ${failedCount} failed`);
       clearTrackerIndividualSelection();
     }
   }
@@ -1514,7 +1504,6 @@ function refreshTrackerData() {
 window.refreshTrackerData = refreshTrackerData;
 
 function initTrackerModule() {
-  console.log('✓ Tracker module initialized');
 
   // Try immediately in case data is already there
   if (refreshTrackerData()) return;

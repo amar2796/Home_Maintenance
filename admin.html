@@ -22,6 +22,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js" defer></script>
   <!-- admin.css split into feature files (see css/MANIFEST.txt) -->
+  <link rel="stylesheet" href="css/admin-sidebar-collapse.css" />
+  <link rel="stylesheet" href="css/admin-mobile-glass-menubar.css" />
   <link rel="stylesheet" href="css/admin-base-layout.css" />
   <link rel="stylesheet" href="css/admin-widgets-fixes.css" />
   <link rel="stylesheet" href="css/admin-sidebar-nav.css" />
@@ -162,82 +164,91 @@
 
       <ul>
         <!-- ── Overview ── -->
-        <li onclick="showPage('home',this)" class="active-nav">
-          <i class="fa-solid fa-house"></i> Home
+        <li onclick="showPage('home',this)" class="active-nav" data-label="Home">
+          <i class="fa-solid fa-house"></i> <span class="nav-label">Home</span>
         </li>
-        <li onclick="openDashboard(this)">
-          <i class="fa-solid fa-chart-pie"></i> Dashboard
+        <li onclick="openDashboard(this)" data-label="Dashboard">
+          <i class="fa-solid fa-chart-pie"></i> <span class="nav-label">Dashboard</span>
         </li>
 
         <!-- ── Section label: Finance ── -->
         <li class="nav-section-label">Finance</li>
-        <li onclick="showPage('contributionPage',this)" class="nav-finance">
-          <i class="fa-solid fa-hand-holding-dollar"></i> Contribution
+        <li onclick="showPage('contributionPage',this)" class="nav-finance" data-label="Contribution">
+          <i class="fa-solid fa-hand-holding-dollar"></i> <span class="nav-label">Contribution</span>
         </li>
-        <li onclick="showPage('expensePage',this)" class="nav-finance">
-          <i class="fa-solid fa-money-bill-wave"></i> Expense
+        <li onclick="showPage('expensePage',this)" class="nav-finance" data-label="Expense">
+          <i class="fa-solid fa-money-bill-wave"></i> <span class="nav-label">Expense</span>
         </li>
-        <li onclick="showPage('trackerPage',this)" id="nav_tracker" class="nav-finance">
-          <i class="fa-solid fa-chart-line"></i> Tracker
+        <li onclick="showPage('trackerPage',this)" id="nav_tracker" class="nav-finance" data-label="Tracker">
+          <i class="fa-solid fa-chart-line"></i> <span class="nav-label">Tracker</span>
         </li>
-        <li onclick="showPage('goalsPage',this)" class="nav-finance">
-          <i class="fa-solid fa-bullseye"></i> Goals
+        <li onclick="showPage('goalsPage',this)" class="nav-finance" data-label="Goals">
+          <i class="fa-solid fa-bullseye"></i> <span class="nav-label">Goals</span>
         </li>
-        <li onclick="showPage('yearSummaryPage',this)" class="nav-finance">
-          <i class="fa-solid fa-calendar-check"></i> Year Summary
+        <li onclick="showPage('yearSummaryPage',this)" class="nav-finance" data-label="Year Summary">
+          <i class="fa-solid fa-calendar-check"></i> <span class="nav-label">Year Summary</span>
         </li>
-        <li onclick="showPage('contributionRequestsPage',this)" class="nav-finance" id="nav_requests">
-          <i class="fa-solid fa-inbox"></i> Requests
+        <li onclick="showPage('contributionRequestsPage',this)" class="nav-finance" id="nav_requests" data-label="Requests">
+          <i class="fa-solid fa-inbox"></i> <span class="nav-label">Requests</span>
           <span class="nav-badge" id="reqBadge">0</span>
         </li>
 
-        <li onclick="showPage('eventsPage',this)" class="nav-event">
-          <i class="fa-solid fa-calendar-days"></i> Events
+        <li onclick="showPage('eventsPage',this)" class="nav-event" data-label="Events">
+          <i class="fa-solid fa-calendar-days"></i> <span class="nav-label">Events</span>
         </li>
 
         <!-- ── Section label: Members ── -->
         <li class="nav-section-label">Members</li>
-        <li onclick="showPage('usersPage',this)" id="nav_users" class="nav-members">
-          <i class="fa-solid fa-users"></i> Users
+        <li onclick="showPage('usersPage',this)" id="nav_users" class="nav-members" data-label="Users">
+          <i class="fa-solid fa-users"></i> <span class="nav-label">Users</span>
           <span class="nav-badge" id="pendingBadge">0</span>
         </li>
-        <li onclick="showPage('masterPage',this)" class="nav-members">
-          <i class="fa-solid fa-database"></i> Master Data
+        <li onclick="showPage('masterPage',this)" class="nav-members" data-label="Master Data">
+          <i class="fa-solid fa-database"></i> <span class="nav-label">Master Data</span>
         </li>
 
         <!-- ── Section label: Content ── -->
         <li class="nav-section-label">Content</li>
-        <li onclick="showPage('galleryAdminPage',this)" class="nav-content">
-          <i class="fa-solid fa-images"></i> Gallery
+        <li onclick="showPage('galleryAdminPage',this)" class="nav-content" data-label="Gallery">
+          <i class="fa-solid fa-images"></i> <span class="nav-label">Gallery</span>
         </li>
-        <li onclick="showPage('announcementPage',this)" id="nav_announcement" class="nav-content">
-          <i class="fa-solid fa-bullhorn"></i> Announcement
+        <li onclick="showPage('announcementPage',this)" id="nav_announcement" class="nav-content" data-label="Announcement">
+          <i class="fa-solid fa-bullhorn"></i> <span class="nav-label">Announcement</span>
         </li>
-        <li onclick="showPage('broadcastPage',this)" class="nav-content">
-          <i class="fa-solid fa-satellite-dish"></i> Broadcast
+        <li onclick="showPage('broadcastPage',this)" class="nav-content" data-label="Broadcast">
+          <i class="fa-solid fa-satellite-dish"></i> <span class="nav-label">Broadcast</span>
         </li>
 
         <!-- ── Section label: System ── -->
         <li class="nav-section-label">System</li>
-        <li onclick="showPage('chatbotPage',this)" class="nav-system">
-          <i class="fa-solid fa-robot"></i> Chatbot
+        <li onclick="showPage('chatbotPage',this)" class="nav-system" data-label="Chatbot">
+          <i class="fa-solid fa-robot"></i> <span class="nav-label">Chatbot</span>
         </li>
-        <li id="nav_feedback" onclick="showPage('feedbackAdminPage',this)" class="nav-system">
-          <i class="fa-solid fa-comment-dots"></i> Feedback
+        <li id="nav_feedback" onclick="showPage('feedbackAdminPage',this)" class="nav-system" data-label="Feedback">
+          <i class="fa-solid fa-comment-dots"></i> <span class="nav-label">Feedback</span>
         </li>
-        <li id="nav_emailauto" onclick="showPage('emailAutoPage',this)" class="nav-system">
-          <i class="fa-solid fa-envelope-circle-check"></i> Email Automation
+        <li id="nav_emailauto" onclick="showPage('emailAutoPage',this)" class="nav-system" data-label="Email Automation">
+          <i class="fa-solid fa-envelope-circle-check"></i> <span class="nav-label">Email Automation</span>
         </li>
-        <li id="nav_audit" onclick="showPage('auditPage',this)" class="nav-system">
-          <i class="fa-solid fa-scroll"></i> Audit Log
+        <li id="nav_audit" onclick="showPage('auditPage',this)" class="nav-system" data-label="Audit Log">
+          <i class="fa-solid fa-scroll"></i> <span class="nav-label">Audit Log</span>
         </li>
-        <li onclick="showPage('healthCheckPage',this)" class="nav-system" id="nav_health">
-          <i class="fa-solid fa-heart-pulse"></i> System Health
+        <li onclick="showPage('healthCheckPage',this)" class="nav-system" id="nav_health" data-label="System Health">
+          <i class="fa-solid fa-heart-pulse"></i> <span class="nav-label">System Health</span>
         </li>
       </ul>
       <div id="sidebarVersion" style="text-align:center;font-size:10px;color:#475569;padding:6px 0 2px;"></div>
 
     </div>
+
+    <!-- ADD THIS BUTTON -->
+    <button id="sidebarToggleBtn" title="Toggle sidebar ([)" aria-label="Toggle navigation sidebar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="15 18 9 12 15 6"></polyline>
+      </svg>
+    </button>
+    <!-- END ADD -->
+
     <div class="overlay" onclick="toggleSidebar()"></div>
 
     <div class="main">
@@ -1352,6 +1363,35 @@
   })();
   </script>
 
+<!-- Mobile Glass Menubar - iOS Style -->
+  <div id="mobileGlassMenubar">
+    <!-- HOME -->
+    <button class="mobile-menu-item active" data-page="home" title="Home">
+      <i class="fa-solid fa-house"></i>
+      <span>Home</span>
+    </button>
+
+    <!-- MEMBERS -->
+    <button class="mobile-menu-item" data-page="usersPage" title="Members">
+      <i class="fa-solid fa-users"></i>
+      <span>Members</span>
+    </button>
+
+    <!-- EXPENSE -->
+    <button class="mobile-menu-item" data-page="expensePage" title="Expense">
+      <i class="fa-solid fa-money-bill-wave"></i>
+      <span>Expense</span>
+    </button>
+
+    <!-- MORE -->
+    <button class="mobile-menu-item" data-page="moreMenu" title="More options">
+      <i class="fa-solid fa-ellipsis"></i>
+      <span>More</span>
+    </button>
+  </div>
+
+  <!-- Sidebar Toggle & Mobile Menubar JavaScript -->
+  <script src="js/admin-sidebar-toggle.js" defer></script>
 </body>
 
 </html>

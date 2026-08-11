@@ -1,4 +1,4 @@
-    var _ct_filtered   = [];   // filtered contribution rows (with pending injected)
+var _ct_filtered   = [];   // filtered contribution rows (with pending injected)
     var _ct_page       = 1;
     var _ct_perPage    = 15;
     var _ct_view       = "table";
@@ -613,10 +613,19 @@
 
 (function() {
 
-    /* ── 1. RIPPLE on every button click ── */
+    /* ── 1. RIPPLE on every button click ──
+       Excludes the mobile glass menubar tabs, its "More" sheet tiles, and
+       the header icon buttons: these sit inside fixed/backdrop-blurred
+       containers with their own GPU compositing layer, which was letting
+       the ripple's overflow:hidden clipping fail — instead of a small
+       contained flash it rendered as an oversized dark smear across the
+       whole bar. Those buttons already get instant press feedback from
+       the global button:active scale-down below, and the menubar tabs get
+       their own dedicated tap pill (see admin-mobile-glass-menubar.css). */
     document.addEventListener('click', function(e) {
       const btn = e.target.closest('button');
       if (!btn || btn.disabled || btn.classList.contains('btn-loading')) return;
+      if (btn.closest('.mobile-menu-item, .more-sheet-item, #mobileGlassMenubar, #mobileMoreSheet, .header')) return;
       const rect   = btn.getBoundingClientRect();
       const size   = Math.max(rect.width, rect.height) * 1.8;
       const x      = e.clientX - rect.left - size / 2;
@@ -1035,4 +1044,3 @@
     }
 
   }());
-

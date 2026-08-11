@@ -1,0 +1,391 @@
+/* ╔══════════════════════════════════════════════════════╗
+   ║  MOBILE GLASS MENUBAR                               ║
+   ║  ≤768px: iOS-style bottom navigation bar             ║
+   ║  Frosted glass effect with blur & transparency      ║
+   ╚══════════════════════════════════════════════════════╝ */
+
+/* ── MOBILE GLASS MENUBAR CONTAINER ── */
+@media (max-width: 768px) {
+
+  /* Hide traditional sidebar on mobile */
+  .sidebar {
+    display: none !important;
+  }
+
+  /* Adjust main content for mobile */
+  .main {
+    width: 100%;
+    margin-left: 0 !important;
+  }
+
+  /* ── ADD PADDING FOR GLASS MENUBAR AT BOTTOM ── */
+  .page {
+    /* env() safe-area so content never sits flush against the bar/notch
+       on iPhones with a home indicator */
+    padding-bottom: calc(80px + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* ── GLASS MENUBAR STYLES ── */
+  #mobileGlassMenubar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+
+    /* Forces its own GPU compositing layer — without this, fixed-position
+       bars can visibly lag/jump for a frame during scroll or when mobile
+       Safari's address bar shows/hides. */
+    transform: translateZ(0);
+    will-change: transform;
+
+    /* Glass effect */
+    background: rgba(30, 41, 59, 0.75); /* Dark slate with transparency */
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px); /* Safari support */
+    border-top: 0.5px solid rgba(255, 255, 255, 0.1);
+    
+    /* Layout */
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-start;
+    padding: 8px 0 8px 0;
+    gap: 0;
+    
+    /* Safe area for notch/home indicator */
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  /* ── MENUBAR ITEMS ── */
+  .mobile-menu-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 10px;
+    font-weight: 500;
+    font-family: Poppins, sans-serif;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    flex: 1;
+    max-width: 80px;
+  }
+
+  /* Active tab gets a soft pill behind the icon (common iOS pattern) rather
+     than color alone, so it reads at a glance instead of needing a second look.
+     The same pill doubles as tap feedback: it's always in the DOM (opacity 0
+     at rest) and snaps to full opacity on :active, so pressing ANY tab gives
+     an instant, contained flash instead of a dynamically-sized ripple that
+     could escape the bar's blurred/GPU-layered container. */
+  .mobile-menu-item::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 50%;
+    transform: translateX(-50%) scale(0.7);
+    width: 38px;
+    height: 38px;
+    background: rgba(247, 195, 90, 0.16);
+    border-radius: 14px;
+    z-index: 0;
+    opacity: 0;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+  }
+
+  .mobile-menu-item.active::before {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+
+  /* Instant press flash — snappier than the resting transition so it reads
+     as immediate tap feedback, and works even on tabs that aren't active. */
+  .mobile-menu-item:active::before {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+    transition: opacity 0.08s ease, transform 0.08s ease;
+  }
+
+  .mobile-menu-item i,
+  .mobile-menu-item span {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Icon styling */
+  .mobile-menu-item i,
+  .mobile-menu-item svg {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    transition: all 0.3s ease;
+  }
+
+  /* Active state - highlight color */
+  .mobile-menu-item.active {
+    color: #f7c35a; /* Amber highlight */
+  }
+
+  .mobile-menu-item.active i,
+  .mobile-menu-item.active svg {
+    font-size: 22px;
+    filter: drop-shadow(0 0 4px rgba(247, 140, 10, 0.5));
+  }
+
+  /* Hover state */
+  .mobile-menu-item:hover {
+    color: #f7c35a;
+  }
+
+  .mobile-menu-item:hover i,
+  .mobile-menu-item:hover svg {
+    transform: translateY(-2px);
+  }
+
+  /* Press/active animation */
+  .mobile-menu-item:active {
+    transform: scale(0.95);
+  }
+
+  /* ── RESPONSIVE ADJUSTMENTS ── */
+  @media (max-width: 600px) {
+    #mobileGlassMenubar {
+      padding: 6px 0;
+    }
+
+    .mobile-menu-item {
+      padding: 6px 8px;
+      gap: 3px;
+      font-size: 9px;
+    }
+
+    .mobile-menu-item i,
+    .mobile-menu-item svg {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+  }
+
+  /* ── ADJUST HEADER FOR MOBILE ── */
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 200;
+  }
+
+  /* ── ENSURE LAST PAGE ITEM NOT HIDDEN BY MENUBAR ── */
+  .page > *:last-child {
+    margin-bottom: 0;
+  }
+
+  /* ── CARD/CONTENT BOTTOM SPACING ── */
+  .card:last-child {
+    margin-bottom: 0;
+  }
+
+  /* ── TABLE SCROLL DOESN'T GET HIDDEN ── */
+  table {
+    margin-bottom: 0;
+  }
+}
+
+/* ── TABLET MODE (769px - 1023px): TRANSITIONAL ── */
+@media (min-width: 769px) and (max-width: 1023px) {
+  
+  /* Show traditional sidebar on tablets */
+  #mobileGlassMenubar {
+    display: none !important;
+  }
+
+  .page {
+    padding-bottom: 10px !important;
+  }
+}
+
+/* ── LANDSCAPE MODE ADJUSTMENTS ── */
+@media (max-width: 900px) and (orientation: landscape) {
+  #mobileGlassMenubar {
+    padding: 4px 0;
+  }
+
+  .mobile-menu-item {
+    padding: 4px 8px;
+    gap: 2px;
+    font-size: 9px;
+  }
+
+  .mobile-menu-item i,
+  .mobile-menu-item svg {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+
+  .page {
+    padding-bottom: 70px !important;
+  }
+}
+
+/* ── DARK MODE SUPPORT ── */
+@media (prefers-color-scheme: dark) {
+  #mobileGlassMenubar {
+    background: rgba(30, 41, 59, 0.85);
+    border-top-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .mobile-menu-item {
+    color: rgba(255, 255, 255, 0.6);
+  }
+}
+
+/* ── HIGH CONTRAST MODE ── */
+@media (prefers-contrast: more) {
+  #mobileGlassMenubar {
+    background: rgba(20, 28, 40, 0.95);
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .mobile-menu-item {
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  .mobile-menu-item.active {
+    color: #ffeb3b;
+  }
+}
+
+/* ── ANIMATION FOR MENUBAR APPEARANCE ── */
+@keyframes slideUpMenubar {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+#mobileGlassMenubar {
+  animation: slideUpMenubar 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── SMOOTH TRANSITION BETWEEN PAGES ── */
+@media (max-width: 768px) {
+  .page {
+    transition: padding-bottom 0.3s ease;
+  }
+}
+
+/* ── "MORE" BOTTOM SHEET (tapped from the glass menubar) ── */
+#mobileMoreOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1099;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+#mobileMoreOverlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#mobileMoreSheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1100;
+  /* Matched to the menubar's own glass recipe (0.75 opacity + 12px blur)
+     instead of a flatter, more opaque card — keeps the sheet feeling like
+     part of the same surface it slides up from. */
+  background: rgba(30, 41, 59, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px 18px 0 0;
+  padding: 10px 14px max(18px, env(safe-area-inset-bottom));
+  max-height: 70vh;
+  overflow-y: auto;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#mobileMoreSheet.open {
+  transform: translateY(0);
+}
+
+#mobileMoreSheet .more-sheet-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.25);
+  margin: 0 auto 14px;
+}
+
+#mobileMoreSheet .more-sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px 6px;
+}
+
+#mobileMoreSheet .more-sheet-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 10.5px;
+  font-family: Poppins, sans-serif;
+  cursor: pointer;
+  padding: 4px 2px;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+#mobileMoreSheet .more-sheet-item i {
+  font-size: 17px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  transition: background 0.15s ease;
+}
+
+#mobileMoreSheet .more-sheet-item:active {
+  transform: scale(0.93);
+  opacity: 0.8;
+}
+
+#mobileMoreSheet .more-sheet-item:active i {
+  background: rgba(247, 195, 90, 0.18);
+}
+
+/* Small phones: tighter grid so 4 columns don't feel cramped */
+@media (max-width: 380px) {
+  #mobileMoreSheet .more-sheet-grid {
+    gap: 12px 4px;
+  }
+
+  #mobileMoreSheet .more-sheet-item {
+    font-size: 9.5px;
+  }
+
+  #mobileMoreSheet .more-sheet-item i {
+    font-size: 15px;
+    width: 32px;
+    height: 32px;
+  }
+}
