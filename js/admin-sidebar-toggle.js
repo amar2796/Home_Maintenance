@@ -36,6 +36,53 @@ class SidebarToggle {
 
     // Handle window resize to show/hide button based on breakpoint
     window.addEventListener('resize', () => this.handleResize());
+
+    // Flyout label tooltip for collapsed items — see initFlyoutTooltip()
+    this.initFlyoutTooltip();
+  }
+
+  // ── FLYOUT TOOLTIP (collapsed sidebar item labels) ──
+  // A single reusable element positioned with getBoundingClientRect() on
+  // hover, appended to <body> so `position: fixed` isn't clipped by the
+  // sidebar's own overflow-x:hidden. Sits to the right of the icon,
+  // vertically centered on it, instead of overlapping the item below.
+  initFlyoutTooltip() {
+    if (!this.sidebar) return;
+
+    this.flyoutTooltip = document.getElementById('sidebarFlyoutTooltip');
+    if (!this.flyoutTooltip) {
+      this.flyoutTooltip = document.createElement('div');
+      this.flyoutTooltip.id = 'sidebarFlyoutTooltip';
+      document.body.appendChild(this.flyoutTooltip);
+    }
+
+    this.sidebar.addEventListener('mouseenter', (e) => {
+      const li = e.target.closest && e.target.closest('li[data-label]');
+      if (!li || !this.sidebar.classList.contains('collapsed') || window.innerWidth < 1024) return;
+      this.showFlyoutTooltip(li);
+    }, true);
+
+    this.sidebar.addEventListener('mouseleave', (e) => {
+      const li = e.target.closest && e.target.closest('li[data-label]');
+      if (!li) return;
+      this.hideFlyoutTooltip();
+    }, true);
+
+    // Also hide it immediately if a click navigates away or the sidebar expands
+    this.sidebar.addEventListener('click', () => this.hideFlyoutTooltip());
+  }
+
+  showFlyoutTooltip(li) {
+    const rect = li.getBoundingClientRect();
+    const sidebarRect = this.sidebar.getBoundingClientRect();
+    this.flyoutTooltip.textContent = li.getAttribute('data-label') || '';
+    this.flyoutTooltip.style.top = (rect.top + rect.height / 2) + 'px';
+    this.flyoutTooltip.style.left = (sidebarRect.right + 10) + 'px';
+    this.flyoutTooltip.classList.add('visible');
+  }
+
+  hideFlyoutTooltip() {
+    if (this.flyoutTooltip) this.flyoutTooltip.classList.remove('visible');
   }
 
   toggleSidebar() {
@@ -52,6 +99,7 @@ class SidebarToggle {
     this.isCollapsed = true;
     this.sidebar.classList.add('collapsed');
     this.toggleBtn.classList.add('collapsed');
+    this.hideFlyoutTooltip();
 
     // Save state to localStorage
     this.saveCollapseState(true);
@@ -63,6 +111,7 @@ class SidebarToggle {
     this.isCollapsed = false;
     this.sidebar.classList.remove('collapsed');
     this.toggleBtn.classList.remove('collapsed');
+    this.hideFlyoutTooltip();
 
     // Save state to localStorage
     this.saveCollapseState(false);
@@ -87,6 +136,8 @@ class SidebarToggle {
   }
 
   handleResize() {
+    this.hideFlyoutTooltip();
+
     // Hide toggle button on mobile
     if (window.innerWidth < 1024) {
       if (this.toggleBtn) this.toggleBtn.style.display = 'none';

@@ -63,30 +63,15 @@
     position: relative;
   }
 
-  /* Hide text content in menu items when sidebar is collapsed */
-  .sidebar.collapsed li::after {
-    content: attr(data-label);
-    position: absolute;
-    left: 50%;
-    bottom: -26px;
-    transform: translateX(-50%) translateY(4px);
-    background: rgba(0, 0, 0, 0.85);
-    color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
-    white-space: nowrap;
-    font-size: 11px;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s ease, transform 0.2s ease;
-    transition-delay: 0.1s;
-    z-index: 10;
-  }
-
-  .sidebar.collapsed li:hover::after {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
+  /* Label tooltips for collapsed items now come from a single JS-driven
+     flyout (see #sidebarFlyoutTooltip in admin-sidebar-toggle.js) instead
+     of a per-item ::after. A ::after positioned "bottom: -26px" sat right
+     on top of the next icon in the (tightly stacked, 60px-wide) rail —
+     the sidebar's own `overflow-x: hidden` also rules out a pure-CSS
+     flyout to the right, since anything poking past the rail's edge gets
+     clipped by that same overflow. The JS version renders to <body> with
+     position:fixed so it isn't clipped, and sits beside the icon instead
+     of overlapping the item below it. */
 
   /* Remove text from menu items when collapsed (leave badges alone) */
   .sidebar.collapsed li .nav-label {
@@ -136,47 +121,57 @@
   }
 
   /* ── COLLAPSE TOGGLE BUTTON STYLING ──
-     Docked mostly over the sidebar's own edge (only ~6px past the
-     boundary) rather than deep into the header, so it can't collide with
-     header text even if something else touches header padding later. */
+     A small round "handle" straddling the sidebar's own right edge,
+     vertically centered on the brand row — reads as physically attached
+     to the sidebar (like the edge-handles in VS Code / Notion) instead of
+     a square button floating in fixed position above the header, visually
+     detached from everything and overlapping the content behind it. */
   #sidebarToggleBtn {
     position: fixed;
-    top: 16px;
-    left: 215px; /* 245px sidebar - 30px, pokes 6px past the border */
+    top: 37px; /* centered on the ~74px-tall .sidebar-brand row */
+    left: 245px; /* sits right on the sidebar's own edge */
+    transform: translate(-50%, -50%);
     z-index: 1001;
     background: white;
     border: 1px solid #e2e8f0;
     color: #0f172a;
-    width: 36px;
-    height: 36px;
+    width: 26px;
+    height: 26px;
     padding: 0;
-    border-radius: 6px;
+    border-radius: 50%;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 14px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+    transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                background 0.2s ease,
+                box-shadow 0.2s ease,
+                transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   #sidebarToggleBtn:hover {
-    background: #f8fafc;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    background: #0F766E;
+    color: white;
+    border-color: #0F766E;
+    box-shadow: 0 2px 8px rgba(15, 118, 110, 0.35);
+    transform: translate(-50%, -50%) scale(1.12);
   }
 
   #sidebarToggleBtn:active {
-    transform: scale(0.95);
+    transform: translate(-50%, -50%) scale(0.95);
   }
 
   /* Button position when sidebar is collapsed */
-  .sidebar.collapsed ~ .main #sidebarToggleBtn,
   #sidebarToggleBtn.collapsed {
-    left: 30px; /* 60px collapsed sidebar - 30px, same 6px poke-through */
+    left: 60px; /* tracks the collapsed sidebar's own edge, same handle */
   }
 
   /* Icon rotation animation */
   #sidebarToggleBtn svg {
+    width: 14px;
+    height: 14px;
     transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
@@ -256,16 +251,52 @@
     height: 36px;
   }
 
-  /* ── IMPROVED TOOLTIPS FOR SMALL SCREENS ── */
-  @media (max-width: 1200px) {
-    #sidebarToggleBtn {
-      left: 187px; /* Adjusted for smaller screens, same offset logic */
-    }
-    
-    .sidebar.collapsed ~ .main #sidebarToggleBtn,
-    #sidebarToggleBtn.collapsed {
-      left: 18px;
-    }
+  /* Note: the old <1200px override that nudged this button's `left` no
+     longer applies — it was compensating for a fixed "poke past the
+     border" offset. Now that the button is centered exactly on the
+     sidebar's own edge (left: 245px / 60px, translateX(-50%)), that edge
+     doesn't move with viewport width, so one value covers all desktop
+     sizes ≥1024px. */
+}
+
+/* ── FLYOUT TOOLTIP FOR COLLAPSED SIDEBAR ITEMS ──
+   Appended once to <body> and repositioned on hover via JS (fixed
+   positioning escapes the sidebar's overflow-x:hidden, so it can sit
+   beside the rail instead of being clipped or overlapping the next icon). */
+@media (min-width: 1024px) {
+  #sidebarFlyoutTooltip {
+    position: fixed;
+    background: rgba(15, 23, 42, 0.95);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: Poppins, sans-serif;
+    white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-50%) translateX(-4px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    z-index: 1200;
+  }
+
+  #sidebarFlyoutTooltip.visible {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+
+  /* Small arrow pointing back at the rail */
+  #sidebarFlyoutTooltip::before {
+    content: '';
+    position: absolute;
+    left: -4px;
+    top: 50%;
+    transform: translateY(-50%);
+    border-width: 4px 4px 4px 0;
+    border-style: solid;
+    border-color: transparent rgba(15, 23, 42, 0.95) transparent transparent;
   }
 }
 
