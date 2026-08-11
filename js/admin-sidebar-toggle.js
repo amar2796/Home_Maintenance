@@ -176,24 +176,6 @@ class MobileGlassMenubar {
 
     // Handle window resize to show/hide menubar
     window.addEventListener('resize', () => this.handleResize());
-
-    // Keep the Members tile badge in sync with the sidebar's own
-    // pendingBadge — reads its value on load and whenever it changes, so
-    // the menubar never drifts out of sync with the real pending count.
-    this.badgeEl = document.getElementById('mobPendingBadge');
-    this.sourceBadge = document.getElementById('pendingBadge');
-    if (this.badgeEl && this.sourceBadge) {
-      this.syncBadge();
-      new MutationObserver(() => this.syncBadge()).observe(this.sourceBadge, {
-        childList: true, characterData: true, subtree: true
-      });
-    }
-  }
-
-  syncBadge() {
-    const count = parseInt(this.sourceBadge.textContent, 10) || 0;
-    this.badgeEl.textContent = count;
-    this.badgeEl.style.display = count > 0 ? 'flex' : 'none';
   }
 
   handleMenuClick(item, index) {
@@ -267,7 +249,7 @@ class MobileGlassMenubar {
   // slot, and clicking a tile just replays the sidebar item's own click
   // handler so behavior (showPage / openDashboard / badges) never drifts.
   populateMoreSheet() {
-    const pinned = ['home', 'usersPage', 'expensePage'];
+    const pinned = ['home', 'contributionPage', 'trackerPage'];
     const sidebarItems = Array.from(document.querySelectorAll('.sidebar li[onclick]'));
 
     // Reuse the sidebar's own category classes (nav-finance, nav-members,
