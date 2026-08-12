@@ -413,7 +413,13 @@ html.dark-mode #trackerPage,
 #tr_grid_table table {
   width: 100%;
   font-size: 11px;
-  border-collapse: collapse;
+  /* separate + zero spacing, NOT collapse — position:sticky on th/td
+     silently does nothing when the table uses border-collapse:collapse
+     (a real browser limitation, not a specificity fight). This looks
+     identical (borders still sit flush) but actually lets the Member
+     column stick while Jan–Dec scroll underneath it. */
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 #tr_grid_table th {
@@ -440,7 +446,8 @@ html.dark-mode #trackerPage,
   left: 0;
   background: var(--tr-card);
   z-index: 1;
-  min-width: 120px;
+  min-width: 200px;
+  box-shadow: 2px 0 4px -2px rgba(0, 0, 0, 0.18);
 }
 
 #tr_grid_table th:first-child { background: var(--tr-surface-alt); z-index: 2; }
@@ -534,7 +541,7 @@ html.dark-mode #trackerPage,
   padding: 9px 4px;
   border-bottom: 1px solid var(--tr-border);
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   color: var(--tr-text);
 }
@@ -653,7 +660,111 @@ html.dark-mode #trackerPage,
 
 /* ─── 13. CALENDAR ──────────────────────────────────────────────── */
 
-#tracker_calendar_content { overflow-x: auto; }
+/* Structural/layout rules only — day colors stay inline (computed per-day
+   in JS) since they're dynamic. Using minmax(0,1fr) instead of a bare 1fr
+   is the actual fix for the mobile overflow: a bare `1fr` track still has
+   an implicit min-width of its content's natural size, so 7 columns of
+   padded cells could refuse to shrink below their content width and push
+   the whole grid past the card edge, forcing the sideways scroll this
+   used to need. `minmax(0,1fr)` removes that floor so columns actually
+   compress to fit, and the old overflow-x:auto escape hatch is gone. */
+#tracker_calendar_content {
+  overflow-x: visible;
+}
+
+.tr-cal-wrap {
+  background: var(--tr-surface, #f8fafc);
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid var(--tr-border, #e2e8f0);
+}
+
+.tr-cal-title {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tr-text, #1e293b);
+  text-align: center;
+}
+
+.tr-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tr-cal-headrow { margin-bottom: 16px; }
+
+.tr-cal-headcell {
+  text-align: center;
+  font-weight: 600;
+  color: var(--tr-text-muted, #64748b);
+  font-size: 11px;
+  padding: 8px 2px;
+}
+
+.tr-cal-cell {
+  min-width: 0;
+  border-radius: 6px;
+  border: 1.5px solid var(--tr-border, #e2e8f0);
+  padding: 10px 4px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+}
+
+.tr-cal-cell-empty {
+  background: #fff;
+  border-width: 1px;
+  cursor: default;
+}
+
+.tr-cal-daynum {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tr-cal-count {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 4px 0;
+}
+
+.tr-cal-countlabel {
+  font-size: 9px;
+  overflow-wrap: break-word;
+}
+
+.tr-cal-legend {
+  margin-top: 20px;
+  padding: 12px;
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid var(--tr-border, #e2e8f0);
+  font-size: 11px;
+  color: var(--tr-text-muted, #64748b);
+  line-height: 1.6;
+}
+
+/* Small phones — the fixed 10px cell padding + 18px count number is what
+   used to overflow narrow screens; shrink both so 7 columns comfortably
+   fit a ~360-390px viewport with no horizontal scroll. */
+@media (max-width: 480px) {
+  .tr-cal-wrap { padding: 10px; }
+  .tr-cal-grid { gap: 4px; }
+  .tr-cal-cell { padding: 6px 2px; border-radius: 5px; }
+  .tr-cal-daynum { font-size: 10.5px; }
+  .tr-cal-count { font-size: 14px; margin: 2px 0; }
+  .tr-cal-countlabel { font-size: 7.5px; line-height: 1.2; }
+  .tr-cal-headcell { font-size: 9.5px; padding: 4px 1px; }
+}
+
+@media (max-width: 360px) {
+  .tr-cal-count { font-size: 12px; }
+  .tr-cal-countlabel { display: none; } /* "members" label is the first
+    thing to drop — the color coding + tooltip still carry the info */
+}
 
 /* ─── 14. FORM ELEMENT DEFAULTS WITHIN PAGE ─────────────────────── */
 
@@ -717,7 +828,7 @@ html.dark-mode #trackerPage,
   .tr-checkbox-label input[type="checkbox"] { width: 18px; height: 18px; }
 
   #tr_grid_table th:first-child,
-  #tr_grid_table td:first-child { min-width: 96px; }
+  #tr_grid_table td:first-child { min-width: 165px; }
 
   .modal-content { margin: 20% auto; width: 88%; padding: 16px; }
 }
@@ -782,8 +893,6 @@ html.dark-mode #trackerPage,
   .tracker-tab-btn { font-size: 13px; padding: 12px 20px; }
   #tr_grid_table table { font-size: 12px; }
   #tr_grid_table th, #tr_grid_table td { padding: 10px; }
-
-  #tracker_calendar_content div[style*="grid-template-columns:repeat(7"] { gap: 8px; }
 }
 
 /* Desktop */

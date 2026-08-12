@@ -241,11 +241,12 @@ function switchTrackerTab(tabName, btn) {
   // Hide all tabs
   document.querySelectorAll('[id^="tracker-tab-"]').forEach(tab => tab.style.display = 'none');
 
-  // Reset button colors
-  document.querySelectorAll('.tracker-tab-btn').forEach(b => {
-    b.style.color = '#64748b';
-    b.style.borderBottomColor = 'transparent';
-  });
+  // Reset active state — was toggling inline color/border-bottom styles,
+  // left over from an older underline-tab design. The CSS was restyled to
+  // a filled-pill design driven entirely by the .active class, which this
+  // never touched, so whichever tab started with .active in the HTML
+  // (Overview) stayed visually "on" no matter which tab was actually open.
+  document.querySelectorAll('.tracker-tab-btn').forEach(b => b.classList.remove('active'));
 
   // Show selected tab
   const activeTab = document.getElementById(`tracker-tab-${tabName}`);
@@ -259,8 +260,7 @@ function switchTrackerTab(tabName, btn) {
   const activeBtn = btn || Array.from(document.querySelectorAll('.tracker-tab-btn'))
     .find(b => b.getAttribute('onclick')?.includes(`'${tabName}'`));
   if (activeBtn) {
-    activeBtn.style.color = '#0F766E';
-    activeBtn.style.borderBottomColor = '#0F766E';
+    activeBtn.classList.add('active');
   }
 
   // Load tab content
@@ -397,9 +397,9 @@ function renderTrackerGrid(members, contribs) {
   const now = new Date();
   const curYM = _trYM(now.getFullYear(), now.getMonth());
 
-  let html = '<table style="width:100%;border-collapse:collapse;font-size:11px;">';
+  let html = '<table style="width:100%;border-collapse:separate;border-spacing:0;font-size:11px;">';
   html += '<tr style="background:#f1f5f9;border-bottom:2px solid #e2e8f0;">';
-  html += '<th style="padding:8px;text-align:left;font-weight:600;color:#1e293b;">Member</th>';
+  html += '<th style="padding:8px 12px;text-align:left;font-weight:600;color:var(--tr-text);">Member</th>';
   
   monthLabels.forEach(m => {
     html += `<th style="padding:8px;text-align:center;font-weight:600;border-left:1px solid #e2e8f0;color:#1e293b;">${m}</th>`;
@@ -419,7 +419,12 @@ function renderTrackerGrid(members, contribs) {
       const freeze = _trInactiveFreeze(m);
 
       html += '<tr style="border-bottom:1px solid #e2e8f0;">';
-      html += `<td style="padding:8px;font-weight:500;color:#1e293b;max-width:150px;overflow:hidden;text-overflow:ellipsis;">${_trEsc(m.Name) || '—'}</td>`;
+      html += `<td style="padding:8px 12px;font-weight:500;color:var(--tr-text);">
+        <div style="display:flex;align-items:center;gap:7px;min-width:150px;max-width:220px;">
+          ${_avatarHtml(m, 20)}
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_trEsc(m.Name) || '—'}</span>
+        </div>
+      </td>`;
       
       monthLabels.forEach((label, i) => {
         const ym = _trYM(selYearNum, i);
@@ -446,6 +451,7 @@ function renderTrackerGrid(members, contribs) {
 
   html += '</table>';
   container.innerHTML = html;
+  if (window._lazyLoadDriveImgs) window._lazyLoadDriveImgs(container);
 }
 
 // ═══ MEMBER LISTS ═══
@@ -454,26 +460,37 @@ function renderTrackerMembers(paid, pending) {
   const paidDiv = document.getElementById('tr_paid_list');
   const pendingDiv = document.getElementById('tr_pending_list');
 
+  // Same avatar treatment as the Contribution section — real member photo
+  // via the shared _avatarHtml() helper (falls back to the initials icon
+  // until the real photo lazy-loads from Drive), instead of name-only rows.
   if (paidDiv) {
     paidDiv.innerHTML = paid.length === 0 
       ? '<div style="padding:12px;text-align:center;color:#999;">No paid members</div>'
       : paid.map(m => `
-        <div style="padding:8px;border-bottom:1px solid #e2e8f0;">
-          <div style="font-weight:500;color:#1e293b;">${_trEsc(m.Name) || '—'}</div>
-          <div style="font-size:10px;color:#64748b;">${_trEsc(m.Mobile) || '—'}</div>
+        <div style="display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid #e2e8f0;">
+          ${_avatarHtml(m, 32)}
+          <div style="min-width:0;">
+            <div style="font-weight:500;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_trEsc(m.Name) || '—'}</div>
+            <div style="font-size:10px;color:#64748b;">${_trEsc(m.Mobile) || '—'}</div>
+          </div>
         </div>
       `).join('');
+    if (window._lazyLoadDriveImgs) window._lazyLoadDriveImgs(paidDiv);
   }
 
   if (pendingDiv) {
     pendingDiv.innerHTML = pending.length === 0 
       ? '<div style="padding:12px;text-align:center;color:#999;">No pending members</div>'
       : pending.map(m => `
-        <div style="padding:8px;border-bottom:1px solid #e2e8f0;">
-          <div style="font-weight:500;color:#1e293b;">${_trEsc(m.Name) || '—'}</div>
-          <div style="font-size:10px;color:#64748b;">${_trEsc(m.Mobile) || '—'}</div>
+        <div style="display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid #e2e8f0;">
+          ${_avatarHtml(m, 32)}
+          <div style="min-width:0;">
+            <div style="font-weight:500;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_trEsc(m.Name) || '—'}</div>
+            <div style="font-size:10px;color:#64748b;">${_trEsc(m.Mobile) || '—'}</div>
+          </div>
         </div>
       `).join('');
+    if (window._lazyLoadDriveImgs) window._lazyLoadDriveImgs(pendingDiv);
   }
 }
 
@@ -529,18 +546,20 @@ function renderTrackerIndividualMembersList() {
     const checkboxId = `tr_member_${member.UserId}`;
     
     html += `
-      <div style="display:flex;align-items:center;gap:12px;padding:10px;border-bottom:1px solid #e2e8f0;">
-        <input type="checkbox" id="${checkboxId}" data-userid="${member.UserId}" data-ispaid="${isPaid ? '1' : '0'}" style="width:16px;height:16px;cursor:pointer;accent-color:#0F766E;">
-        <div style="flex:1;">
-          <div style="font-size:12px;font-weight:600;color:#1e293b;">${_trEsc(member.Name)}</div>
+      <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid #e2e8f0;">
+        <input type="checkbox" id="${checkboxId}" data-userid="${member.UserId}" data-ispaid="${isPaid ? '1' : '0'}" style="width:16px;height:16px;cursor:pointer;accent-color:#0F766E;flex-shrink:0;">
+        ${_avatarHtml(member, 28)}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_trEsc(member.Name)}</div>
           <div style="font-size:10px;color:#64748b;">${_trEsc(member.Mobile || '')}</div>
         </div>
-        <span style="background:${statusColor}20;color:${statusColor};padding:3px 8px;border-radius:4px;font-size:9px;font-weight:600;">${status}</span>
+        <span style="background:${statusColor}20;color:${statusColor};padding:3px 8px;border-radius:4px;font-size:9px;font-weight:600;flex-shrink:0;">${status}</span>
       </div>
     `;
   });
   
   document.getElementById('tr_individual_members_list').innerHTML = html || '<div style="padding:12px;color:#94a3b8;">No members found</div>';
+  if (window._lazyLoadDriveImgs) window._lazyLoadDriveImgs(document.getElementById('tr_individual_members_list'));
 }
 
 function getTrackerIndividualSelections() {
@@ -1075,19 +1094,19 @@ function renderTrackerCalendar() {
   // Build calendar header
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   let calendarHtml = `
-    <div style="background:#f8fafc;border-radius:8px;padding:16px;border:1px solid #e2e8f0;">
-      <h4 style="margin:0 0 16px 0;font-size:14px;font-weight:600;color:#1e293b;text-align:center;">${monthName} ${selYear}</h4>
-      
-      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:16px;">
-        ${dayNames.map(d => `<div style="text-align:center;font-weight:600;color:#64748b;font-size:11px;padding:8px;">${d}</div>`).join('')}
+    <div class="tr-cal-wrap">
+      <h4 class="tr-cal-title">${monthName} ${selYear}</h4>
+
+      <div class="tr-cal-grid tr-cal-headrow">
+        ${dayNames.map(d => `<div class="tr-cal-headcell">${d}</div>`).join('')}
       </div>
 
-      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;">
+      <div class="tr-cal-grid tr-cal-days">
   `;
 
   // Empty cells for days before month starts
   for (let i = 0; i < firstDay; i++) {
-    calendarHtml += `<div style="background:#fff;border-radius:6px;border:1px solid #e2e8f0;"></div>`;
+    calendarHtml += `<div class="tr-cal-cell tr-cal-cell-empty"></div>`;
   }
 
   // Days of month
@@ -1123,13 +1142,13 @@ function renderTrackerCalendar() {
       : 'No collections';
 
     calendarHtml += `
-      <div style="background:${bgColor};border-radius:6px;border:1.5px solid #e2e8f0;padding:10px;text-align:center;cursor:pointer;transition:all 0.2s ease;position:relative;" 
+      <div class="tr-cal-cell" style="background:${bgColor};"
            onmouseover="this.style.transform='scale(1.05)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)';"
            onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none';"
            title="${_trEsc(tooltip)}">
-        <div style="font-size:12px;font-weight:700;color:${textColor};">${day}</div>
-        <div style="font-size:18px;font-weight:700;color:${countColor};margin:4px 0;">${count}</div>
-        ${count > 0 ? `<div style="font-size:9px;color:${textColor};">${count} ${count === 1 ? 'member' : 'members'}</div>` : ''}
+        <div class="tr-cal-daynum" style="color:${textColor};">${day}</div>
+        <div class="tr-cal-count" style="color:${countColor};">${count}</div>
+        ${count > 0 ? `<div class="tr-cal-countlabel" style="color:${textColor};">${count} ${count === 1 ? 'member' : 'members'}</div>` : ''}
       </div>
     `;
   }
@@ -1137,12 +1156,10 @@ function renderTrackerCalendar() {
   calendarHtml += `
       </div>
 
-      <div style="margin-top:20px;padding:12px;background:#fff;border-radius:6px;border:1px solid #e2e8f0;">
-        <div style="font-size:11px;color:#64748b;line-height:1.6;">
-          <strong>Legend:</strong><br>
-          🟡 1-2 members paid | 🔵 3-5 members paid | 🟢 6+ members paid<br>
-          <em>Hover over any day to see member names who paid</em>
-        </div>
+      <div class="tr-cal-legend">
+        <strong>Legend:</strong><br>
+        🟡 1-2 members paid | 🔵 3-5 members paid | 🟢 6+ members paid<br>
+        <em>Hover over any day to see member names who paid</em>
       </div>
     </div>
   `;
@@ -1314,16 +1331,18 @@ function renderTrackerLeaderboard() {
     <div style="background:#f8fafc;border-radius:8px;padding:16px;border:1px solid #e2e8f0;">
       <h4 style="margin:0 0 12px 0;font-size:12px;font-weight:600;color:#1e293b;">🏆 Top Contributors</h4>
       ${members.map(({ member: m, amount }, i) => `
-        <div style="display:flex;align-items:center;gap:12px;padding:10px;background:#fff;border-radius:6px;margin-bottom:8px;">
-          <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#0F766E,#14b8a6);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;">${i+1}</div>
-          <div style="flex:1;">
-            <div style="font-weight:600;font-size:12px;color:#1e293b;">${_trEsc(m.Name) || '—'}</div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px;background:#fff;border-radius:6px;margin-bottom:8px;">
+          <div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#0F766E,#14b8a6);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0;">${i+1}</div>
+          ${_avatarHtml(m, 32)}
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:600;font-size:12px;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_trEsc(m.Name) || '—'}</div>
             <div style="font-size:11px;color:#64748b;">₹${amount}</div>
           </div>
         </div>
       `).join('')}
     </div>
   `;
+  if (window._lazyLoadDriveImgs) window._lazyLoadDriveImgs(container);
 }
 
 // ═══ PREDICTIONS ═══
@@ -1438,11 +1457,14 @@ function renderTrackerPredictions() {
         ? '<div style="padding:8px;text-align:center;color:#64748b;font-size:12px;">No active members currently trending toward missed payments.</div>'
         : flagged.map(({ member: m, level }) => `
           <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:#fff;border-radius:6px;margin-bottom:8px;border-left:3px solid ${levelStyle[level].fg};">
-            <div>
-              <div style="font-weight:600;font-size:12px;color:#1e293b;">${_trEsc(m.Name) || '—'}</div>
-              <div style="font-size:10px;color:#64748b;">${_trEsc(m.Mobile) || '—'}</div>
+            <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+              ${_avatarHtml(m, 30)}
+              <div style="min-width:0;">
+                <div style="font-weight:600;font-size:12px;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_trEsc(m.Name) || '—'}</div>
+                <div style="font-size:10px;color:#64748b;">${_trEsc(m.Mobile) || '—'}</div>
+              </div>
             </div>
-            <div style="font-size:11px;font-weight:600;padding:4px 8px;border-radius:4px;background:${levelStyle[level].bg};color:${levelStyle[level].fg};">${levelStyle[level].label}</div>
+            <div style="font-size:11px;font-weight:600;padding:4px 8px;border-radius:4px;background:${levelStyle[level].bg};color:${levelStyle[level].fg};flex-shrink:0;">${levelStyle[level].label}</div>
           </div>
         `).join('')
       }
@@ -1467,6 +1489,7 @@ function renderTrackerPredictions() {
       }
     </div>
   `;
+  if (window._lazyLoadDriveImgs) window._lazyLoadDriveImgs(container);
 }
 
 // ═══ INITIALIZATION ═══
