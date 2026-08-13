@@ -48,11 +48,15 @@
     transform: translateZ(0);
     will-change: transform;
 
-    /* Glass effect */
-    background: rgba(30, 41, 59, 0.75); /* Dark slate with transparency */
+    /* Glass effect — white-frosted in default/light mode; body.dark-mode
+       below swaps this to a black-frosted glass so the bar always matches
+       the app's current theme instead of being fixed dark regardless of
+       mode. Icon tiles keep their own per-item colors either way. */
+    background: rgba(255, 255, 255, 0.72);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px); /* Safari support */
-    border-top: 0.5px solid rgba(255, 255, 255, 0.1);
+    border-top: 0.5px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 -2px 16px rgba(15, 23, 42, 0.08);
     
     /* Layout */
     display: flex;
@@ -63,6 +67,12 @@
     
     /* Safe area for notch/home indicator */
     padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  body.dark-mode #mobileGlassMenubar {
+    background: rgba(8, 15, 30, 0.82); /* Black-frosted glass, matches body.dark-mode's own page background */
+    border-top-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.35);
   }
 
   /* ── MENUBAR ITEMS ── */
@@ -76,7 +86,7 @@
     background: none;
     border: none;
     cursor: pointer;
-    color: rgba(255, 255, 255, 0.55);
+    color: rgba(15, 23, 42, 0.55);
     font-size: 10px;
     font-weight: 500;
     font-family: Poppins, sans-serif;
@@ -85,10 +95,15 @@
     max-width: 80px;
   }
 
-  /* Colored glass tile behind each icon — the app's own category colors
-     (finance amber, members teal, system green) applied per item so each
-     icon reads as its own "app", the same way iOS icons carry their own
-     color rather than sharing one flat glyph tint. */
+  body.dark-mode .mobile-menu-item {
+    color: rgba(255, 255, 255, 0.55);
+  }
+
+  /* iOS-dock style: transparent/outlined by default, so the tile reads as
+     just a tinted icon rather than a solid colored square. On the active
+     tab, a soft frosted fill of that same color appears — still see-through,
+     never a flat opaque block. Each tint below sets --tile a base color
+     the outline, icon, and (via --tile-fill) active-fill all key off. */
   .mobile-menu-tile {
     position: relative;
     width: 40px;
@@ -98,12 +113,11 @@
     align-items: center;
     justify-content: center;
     font-size: 17px;
-    color: #fff;
-    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.16),
-      inset 0 -5px 8px rgba(0, 0, 0, 0.16),
-      0 4px 10px rgba(0, 0, 0, 0.22);
+    background: transparent;
+    border: 1.5px solid color-mix(in srgb, var(--tile) 45%, transparent);
+    color: var(--tile);
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+                background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
   }
 
   .mobile-menu-tile i {
@@ -113,29 +127,50 @@
 
   /* Per-item tints, matching the sidebar's own nav-finance / nav-members /
      nav-content / nav-system color groups so the bar reads as the same app */
-  .mobile-menu-tile.tint-home    { background: linear-gradient(155deg, #1e9e75, #0f6e56); }
-  .mobile-menu-tile.tint-members { background: linear-gradient(155deg, #2dd4bf, #0f766e); }
-  .mobile-menu-tile.tint-finance { background: linear-gradient(155deg, #fbbf24, #c8860d); }
-  .mobile-menu-tile.tint-more    { background: linear-gradient(155deg, #94a3b8, #475569); }
+  .mobile-menu-tile.tint-home    { --tile: #34d399; }
+  .mobile-menu-tile.tint-members { --tile: #2dd4bf; }
+  .mobile-menu-tile.tint-finance { --tile: #fbbf24; }
+  /* Tracker gets its own blue instead of sharing Contribution's gold, so the
+     4 bottom-bar icons each read as a distinct "app" (Home=green,
+     Contribution=gold, Tracker=blue, More=slate) instead of two tiles
+     looking like the same feature. */
+  .mobile-menu-tile.tint-tracker { --tile: #38bdf8; }
+  /* "More" tile: indigo in light/default mode, amber in dark mode, so it
+     stays a distinct 4th color in both themes rather than blending into
+     the slate-gray glass bar. */
+  .mobile-menu-tile.tint-more    { --tile: #818cf8; }
+  body.dark-mode .mobile-menu-tile.tint-more { --tile: #fbbf24; }
 
   .mobile-menu-label {
     position: relative;
     z-index: 1;
   }
 
-  /* Active state — the tile itself lifts and glows instead of a separate
-     pill behind it, so the color carries the "you are here" signal. */
+  /* Active state — the tile fills with a white frosted-glass blur (not a
+     colored tint) so it reads like an iOS "selected" chip, while the icon
+     keeps its own tint color so you can still tell which tab it is. */
   .mobile-menu-item.active {
+    color: #0f172a;
+  }
+
+  body.dark-mode .mobile-menu-item.active {
     color: #fff;
   }
 
   .mobile-menu-item.active .mobile-menu-tile {
     transform: translateY(-3px) scale(1.06);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.22),
-      inset 0 -5px 8px rgba(0, 0, 0, 0.14),
-      0 6px 14px rgba(0, 0, 0, 0.3),
-      0 0 0 2px rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.28);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    backdrop-filter: blur(10px) saturate(140%);
+    border-color: rgba(255, 255, 255, 0.55);
+    color: var(--tile);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  }
+
+  body.dark-mode .mobile-menu-item.active .mobile-menu-tile {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.35);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.18);
   }
 
   /* Hover state (tablets/large phones with a pointer) */
@@ -249,17 +284,9 @@
   }
 }
 
-/* ── DARK MODE SUPPORT ── */
-@media (prefers-color-scheme: dark) {
-  #mobileGlassMenubar {
-    background: rgba(30, 41, 59, 0.85);
-    border-top-color: rgba(255, 255, 255, 0.08);
-  }
-
-  .mobile-menu-item {
-    color: rgba(255, 255, 255, 0.6);
-  }
-}
+/* Note: bar/sheet theming now follows the app's own body.dark-mode toggle
+   (set above), not the OS-level prefers-color-scheme, so the two can't
+   disagree if a user's system theme differs from their in-app choice. */
 
 /* ── HIGH CONTRAST MODE ── */
 @media (prefers-contrast: more) {
@@ -322,31 +349,45 @@
   right: 0;
   bottom: 0;
   z-index: 1100;
-  /* Matched to the menubar's own glass recipe (0.75 opacity + 12px blur)
-     instead of a flatter, more opaque card — keeps the sheet feeling like
-     part of the same surface it slides up from. */
-  background: rgba(30, 41, 59, 0.82);
+  /* White-frosted glass by default, matching the bottom bar; body.dark-mode
+     below swaps this to a black-frosted glass. Icon tiles keep their own
+     per-item colors either way. */
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border-top: 0.5px solid rgba(255, 255, 255, 0.12);
+  border-top: 0.5px solid rgba(15, 23, 42, 0.08);
   border-radius: 18px 18px 0 0;
   padding: 10px 14px max(18px, env(safe-area-inset-bottom));
   max-height: 70vh;
   overflow-y: auto;
   transform: translateY(100%);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s ease;
+}
+
+body.dark-mode #mobileMoreSheet {
+  background: rgba(8, 15, 30, 0.9); /* Black-frosted glass, matches body.dark-mode's own page background */
+  border-top-color: rgba(255, 255, 255, 0.12);
 }
 
 #mobileMoreSheet.open {
   transform: translateY(0);
 }
 
+/* Chevron-down replaces the old plain drag-handle bar. Slate-gray in
+   default/light mode (against the white-frosted sheet); brightened toward
+   white in dark mode (against the black-frosted sheet). */
 #mobileMoreSheet .more-sheet-handle {
-  width: 36px;
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.25);
-  margin: 0 auto 14px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 18px;
+  margin: 0 auto 12px;
+  font-size: 14px;
+  color: rgba(100, 116, 139, 0.75);
+}
+
+body.dark-mode #mobileMoreSheet .more-sheet-handle {
+  color: rgba(226, 232, 240, 0.75);
 }
 
 #mobileMoreSheet .more-sheet-grid {
@@ -362,18 +403,24 @@
   gap: 6px;
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(15, 23, 42, 0.75);
   font-size: 10.5px;
   font-family: Poppins, sans-serif;
   cursor: pointer;
   padding: 4px 2px;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.15s ease, color 0.3s ease;
 }
 
-/* Colored glass tile, same recipe as the bottom bar's tint tiles — each
-   category (finance/members/content/system/events) keeps its own color so
-   the grid reads as grouped sections at a glance, not a wall of identical
-   gray squares. Tint class is assigned in JS from the source sidebar item. */
+body.dark-mode #mobileMoreSheet .more-sheet-item {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* iOS-dock style, same recipe as the bottom bar: transparent/outlined by
+   default so each tile reads as a tinted icon, not a solid block. Since
+   these grid tiles don't have a persistent "selected" state (tapping one
+   navigates away immediately), the frosted color-fill plays on the
+   press/tap moment instead — same transparent-retained look, just tied to
+   :active rather than a lasting selection. */
 #mobileMoreSheet .more-tile {
   position: relative;
   width: 36px;
@@ -383,20 +430,20 @@
   align-items: center;
   justify-content: center;
   font-size: 16px;
-  color: #fff;
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    inset 0 -4px 7px rgba(0, 0, 0, 0.16),
-    0 3px 8px rgba(0, 0, 0, 0.2);
+  background: transparent;
+  border: 1.5px solid color-mix(in srgb, var(--tile) 45%, transparent);
+  color: var(--tile);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+              background 0.2s ease, border-color 0.2s ease;
 }
 
-#mobileMoreSheet .more-tile.tint-finance { background: linear-gradient(155deg, #fbbf24, #c8860d); }
-#mobileMoreSheet .more-tile.tint-members { background: linear-gradient(155deg, #2dd4bf, #0f766e); }
-#mobileMoreSheet .more-tile.tint-content { background: linear-gradient(155deg, #a78bfa, #6d28d9); }
-#mobileMoreSheet .more-tile.tint-system  { background: linear-gradient(155deg, #34d399, #047857); }
-#mobileMoreSheet .more-tile.tint-events  { background: linear-gradient(155deg, #38bdf8, #0369a1); }
-#mobileMoreSheet .more-tile.tint-more    { background: linear-gradient(155deg, #94a3b8, #475569); }
+#mobileMoreSheet .more-tile.tint-finance { --tile: #fbbf24; }
+#mobileMoreSheet .more-tile.tint-members { --tile: #2dd4bf; }
+#mobileMoreSheet .more-tile.tint-content { --tile: #a78bfa; }
+#mobileMoreSheet .more-tile.tint-system  { --tile: #34d399; }
+#mobileMoreSheet .more-tile.tint-events  { --tile: #38bdf8; }
+#mobileMoreSheet .more-tile.tint-more    { --tile: #818cf8; }
+body.dark-mode #mobileMoreSheet .more-tile.tint-more { --tile: #fbbf24; }
 
 #mobileMoreSheet .more-sheet-item:active {
   opacity: 0.8;
@@ -404,6 +451,9 @@
 
 #mobileMoreSheet .more-sheet-item:active .more-tile {
   transform: scale(0.92);
+  background: color-mix(in srgb, var(--tile) 32%, transparent);
+  border-color: color-mix(in srgb, var(--tile) 75%, transparent);
+  color: #fff;
 }
 
 /* Small phones: tighter grid so 4 columns don't feel cramped */

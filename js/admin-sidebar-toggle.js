@@ -232,7 +232,7 @@ class MobileGlassMenubar {
 
     const sheet = document.createElement('div');
     sheet.id = 'mobileMoreSheet';
-    sheet.innerHTML = '<div class="more-sheet-handle"></div><div class="more-sheet-grid"></div>';
+    sheet.innerHTML = '<div class="more-sheet-handle"><i class="fa-solid fa-chevron-down"></i></div><div class="more-sheet-grid"></div>';
 
     document.body.appendChild(overlay);
     document.body.appendChild(sheet);

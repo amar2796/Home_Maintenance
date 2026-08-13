@@ -118,7 +118,7 @@ button {
   cursor: pointer;
   font-weight: 600;
   transition: background 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease, filter 0.15s ease;
-  box-shadow: 0 4px 10px rgba(15, 118, 110, 0.3);
+  /* box-shadow: 0 4px 10px rgba(15, 118, 110, 0.3); */
 }
 
 /* Universal hover feedback — filter-based so it works no matter how the
@@ -351,4 +351,4 @@ button:disabled {
                    h3 title + badge), forcing it wider than its column/track and
                    causing the whole page to scroll horizontally on narrow screens. */
 }
-
+
