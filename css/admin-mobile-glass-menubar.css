@@ -41,6 +41,7 @@
     left: 0;
     right: 0;
     z-index: 1000;
+    border-radius: 30px;
 
     /* Forces its own GPU compositing layer — without this, fixed-position
        bars can visibly lag/jump for a frame during scroll or when mobile
@@ -207,7 +208,7 @@
   /* ── RESPONSIVE ADJUSTMENTS ── */
   @media (max-width: 600px) {
     #mobileGlassMenubar {
-      padding: 6px 0;
+      padding: 10px 0;
     }
 
     .mobile-menu-item {
