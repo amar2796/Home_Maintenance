@@ -661,26 +661,6 @@ function broadcastSessionRevoke(userId){
   }
 }
 
-/* ── Write session token to sheet after login ── */
-function setSessionTokenOnServer(userId, token){
-  // Best-effort fire-and-forget. Wrapped in try/catch so a non-redeployed
-  // Apps Script returning an HTML error page never causes a SyntaxError crash.
-  try {
-    const cb = "cb_sst_" + Date.now();
-    const script = document.createElement("script");
-    window[cb] = function(){ try{ delete window[cb]; script.remove(); }catch(e){} };
-    script.onerror = function(){ try{ delete window[cb]; script.remove(); }catch(e){} };
-    // Send token to sheet — no expiry written server-side (managed client-side only)
-    script.src = API_URL + "?action=setSessionToken&userId=" +
-      encodeURIComponent(userId) + "&token=" + encodeURIComponent(token) +
-      "&callback=" + cb;
-    document.body.appendChild(script);
-    setTimeout(function(){
-      try{ if(window[cb]){ delete window[cb]; } }catch(e){}
-    }, 12000);
-  } catch(e){ /* silent — token write is best-effort */ }
-}
-
 /* ── Cross-device poll: role-based interval (Admin 60s, User 10min) ── */
 /* WHY: 42 active users × 60s = 60,480 reads/day → over free quota (20,000).   */
 /* Role-split: Admins polled every 60s (security critical), Users every 10min.  */
@@ -848,7 +828,7 @@ function checkSession() {
         // remaining time whenever the session actually lapses.
         s = {
           userId: rt.userId, name: rt.name, role: rt.role, email: rt.email || "",
-          sessionToken: rt.sessionToken || "", expiry: rt.expiry
+          sessionToken: rt.sessionToken || "", expiry: rt.expiry, ttlMs: 24*60*60*1000
         };
         localStorage.setItem("session", JSON.stringify(s));
         return true;
@@ -859,17 +839,22 @@ function checkSession() {
     return false;
   }
   // Refresh sliding expiry window on activity
-  s.expiry=Date.now()+30*60*1000;
+  // [BUG FIX] Was hardcoded to 30 min regardless of ttlMs, so a "remember me" (24h) session
+  // got its client-side gate silently capped to 30 min of inactivity tolerance — a screen-lock
+  // or idle break longer than that force-logged-out a user who'd explicitly asked to stay in
+  // for 24h. Falls back to 30 min for older sessions that predate the ttlMs field.
+  s.expiry=Date.now()+(s.ttlMs||30*60*1000);
   localStorage.setItem("session",JSON.stringify(s));
   return true;
 }
 
-/* ── Auto 30-min session expiry — activity-based sliding window ── */
+/* ── Auto session expiry — activity-based sliding window (30 min normal, 24h remember-me) ── */
 (function(){
   function _touchSession(){
     let s=JSON.parse(localStorage.getItem("session")||"null");
     if(!s) return;
-    s.expiry=Date.now()+30*60*1000;
+    // [BUG FIX] Same ttlMs fix as checkSession() above — see comment there.
+    s.expiry=Date.now()+(s.ttlMs||30*60*1000);
     localStorage.setItem("session",JSON.stringify(s));
   }
   ["click","keydown","touchstart","scroll"].forEach(evt=>{
@@ -888,39 +873,6 @@ function checkSession() {
     }
   }, 60000);
 })();
-
-/* ═══ LOCAL UPDATE ═══ */
-function updateLocalData(category,id,newData){
-  if(category==="contributions"){
-    let i=data.findIndex(x=>String(x.Id)===String(id));
-    if(i!==-1)data[i]={...data[i],...newData};
-    if(typeof render==="function")render();
-  } else if(category==="expenses"){
-    let i=expenses.findIndex(x=>String(x.Id)===String(id));
-    if(i!==-1)expenses[i]={...expenses[i],...newData};
-    if(typeof renderExpenses==="function")renderExpenses();
-  }
-  loadSummary();
-}
-
-/* ═══ YEAR DROPDOWN ═══ */
-function loadYearDropdown(){
-  const yearSelect=document.getElementById("yearSelect"); if(!yearSelect)return;
-  let years=new Set();
-  if(typeof data!=="undefined")data.forEach(c=>{let y=Number(c.Year);if(!isNaN(y)&&y>2000)years.add(y);});
-  if(typeof expenses!=="undefined")expenses.forEach(e=>{let y=Number(e.Year);if(!isNaN(y)&&y>2000)years.add(y);});
-  let curY=new Date().getFullYear();
-  // Uses the shared _getProjectStartYear() from admin.js when available (same source
-  // of truth as every admin dropdown); falls back to a fixed floor on pages that only
-  // load app.js standalone.
-  let startY = (typeof _getProjectStartYear === "function") ? _getProjectStartYear() : 2023;
-  for(let y=startY;y<=curY+1;y++) years.add(y);
-  let sorted=Array.from(years).filter(y=>!isNaN(y)).sort((a,b)=>b-a);
-  yearSelect.innerHTML=sorted.map(y=>`<option value="${y}"${y===curY?" selected":""}>${y}</option>`).join("");
-  yearSelect.value=curY;
-  selectedYear=curY;
-  yearSelect.onchange=function(){selectedYear=Number(this.value);if(typeof applyFilter==="function")applyFilter();};
-}
 
 /* ═══ UNIVERSAL MODAL SYSTEM ═══ */
 function _ensureModalCSS(){
@@ -1253,10 +1205,11 @@ setTimeout(function(){ _getLogoB64(function(){}); }, 500);
 /* ═══ RECEIPT POPUP — Enhanced with logo, improved design ═══ */
 /* ── Receipt helpers (shared by all receipt functions) ───────────────────── */
 
-/** Normalises a ReceiptID: migrates legacy TRX- prefix to APP.receiptPrefix */
+/** Normalises a ReceiptID: migrates legacy prefix (APP.legacyReceiptPrefix) to APP.receiptPrefix */
 function _displayRID(c) {
   const prefix = (typeof APP !== "undefined" && APP.receiptPrefix) ? APP.receiptPrefix : "REC";
-  return (c.ReceiptID || "—").replace(/^TRX-/, prefix + "-");
+  const legacy = (typeof APP !== "undefined" && APP.legacyReceiptPrefix) ? APP.legacyReceiptPrefix : "TRX";
+  return (c.ReceiptID || "—").replace(new RegExp("^" + legacy + "-"), prefix + "-");
 }
 
 /** Builds the WhatsApp text body for a contribution receipt (no duplicates) */
@@ -1449,10 +1402,6 @@ async function sendReceiptEmailDirect(rid){
 }
 
 /* Legacy alias kept for backward compatibility */
-function triggerReceiptEmail(rid){
-  sendReceiptEmailDirect(rid);
-}
-
 /* printReceipt — opens print dialog for the receipt modal */
 function printReceipt(rid){
   const stored = window._rcptStore[rid];

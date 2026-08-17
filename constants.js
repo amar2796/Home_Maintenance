@@ -116,7 +116,7 @@
          currencyCode        : ISO 4217 currency code (informational).
          ✔ SYNC receiptPrefix and legacyReceiptPrefix with appscript CFG. */
       receiptPrefix:       "HOM",
-      legacyReceiptPrefix: "TRX",
+      legacyReceiptPrefix: "HOM",
       currency:     "Rs.",          // Symbol used in HTML/UI display
       currencyText: "Rs.",         // Text form used in jsPDF (Helvetica can't render ₹). SYNC with CFG.currencyText in appscript.txt
       currencyCode: "INR",

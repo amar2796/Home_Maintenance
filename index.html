@@ -537,11 +537,10 @@
         var dsn = document.getElementById('donateSupportName');
         if (dsn) dsn.textContent = name;
 
-        // Footer tagline span
-        var ftl = document.getElementById('footerTagline');
-        if (ftl) ftl.textContent = '॥ ' + tagline + ' ॥ — Serving the community with faith & devotion';
-
         // Footer full line
+        // (this rebuilds #pageFooter's entire innerHTML, including the
+        // #footerTagline span, so there's no need to update that span
+        // separately beforehand — it would just get overwritten here)
         var pf = document.getElementById('pageFooter');
         if (pf) pf.innerHTML = '&copy; ' + new Date().getFullYear() + ' ' + shortName + ' | Built with <span>&#10084;&#65039;</span><span class="footer-tagline" id="footerTagline">॥ ' + tagline + ' ॥ — Serving the community with faith &amp; devotion</span>';
 

@@ -501,7 +501,7 @@
             // in login.js and appscript.txt).
             s = {
               userId: rt.userId, name: rt.name, role: rt.role, email: rt.email || "",
-              sessionToken: rt.sessionToken || "", expiry: rt.expiry
+              sessionToken: rt.sessionToken || "", expiry: rt.expiry, ttlMs: 24*60*60*1000
             };
             localStorage.setItem("session", JSON.stringify(s));
             return true;
@@ -512,8 +512,12 @@
         location.replace("login.html");
         return false;
       }
-      // Slide client-side expiry forward 30 min (mirrors server sliding window)
-      s.expiry = Date.now() + 30 * 60 * 1000;
+      // Slide client-side expiry forward (mirrors server sliding window — 30 min
+      // normal, 24h remember-me). [BUG FIX] Was hardcoded to 30 min regardless of
+      // ttlMs, silently capping every "remember me" session's inactivity tolerance
+      // to 30 min instead of the promised 24h. Falls back to 30 min for older
+      // sessions that predate the ttlMs field.
+      s.expiry = Date.now() + (s.ttlMs || 30 * 60 * 1000);
       localStorage.setItem("session", JSON.stringify(s));
       return true;
     }
@@ -1286,7 +1290,8 @@
         });
         if (res.status === "updated") {
           s.name = name; s.email = email;
-          s.expiry = Date.now() + 30 * 60 * 1000;
+          // [BUG FIX] Same ttlMs fix as _checkAdminSession() above — see comment there.
+          s.expiry = Date.now() + (s.ttlMs || 30 * 60 * 1000);
           localStorage.setItem("session", JSON.stringify(s));
           _adminSelfCroppedB64 = "";
           toast("✅ Profile updated!");

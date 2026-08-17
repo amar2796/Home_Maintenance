@@ -292,7 +292,7 @@
         let res = await postData(payload);
         if (res.status === "success") {
           _walkInInFlight = false;
-          const rid = res.receiptId || ("TRX-wi" + Date.now());
+          const rid = res.receiptId || ((APP.receiptPrefix||"REC") + "-wi" + Date.now());
           const tName = types.find(t => String(t.TypeId) === String(typeId));
           const typeLbl  = tName ? tName.TypeName : "Contribution";
           const monthLbl = month || "General";
@@ -428,7 +428,7 @@
         _walkInInFlight = false;
         if (res.status === "success") {
           window._walkInFailedPayload = null;
-          const rid = res.receiptId || ("TRX-wi" + Date.now());
+          const rid = res.receiptId || ((APP.receiptPrefix||"REC") + "-wi" + Date.now());
           const tName = types.find(t => String(t.TypeId) === String(stored.typeId));
           const typeLbl = tName ? tName.TypeName : "Contribution";
           const monthLbl = stored.month || "General";

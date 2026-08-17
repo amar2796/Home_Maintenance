@@ -28,14 +28,14 @@ const CFG = {
   receiptPrefix: "HOM",          // Receipt IDs: MNR-2025-00001
   signatory:     "Vishwakarma Household",
   designation:   "Household Head",
-  tagline:       "Jai Shree Ram",
-  thankYouMsg:   "Thank you for your generous contribution",
+  tagline:       "Home, together",
+  thankYouMsg:   "Thank you for your contribution to the household",
   websiteUrl:    "https://amar2796.github.io/Home_Maintenance/",   // TODO: replace with your live app URL — used as the "Open Website" button in emails
   // ── PUBLIC DISPLAY FIELDS (shown on homepage — change for any temple/institution)
-  splashText:    "॥ जय श्री राम ॥",          // Splash screen greeting
-  heroText:      "|| श्री हनुमत आश्रम ||",    // Hero section heading
-  heroSub:       "राम जग विश्‍वकर्मा",      // Hero section sub-heading
-  committee:     "Ram Jag Vishwakarma Committee", // Managing committee name (used in donate declaration)
+  splashText:    "Welcome Home",              // Splash screen greeting
+  heroText:      "The Vishwakarma Home",      // Hero section heading
+  heroSub:       "Every contribution, tracked together", // Hero section sub-heading
+  committee:     "Vishwakarma Household",     // Managing committee name (used in donate declaration)
   emailDailyLimit: 90,           // Gmail free = 100/day; keep 10 buffer for OTPs
   // ── EMAIL LOGO (used in ALL emails: receipt, monthly report, reminder, birthday, approval)
   // Drop any image file (logo.png / logo.jpg) into a dedicated Drive folder.
@@ -139,8 +139,18 @@ function _verifySession(params, actionName) {
     if (tokenCol === -1) return false;
     const hashedToken = _hashSessionToken(token);
     for (let i = 1; i < allData.length; i++) {
-      const rowId = String(allData[i][headers.indexOf("UserId")] || allData[i][0] || "").trim();
-      if (rowId && (rowId === userId || String(allData[i][headers.indexOf("Name")]||"") === userId)) {
+      const rowId   = String(allData[i][headers.indexOf("UserId")] || allData[i][0] || "").trim();
+      const rowName = String(allData[i][headers.indexOf("Name")]||"").trim();
+      const _matchedByNameOnly = (!rowId || rowId !== userId) && rowName && rowName === userId;
+      if (rowId && (rowId === userId || rowName === userId)) {
+        // [AUDIT-CANARY] Matching by Name (not UserId) is a legacy fallback for rows that
+        // historically stored the display name instead of a UserId. If two users ever share
+        // the exact same Name, this could resolve a session check to the wrong row. This log
+        // is observation-only — it does NOT change the auth decision. If it never fires in
+        // production, the Name fallback can be safely removed later.
+        if (_matchedByNameOnly) {
+          logAction(userId, "SESSION_NAME_FALLBACK_MATCH", "Action: " + actionName + " — matched by Name, not UserId (row UserId: " + rowId + ")", "", "", { severity:"WARN", result:"INFO" });
+        }
         const stored = String(allData[i][tokenCol] || "").trim();
         if (!stored) {
           // [SEC-TIGHTEN] Previously this bypassed auth entirely for any row with a
@@ -155,7 +165,7 @@ function _verifySession(params, actionName) {
         }
         // [SEC] SessionToken is stored as a SHA-256 hash, not plaintext — same
         // pattern as password auth. Compare hash-to-hash, never the raw value.
-        if (stored !== hashedToken) {
+        if (!_safeCompare(stored, hashedToken)) {
           logAction(userId, "SESSION_TOKEN_MISMATCH", "Action: " + actionName + " — token rejected", "", "", { severity:"WARN", result:"BLOCKED" });
           return false;
         }
@@ -293,6 +303,34 @@ function hashPassword(pwd) {
 // ════════════════════════════════════════════════════════════════
 function _hashSessionToken(token) {
   return hashPassword(token); // same SHA-256 digest, distinct name for clarity at call sites
+}
+
+// ════════════════════════════════════════════════════════════════
+//  [SEC] CONSTANT-TIME STRING COMPARE
+//  Plain "===" on secrets (hashed session tokens, hashed passwords) leaks
+//  timing information — a mismatch returns as soon as the first differing
+//  character is found, so comparison time correlates with how many leading
+//  characters an attacker guessed correctly. _safeCompare always walks the
+//  full length of both strings so the comparison time doesn't depend on
+//  *where* the mismatch is. Equal-length inputs are the normal case (both
+//  sides are fixed-length hex hashes); a length mismatch still runs a dummy
+//  full-length comparison so short-circuiting on length alone can't leak
+//  info either.
+// ════════════════════════════════════════════════════════════════
+function _safeCompare(a, b) {
+  a = String(a || "");
+  b = String(b || "");
+  if (a.length !== b.length) {
+    let _dummy = 0;
+    const _len = Math.max(a.length, b.length, 1);
+    for (let i = 0; i < _len; i++) {
+      _dummy |= (a.charCodeAt(i % (a.length || 1)) || 0) ^ (b.charCodeAt(i % (b.length || 1)) || 0);
+    }
+    return false;
+  }
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }
 
 // ── Format date for display
@@ -1249,6 +1287,10 @@ function _clearUserSessionRow(userId) {
       const rowUserId = String(allData[i][0] || "").trim();
       const rowName   = nameCol !== -1 ? String(allData[i][nameCol] || "").trim() : "";
       if ((rowUserId && rowUserId === userId) || (rowName && rowName === userId)) {
+        // [AUDIT-CANARY] Same observation-only Name-fallback log as _verifySession — see there for why.
+        if ((!rowUserId || rowUserId !== userId) && rowName && rowName === userId) {
+          logAction(userId, "SESSION_NAME_FALLBACK_MATCH", "Action: clearSession — matched by Name, not UserId (row UserId: " + rowUserId + ")", "", "", { severity:"WARN", result:"INFO" });
+        }
         // Clear each column independently — do NOT nest expiryCol inside the
         // tokenCol check, so TokenExpiry still clears even if SessionToken's
         // column is ever missing.
@@ -2162,7 +2204,7 @@ function doGet(e) {
     "addExpense","updateExpense","deleteExpense",
     "removeExpenseReceipt","removeOneExpenseReceipt","removeAllExpenseReceipts",
     // Users
-    "addUser","deleteUser","updateUser","approveUser","rejectUser","changePassword",
+    "addUser","deleteUser","restoreUser","updateUser","approveUser","rejectUser","changePassword",
     // Master data
     "addType","deleteType","updateType",
     "addOccasion","deleteOccasion","updateOccasion",
@@ -2231,7 +2273,7 @@ function doGet(e) {
         result = { status: "pending", message: "Your registration is pending admin approval. You will receive an email once approved." };
       } else if (String(userByMobile.Status||"").toLowerCase() === "rejected") {
         logAction(mobile, "LOGIN_DENIED", "Account rejected | Mobile: " + mobile, "account_rejected", sanitize(e.parameter.deviceInfo||"",200), { severity:"WARN", result:"BLOCKED" });
-        result = { status: "error", message: "Your registration was not approved. Please contact the temple admin.", errorCode: "account_rejected" };
+        result = { status: "error", message: "Your registration was not approved. Please contact the household admin.", errorCode: "account_rejected" };
       } else if (String(userByMobile.Status||"").toLowerCase() === "inactive") {
         logAction(mobile, "LOGIN_DENIED", "Account inactive | Mobile: " + mobile, "account_inactive", sanitize(e.parameter.deviceInfo||"",200), { severity:"WARN", result:"BLOCKED" });
         result = { status: "error", message: "Your account is deactivated. Please contact admin.", errorCode: "account_inactive" };
@@ -2241,7 +2283,7 @@ function doGet(e) {
         result = { status: "error", message: "Account status invalid. Please contact admin.", errorCode: "account_invalid" };
       } else {
         // Step 2: mobile found and Active — now check password
-        if (String(userByMobile.Password) !== pwdHash) {
+        if (!_safeCompare(userByMobile.Password, pwdHash)) {
           _recordLoginFail(mobile);
           logAction(userByMobile.Name || mobile, "LOGIN_FAILED", "Wrong password | Mobile: " + mobile + " | UserId: " + userByMobile.UserId, "wrong_password", sanitize(e.parameter.deviceInfo||"",200), { severity:"WARN", result:"FAILURE" });
           result = { status: "error", message: "Incorrect password. Please try again.", errorCode: "wrong_password" };
@@ -2282,7 +2324,18 @@ function doGet(e) {
             "User initiated login",
             deviceInfo
           );
-          result = { status: "success", user: safeUser, lastLogin: safeUser.LastLogin || "" };
+          // [SEC] Issue a short-lived, single-use "session ticket" proving this
+          // caller just passed the password check above. setSessionToken (the
+          // very next call the client makes) must present this ticket — without
+          // it, setSessionToken has no way to know the caller ever authenticated
+          // at all, since it only takes a userId + a client-chosen token with no
+          // password re-check of its own. 90s is generous for the immediate
+          // follow-up call but far too short to be guessed/replayed usefully.
+          const sessionTicket = Utilities.getUuid();
+          try {
+            CacheService.getScriptCache().put("ticket_" + safeUser.UserId, sessionTicket, 90);
+          } catch(tkErr) { /* if cache fails, setSessionToken below will simply reject — fail closed */ }
+          result = { status: "success", user: safeUser, lastLogin: safeUser.LastLogin || "", sessionTicket: sessionTicket };
         }
       }
     }
@@ -2298,6 +2351,28 @@ function doGet(e) {
   else if (action === "setSessionToken") {
     const userId = sanitize(e.parameter.userId, 30);
     const token  = sanitize(e.parameter.token,  64);
+    const ticket = sanitize(e.parameter.sessionTicket, 64);
+    // [SEC] Require the one-time ticket issued by a successful "login" call.
+    // Without this, any caller who knows/guesses a UserId could set that
+    // user's SessionToken to a value of their own choosing — a full
+    // authentication bypass with no password check at all.
+    let ticketOk = false;
+    if (userId && ticket) {
+      try {
+        const stored = CacheService.getScriptCache().get("ticket_" + userId);
+        if (stored && stored === ticket) {
+          ticketOk = true;
+          CacheService.getScriptCache().remove("ticket_" + userId); // single-use
+        }
+      } catch(tkErr) { ticketOk = false; }
+    }
+    if (!ticketOk) {
+      logAction(userId || "Unknown", "REJECTED_NO_TICKET", "setSessionToken called without a valid login ticket", "", "", { severity:"CRITICAL", result:"BLOCKED" });
+      result = { status: "error", message: "Invalid or expired login session. Please log in again." };
+      return ContentService
+        .createTextOutput(callback + "(" + JSON.stringify(result) + ")")
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
     // [FIX-24H] rememberMe wasn't previously read at all — every login got a
     // 30-min server session regardless of the "Remember me for 24 hours"
     // checkbox, so audit logs showed SESSION_EXPIRED at 30 min even when the
@@ -2385,6 +2460,10 @@ function doGet(e) {
             const rowUserId = String(allData[i][0] || "").trim();
             const rowName   = nameCol !== -1 ? String(allData[i][nameCol] || "").trim() : "";
             if (!((rowUserId && rowUserId === userId) || (rowName && rowName === userId))) continue;
+            // [AUDIT-CANARY] Same observation-only Name-fallback log as _verifySession — see there for why.
+            if ((!rowUserId || rowUserId !== userId) && rowName && rowName === userId) {
+              logAction(userId, "SESSION_NAME_FALLBACK_MATCH", "Action: checkSession — matched by Name, not UserId (row UserId: " + rowUserId + ")", "", "", { severity:"WARN", result:"INFO" });
+            }
             foundRow = i;
             const stored = String(allData[i][tokenCol] || "").trim();
             // [SEC-TIGHTEN] Was previously "legacy session, allow" — now matches
@@ -2394,7 +2473,7 @@ function doGet(e) {
             // as still-valid.
             if (stored === "") { isValid = false; expiredReason = "not_logged_in"; break; }
             // [SEC] SessionToken is stored as a SHA-256 hash — compare hash-to-hash.
-            if (stored !== hashedToken) { isValid = false; expiredReason = "token_mismatch"; break; }
+            if (!_safeCompare(stored, hashedToken)) { isValid = false; expiredReason = "token_mismatch"; break; }
             // Check TokenExpiry
             if (expiryCol !== -1) {
               const expiryVal = allData[i][expiryCol];
@@ -2928,6 +3007,13 @@ function doGet(e) {
   }
 
   else if (action === "submitFeedback") {
+    const _fbRate = _checkFeedbackRate();
+    if (_fbRate.blocked) {
+      result = { status: "error", message: _fbRate.message };
+      return ContentService
+        .createTextOutput(callback + "(" + JSON.stringify(result) + ")")
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
     try {
       let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("FEEDBACK");
       if (!sheet) {
@@ -3202,18 +3288,25 @@ function doGet(e) {
   //  Security: userId from step 1 — client cannot specify which email to send to
   else if (action === "sendForgotPasswordOTP") {
     const userId = sanitize(e.parameter.userId, 30);
+    // [SEC] Checked before the account lookup so repeated probing of the same
+    // userId is throttled regardless of whether that account actually exists.
+    const _fpRate = _checkOtpRate("fp", userId);
     if (!userId) {
       result = { status: "error", message: "Invalid request." };
+    } else if (_fpRate.blocked) {
+      result = { status: "error", message: _fpRate.message };
     } else {
       const users = getSheetData(SHEETS.USERS);
       const user  = users.find(u => String(u.UserId || "") === userId &&
         ["active","pending"].indexOf(String(u.Status || "").toLowerCase()) !== -1
       );
       if (!user || !user.Email) {
+        _recordOtpSend("fp", userId); // count the attempt even when the account isn't found
         result = { status: "error", message: "Account not found." };
       } else if (!tryConsumeEmailQuota()) {
         result = { status: "error", message: "Email limit reached for today. Please try again tomorrow." };
       } else {
+        _recordOtpSend("fp", userId);
         const otp = Math.floor(100000 + Math.random() * 900000);
         CacheService.getScriptCache().put("fpotp_" + userId, String(otp), 600); // 10 min TTL
         MailApp.sendEmail({
@@ -4269,8 +4362,13 @@ function doGet(e) {
   // ── Y1: Send OTP for registration email verification
   else if (action === "sendRegistrationOTP") {
     const email = sanitize(e.parameter.email, 200);
+    // [SEC] Checked before the existing-account lookup so repeated calls for the
+    // same email are throttled regardless of whether it's already registered.
+    const _regRate = _checkOtpRate("reg", email);
     if (!email) {
       result = { status: "error", message: "Email is required." };
+    } else if (_regRate.blocked) {
+      result = { status: "error", message: _regRate.message };
     } else {
       // Pre-check: is this email already registered in an active/pending/inactive account?
       const allUsers = getSheetData(SHEETS.USERS);
@@ -4279,6 +4377,7 @@ function doGet(e) {
         String(u.Status || "").toLowerCase() !== "rejected"
       );
       if (existingEmail) {
+        _recordOtpSend("reg", email); // count the attempt even when no new OTP is sent
         const es = String(existingEmail.Status || "").toLowerCase();
         if (es === "active") {
           result = { status: "error", message: "This email is already registered. Please login directly or use Forgot Password.", errorCode: "email_active" };
@@ -4290,6 +4389,7 @@ function doGet(e) {
       } else if (!tryConsumeEmailQuota()) {
         result = { status: "error", message: "Email limit reached for today. Please try again tomorrow." };
       } else {
+        _recordOtpSend("reg", email);
         const otp = Math.floor(100000 + Math.random() * 900000);
         // [FIX-3] Include a short hash of the full email (not just first 30 chars)
         // to prevent key collisions between similar emails like user+test@gmail.com
@@ -4407,10 +4507,20 @@ function _loginCacheKey(mobile) {
   // mobiles sharing the same last 4 digits (e.g. 9999999999 and 1239999999 → same key).
   // Now we XOR-scramble the full 10-digit mobile so the raw number isn't in the key
   // but each unique mobile maps to a unique cache key.
+  // [FIX BUG-2] The 32-bit rolling hash above still collides between *different*
+  // mobile numbers occasionally — two unrelated numbers could then share a rate-limit
+  // bucket, so one number's failed attempts count toward the other's block. Hash with
+  // SHA-256 and keep 8 bytes (16 hex chars) — collision odds become astronomically
+  // small while the key stays well under CacheService's 250-char limit.
   const m = String(mobile).replace(/\D/g, ""); // digits only
-  let h = 0;
-  for (let i = 0; i < m.length; i++) { h = ((h << 5) - h + m.charCodeAt(i)) | 0; }
-  return "lfail_" + (h >>> 0).toString(36); // unsigned 32-bit → base-36 string
+  try {
+    const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, m);
+    return "lfail_" + digest.slice(0, 8).map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
+  } catch (e) {
+    let h = 0;
+    for (let i = 0; i < m.length; i++) { h = ((h << 5) - h + m.charCodeAt(i)) | 0; }
+    return "lfail_" + (h >>> 0).toString(36);
+  }
 }
  
 function _checkLoginRate(mobile) {
@@ -4455,6 +4565,86 @@ function _clearLoginFail(mobile) {
   try {
     CacheService.getScriptCache().remove(_loginCacheKey(mobile));
   } catch(e) {}
+}
+
+// [SEC] submitFeedback is intentionally public/unauthenticated (visitors who
+// aren't logged in should be able to leave feedback), and Apps Script's doGet
+// has no reliable per-caller identifier (no client IP, Mobile is optional
+// free text) — so this throttles total submissions globally rather than
+// per-user. Caps at 20 submissions per rolling 60s window, which is far more
+// than any real visitor would ever hit but blocks a scripted flood. Fails
+// open on cache error, same as the login limiter above — never block a
+// legitimate submission over an infra hiccup.
+function _checkFeedbackRate() {
+  try {
+    const cache = CacheService.getScriptCache();
+    const key   = "fbrate_global";
+    const raw   = cache.get(key);
+    const count = raw ? (parseInt(raw, 10) || 0) : 0;
+    if (count >= 20) {
+      return { blocked: true, message: "Too many feedback submissions right now. Please try again in a minute." };
+    }
+    cache.put(key, String(count + 1), 60);
+    return { blocked: false };
+  } catch(e) {
+    return { blocked: false }; // on cache error, never block legitimate users
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  [SEC] OTP SEND RATE LIMITING
+//  sendForgotPasswordOTP and sendRegistrationOTP previously had no cooldown at
+//  all — either could be called back-to-back for the same userId/email with no
+//  limit. Two real abuse paths: (1) repeatedly emailing OTP codes to someone
+//  else's inbox (harassment), and (2) since every OTP send consumes from the
+//  same site-wide daily email quota as receipts/reminders/summaries, hammering
+//  either endpoint could exhaust that quota and block legitimate email for
+//  everyone else that day. Mirrors the existing _checkLoginRate/_recordLoginFail
+//  pattern used for login, keyed by kind+identifier so the two OTP flows don't
+//  share a bucket with each other or with login.
+// ════════════════════════════════════════════════════════════════
+function _otpCacheKey(kind, identifier) {
+  const id = String(identifier || "").trim().toLowerCase();
+  try {
+    const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, kind + ":" + id);
+    return "otprl_" + digest.slice(0, 8).map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
+  } catch (e) {
+    let h = 0; const s = kind + ":" + id;
+    for (let i = 0; i < s.length; i++) { h = ((h << 5) - h + s.charCodeAt(i)) | 0; }
+    return "otprl_" + (h >>> 0).toString(36);
+  }
+}
+
+function _checkOtpRate(kind, identifier) {
+  if (!identifier) return { blocked: false };
+  try {
+    const cache = CacheService.getScriptCache();
+    const key   = _otpCacheKey(kind, identifier);
+    const raw   = cache.get(key);
+    if (!raw) return { blocked: false };
+    const rec = JSON.parse(raw);
+    if (!rec || !rec.count) return { blocked: false };
+    // Block after 3 sends within a 10-min window — generous enough for a genuine
+    // retry (missed delivery, typo'd address) but stops OTP-bombing / quota drain.
+    if (rec.count >= 3) {
+      return { blocked: true, message: "Too many code requests. Please wait a few minutes before trying again." };
+    }
+    return { blocked: false };
+  } catch(e) {
+    return { blocked: false }; // on cache error, never block legitimate users
+  }
+}
+
+function _recordOtpSend(kind, identifier) {
+  if (!identifier) return;
+  try {
+    const cache = CacheService.getScriptCache();
+    const key   = _otpCacheKey(kind, identifier);
+    const raw   = cache.get(key);
+    let rec     = raw ? JSON.parse(raw) : { count: 0 };
+    rec.count   = (rec.count || 0) + 1;
+    cache.put(key, JSON.stringify(rec), 600); // 10-minute window, matches OTP TTL
+  } catch(e) { /* silent — never crash OTP send on cache error */ }
 }
 
 // ── Server-side sheet cache helper (10-min TTL via CacheService)
@@ -5952,14 +6142,14 @@ function getChatbotConfig() {
 function _defaultChatbotConfig() {
   return {
     enabled:         "1",
-    welcome_en:      "${CFG.tagline}! How can I help you today?",
-    welcome_hi:      "${CFG.tagline}! आज मैं आपकी कैसे मदद कर सकता हूँ?",
-    timings_en:      "Temple is open daily:\nMorning: 5:00 AM – 12:00 PM\nEvening: 4:00 PM – 9:00 PM",
-    timings_hi:      "मंदिर प्रतिदिन खुला रहता है:\nसुबह: 5:00 AM – 12:00 PM\nशाम: 4:00 PM – 9:00 PM",
-    location_en:     "${CFG.name}, ${CFG.address}.",
-    location_hi:     "श्री हनुमान मंदिर, पालिया, सुल्तानपुर, उत्तर प्रदेश।",
-    donate_en:       "You can donate in person at the temple or via bank transfer / UPI. Please see Bank Details or UPI/QR option for more.",
-    donate_hi:       "आप मंदिर में आकर या बैंक ट्रांसफर / UPI के माध्यम से दान कर सकते हैं।",
+    welcome_en:      `${CFG.tagline}! How can I help you today?`,
+    welcome_hi:      `${CFG.tagline}! आज मैं आपकी कैसे मदद कर सकता हूँ?`,
+    timings_en:      "The household admin is generally available to respond between 9:00 AM – 9:00 PM daily. For urgent matters, please call directly.",
+    timings_hi:      "घर के एडमिन सामान्यतः प्रतिदिन सुबह 9:00 बजे से रात 9:00 बजे तक उपलब्ध रहते हैं। किसी जरूरी बात के लिए कृपया सीधे कॉल करें।",
+    location_en:     `${CFG.name}, ${CFG.address}.`,
+    location_hi:     `${CFG.name}, मुंगर, सुल्तानपुर, उत्तर प्रदेश।`,
+    donate_en:       "You can contribute in person or via bank transfer / UPI. Please see Bank Details or UPI/QR option for more.",
+    donate_hi:       "आप व्यक्तिगत रूप से या बैंक ट्रांसफर / UPI के माध्यम से योगदान कर सकते हैं।",
     bank_name:       "",
     bank_account:    "",
     bank_ifsc:       "",
@@ -6073,7 +6263,7 @@ function registerUser(params) {
       const ds = String(dupMobile.Status || "").toLowerCase();
       if (ds === "pending")  return { status: "error", message: "A registration with this mobile is already pending approval." };
       if (ds === "active")   return { status: "error", message: "This mobile number is already registered. Please login directly." };
-      if (ds === "rejected") return { status: "error", message: "This registration was previously rejected. Please contact the temple admin." };
+      if (ds === "rejected") return { status: "error", message: "This registration was previously rejected. Please contact the household admin." };
       return { status: "error", message: "Mobile number already in use." };
     }
  

@@ -4,6 +4,15 @@
    ║  Frosted glass effect with blur & transparency      ║
    ╚══════════════════════════════════════════════════════╝ */
 
+/* ── HIDDEN BY DEFAULT ──
+   Only the ≤768px media query below turns this on. Without this base rule,
+   the bar has no display value at desktop/tablet widths, so the browser
+   falls back to the <div> default (display:block) and it renders inline
+   at the bottom of the page content instead of staying off-screen. */
+#mobileGlassMenubar {
+  display: none;
+}
+
 /* ── MOBILE GLASS MENUBAR CONTAINER ── */
 @media (max-width: 768px) {
 

@@ -695,14 +695,7 @@ function updateStatusIfAllComplete() {
   });
 }
 
-// LEGACY FUNCTIONS (kept for backward compatibility — old Overview-tab
-// buttons predate the User-Wise panel and just alias into it now that Bulk
-// Send/Template are gone)
-function sendTrackerEmailPending() { switchTrackerTab('email'); }
-function sendTrackerEmailPaid() { switchTrackerTab('email'); }
 function updateTrackerEmailPreview() {}
-function sendTrackerEmailNow() { switchTrackerTab('email'); }
-function resetTrackerEmailForm() { clearTrackerIndividualSelection(); }
 
 // ═══ LIGHTWEIGHT SVG CHARTS (no external chart library — this app doesn't
 // load one, so these build plain inline SVG instead of pulling in a CDN
@@ -935,75 +928,6 @@ function _trTypeBreakdownForSelectedYear() {
   });
 }
 
-// ═══ ANALYTICS ═══
-
-function renderTrackerAnalytics() {
-  const container = document.getElementById('tracker_analytics_content');
-  if (!container) return;
-
-  const paid = (trackerModuleState.paidMembers || []).length;
-  const pending = (trackerModuleState.pendingMembers || []).length;
-  const total = paid + pending;
-  const rate = total > 0 ? Math.round((paid / total) * 100) : 0;
-  const selYear = trackerModuleState.filters.year;
-
-  const monthlyRates = _trMonthlyRatesForSelectedYear();
-  const yearlyStats = _trYearlyCollectionStats();
-  const typeBreakdown = _trTypeBreakdownForSelectedYear();
-
-  container.innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;">
-      <div style="background:linear-gradient(135deg,#dcfce7,#bbf7d0);border-radius:8px;padding:16px;text-align:center;">
-        <div style="font-size:12px;color:#166534;font-weight:600;">Collection Rate</div>
-        <div style="font-size:24px;font-weight:700;color:#0b5d33;">${rate}%</div>
-      </div>
-      <div style="background:linear-gradient(135deg,#fee2e2,#fecaca);border-radius:8px;padding:16px;text-align:center;">
-        <div style="font-size:12px;color:#991b1b;font-weight:600;">Pending</div>
-        <div style="font-size:24px;font-weight:700;color:#7f1d1d;">${pending}</div>
-      </div>
-      <div style="background:linear-gradient(135deg,#dcfce7,#bbf7d0);border-radius:8px;padding:16px;text-align:center;">
-        <div style="font-size:12px;color:#166534;font-weight:600;">Paid</div>
-        <div style="font-size:24px;font-weight:700;color:#0b5d33;">${paid}</div>
-      </div>
-      <div style="background:linear-gradient(135deg,#e0e7ff,#c7d2fe);border-radius:8px;padding:16px;text-align:center;">
-        <div style="font-size:12px;color:#3730a3;font-weight:600;">Total</div>
-        <div style="font-size:24px;font-weight:700;color:#4c1d95;">${total}</div>
-      </div>
-    </div>
-
-    <div style="background:#f8fafc;border-radius:8px;padding:16px;border:1px solid #e2e8f0;margin-bottom:16px;">
-      <h4 style="margin:0 0 12px 0;font-size:12px;font-weight:600;color:#1e293b;text-transform:uppercase;">Paid vs Pending — ${trackerModuleState.currentMonth} ${selYear}</h4>
-      ${total > 0
-        ? _trRenderDonutChart(
-            [{ label: 'Paid', value: paid, color: '#10b981' }, { label: 'Pending', value: pending, color: '#ef4444' }],
-            { centerLabel: rate + '%' }
-          )
-        : '<div style="padding:16px;text-align:center;color:#94a3b8;font-size:11px;">No applicable members for this month.</div>'
-      }
-    </div>
-
-    <div style="background:#f8fafc;border-radius:8px;padding:16px;border:1px solid #e2e8f0;margin-bottom:16px;">
-      <h4 style="margin:0 0 12px 0;font-size:12px;font-weight:600;color:#1e293b;text-transform:uppercase;">Monthly Collection Rate — ${selYear}</h4>
-      ${_trRenderBarChart(monthlyRates)}
-    </div>
-
-    ${typeBreakdown ? `
-      <div style="background:#f8fafc;border-radius:8px;padding:16px;border:1px solid #e2e8f0;margin-bottom:16px;">
-        <h4 style="margin:0 0 12px 0;font-size:12px;font-weight:600;color:#1e293b;text-transform:uppercase;">Collection Rate by Type — ${selYear}</h4>
-        ${_trRenderBarChart(typeBreakdown)}
-      </div>
-    ` : ''}
-
-    <div style="background:#f8fafc;border-radius:8px;padding:16px;border:1px solid #e2e8f0;">
-      <h4 style="margin:0 0 12px 0;font-size:12px;font-weight:600;color:#1e293b;text-transform:uppercase;">Collection Rate by Year — Whole Project</h4>
-      ${yearlyStats.length >= 2
-        ? _trRenderLineChart(yearlyStats.map(y => ({ label: String(y.year), value: y.rate })))
-        : '<div style="padding:16px;text-align:center;color:#94a3b8;font-size:11px;">Need at least 2 years of data to show a trend.</div>'
-      }
-    </div>
-  `;
-}
-
 // ═══ CALENDAR ═══
 
 // NOTE: contribution records only carry Year + ForMonth (a month name) —
@@ -1165,14 +1089,6 @@ function renderTrackerCalendar() {
   `;
 
   container.innerHTML = calendarHtml;
-}
-
-// Jump from a Calendar tile straight to that month in the Overview tab.
-function _trJumpToMonth(monthIndex) {
-  const monthSelect = document.getElementById('tr_month_select');
-  if (monthSelect) monthSelect.value = String(monthIndex + 1).padStart(2, '0');
-  switchTrackerTab('overview');
-  runTrackerMain();
 }
 
 // ═══ ANALYTICS ═══

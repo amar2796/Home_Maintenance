@@ -14,9 +14,13 @@ const _U_NOTIF_DISMISSED = _U_PREFIX + "_notif_dismissed_ids"; // notification b
       try {
         const rt = JSON.parse(localStorage.getItem(_U_RMK) || "null");
         if (rt && rt.role === "User" && Date.now() < rt.expiry) {
+          // [BUG FIX] Was hardcoded to a flat 30-min slide even though the remember token
+          // itself (rt.expiry) still had up to 24h left — silently capping "remember me" to
+          // 30 min of inactivity tolerance. Reuse rt.expiry directly, and set ttlMs so later
+          // periodic slides (below, and _touchSession's activity poll) keep using 24h too.
           s = {
             userId: rt.userId, name: rt.name, role: rt.role, email: rt.email || "",
-            sessionToken: rt.sessionToken || "", expiry: Date.now() + 30 * 60 * 1000
+            sessionToken: rt.sessionToken || "", expiry: rt.expiry, ttlMs: 24*60*60*1000
           };
           localStorage.setItem("session", JSON.stringify(s));
         } else {
@@ -25,7 +29,8 @@ const _U_NOTIF_DISMISSED = _U_PREFIX + "_notif_dismissed_ids"; // notification b
       } catch (e) { ["session",_U_RMK].forEach(k=>localStorage.removeItem(k)); history.replaceState(null, "", "login.html"); location.replace("login.html"); return; }
     }
     if (s.role !== "User") { location.replace("admin.html"); return; }
-    s.expiry = Date.now() + 30 * 60 * 1000; localStorage.setItem("session", JSON.stringify(s));
+    // [BUG FIX] Was hardcoded to 30 min regardless of ttlMs — see comment above.
+    s.expiry = Date.now() + (s.ttlMs || 30 * 60 * 1000); localStorage.setItem("session", JSON.stringify(s));
     // ── Show name instantly from session — no API wait needed
     try {
       const nameEl = document.getElementById("hdr_name");
@@ -56,8 +61,9 @@ const _U_NOTIF_DISMISSED = _U_PREFIX + "_notif_dismissed_ids"; // notification b
     try {
       const rt = JSON.parse(localStorage.getItem(_U_RMK) || "null");
       if (rt && rt.role === "User" && Date.now() < rt.expiry) {
+        // [BUG FIX] Same rt.expiry / ttlMs fix as the page-load guard above — see comment there.
         const ns = { userId: rt.userId, name: rt.name, role: rt.role, email: rt.email || "",
-                     sessionToken: rt.sessionToken || "", expiry: Date.now() + 30 * 60 * 1000 };
+                     sessionToken: rt.sessionToken || "", expiry: rt.expiry, ttlMs: 24*60*60*1000 };
         localStorage.setItem("session", JSON.stringify(ns));
         return true;
       }
@@ -876,7 +882,7 @@ const _U_NOTIF_DISMISSED = _U_PREFIX + "_notif_dismissed_ids"; // notification b
     try {
       if (_saveBtn) _saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving…';
       let res = await postData({ action: "updateUser", UserId: s.userId, Name: name, Mobile: myProfile?.Mobile || "", Role: s.role, Status: myProfile?.Status || "Active", Email: email, Village: village, Address: address, DOB: dob, Password: "", PhotoURL: photoURL, AdminName: name, sessionToken: s.sessionToken || "" });
-      if (res.status === "updated") { s.name = name; s.email = email; s.photoURL = photoURL; s.expiry = Date.now() + 30 * 60 * 1000; localStorage.setItem("session", JSON.stringify(s)); _pendingCroppedB64 = ""; toast("✅ Profile updated!"); closeModal(); _refreshAfterProfileSave(); }
+      if (res.status === "updated") { s.name = name; s.email = email; s.photoURL = photoURL; s.expiry = Date.now() + (s.ttlMs || 30 * 60 * 1000); localStorage.setItem("session", JSON.stringify(s)); _pendingCroppedB64 = ""; toast("✅ Profile updated!"); closeModal(); _refreshAfterProfileSave(); }
       else { toast("❌ Update failed.", "error"); if (_saveBtn) { _saveBtn.disabled = false; _saveBtn.innerHTML = _saveBtn.dataset.origHtml; } }
     } catch (err) { toast("❌ " + err.message, "error"); if (_saveBtn) { _saveBtn.disabled = false; _saveBtn.innerHTML = _saveBtn.dataset.origHtml; } }
   }
