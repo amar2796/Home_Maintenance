@@ -784,19 +784,18 @@ function _forceLogout(message, logoutReason){
     if(a && !a.getAttribute("target")) { window._navFlag = true; setTimeout(()=>{ window._navFlag=false; },500); }
   }, true);
 
+  // [FIX] This used to build a GET-style URL (?action=clearSessionToken&...)
+  // and pass it to sendBeacon() with NO request body. sendBeacon() always
+  // sends a POST, though — so this actually hit doPost, which unconditionally
+  // expects a JSON body (JSON.parse(e.postData.contents)). With no body, that
+  // threw immediately server-side, so this call silently failed on every
+  // single tab close. Now reuses sendLogoutBeacon() (defined above in this
+  // same file), which sends a real JSON body via sendBeacon — the version
+  // user.js already uses correctly. This one shared fix covers both admin.html
+  // and user.html, since they both load app.js.
   window.addEventListener("beforeunload", function(){
-    try {
-      // Skip if this is an in-app navigation (not a true close/refresh)
-      if(window._navFlag) return;
-      const s = JSON.parse(localStorage.getItem("session") || "null");
-      if(!s || !s.userId) return;
-      const params = new URLSearchParams({
-        action:   "clearSessionToken",
-        userId:   String(s.userId),
-        callback: "cb_beacon"
-      });
-      navigator.sendBeacon(API_URL + "?" + params.toString());
-    } catch(e){ /* silent */ }
+    if(window._navFlag) return; // in-app navigation, not a real close — skip
+    sendLogoutBeacon("Tab or browser closed");
   });
 })();
 

@@ -204,6 +204,34 @@ function _loginSuccess(){_LR.clear();}
 // ══════════════════════════════════════════════════════════════════
 //  LOGIN
 // ══════════════════════════════════════════════════════════════════
+// [MERGE-LOGIN] Single JSONP call that does credential check + session-token
+// write together. `n` is the attempt number (1 = first try, 2 = one retry).
+// Retrying is safe here: same mobile/password/token sent again just re-verifies
+// and re-writes the same token — same end state, no duplicate side effects.
+function _attemptLogin(mobile,hashedPwd,sessionToken,rememberMeChecked,n){
+  return new Promise((resolve,reject)=>{
+    const cbName="handleLogin_"+Date.now()+"_"+n;const s=document.createElement("script");let done=false;
+    window[cbName]=function(r){if(done)return;done=true;clearTimeout(timer);delete window[cbName];s.remove();resolve(r);};
+    // 20s (was 15s) — this single call now also does the session-token write
+    // that used to be a separate call, so it needs a little more headroom.
+    const timer=setTimeout(()=>{
+      if(done)return;done=true;delete window[cbName];s.remove();
+      if(n===1){
+        // One silent retry, same generated token — same pattern app.js uses
+        // for postData(), and safe for the same reason (idempotent).
+        _attemptLogin(mobile,hashedPwd,sessionToken,rememberMeChecked,2).then(resolve).catch(reject);
+      } else {
+        reject(new Error("Request timed out."));
+      }
+    },20000);
+    s.onerror=function(){if(done)return;done=true;clearTimeout(timer);delete window[cbName];s.remove();reject(new Error("Network error."));};
+    s.src=API_URL+"?action=login&mobile="+encodeURIComponent(mobile)+"&password="+hashedPwd+
+      "&token="+encodeURIComponent(sessionToken)+"&rememberMe="+(rememberMeChecked?"1":"0")+
+      "&callback="+cbName;
+    document.body.appendChild(s);
+  });
+}
+
 async function doLogin(){
   document.getElementById("retryBtn").style.display="none";
   if(!_loginGuard())return;
@@ -215,29 +243,29 @@ async function doLogin(){
   setMsg("loginMsg","","");
   try{
     const hashedPwd=await sha256(password);
-    const res=await new Promise((resolve,reject)=>{
-      const cbName="handleLogin_"+Date.now();const s=document.createElement("script");let done=false;
-      window[cbName]=function(r){if(done)return;done=true;clearTimeout(timer);delete window[cbName];s.remove();resolve(r);};
-      const timer=setTimeout(()=>{if(done)return;done=true;delete window[cbName];s.remove();reject(new Error("Request timed out."));},15000);
-      s.onerror=function(){if(done)return;done=true;clearTimeout(timer);delete window[cbName];s.remove();reject(new Error("Network error."));};
-      s.src=API_URL+"?action=login&mobile="+encodeURIComponent(mobile)+"&password="+hashedPwd+"&callback="+cbName;
-      document.body.appendChild(s);
-    });
+    // [FIX-24H] previously generated AFTER the login response came back — moved
+    // up so it can be sent WITH the login request itself (merged call). Just a
+    // random value, safe to generate before we know the outcome.
+    const sessionToken=Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b=>b.toString(16).padStart(2,"0")).join("");
+    const rememberMeChecked=document.getElementById("rememberMe").checked;
+    const res=await _attemptLogin(mobile,hashedPwd,sessionToken,rememberMeChecked,1);
     if(res.status==="success"){
       const user=res.user;delete user.Password;
-      const sessionToken=Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b=>b.toString(16).padStart(2,"0")).join("");
       // [FIX-24H] previously hardcoded expiry:Date.now()+30*60*1000 here regardless
       // of the "remember me" checkbox — the client-side session window (used by
       // _checkAdminSession's page-gating) was capped at 30 min even when the box
       // was checked. Now matches the same window granted server-side.
-      const rememberMeChecked=document.getElementById("rememberMe").checked;
       const clientTtlMs=rememberMeChecked?24*60*60*1000:30*60*1000;
-      // [BUG FIX] localStorage.setItem("session",...) and the redirect used to happen
-      // BEFORE confirming the server actually stored the token (see setSessionTokenOnServer's
-      // comment above for the exact failure mode this caused). Now we await confirmation
-      // first — nothing is persisted and no redirect happens unless the server confirms.
-      setMsg("loginMsg","Signing in...","success");
-      const _tokenWritten = await setSessionTokenOnServer(String(user.UserId),sessionToken,rememberMeChecked,res.sessionTicket);
+      // [MERGE-LOGIN] res.sessionSet===true means the backend already stored the
+      // token inline (new merged path) — nothing further to confirm. Only if the
+      // backend hasn't been redeployed yet (older Apps Script still returning
+      // sessionTicket, no sessionSet) do we fall back to the original separate
+      // setSessionToken call, so login keeps working through a rolling deploy.
+      let _tokenWritten = !!res.sessionSet;
+      if(!_tokenWritten && res.sessionTicket){
+        setMsg("loginMsg","Signing in...","success");
+        _tokenWritten = await setSessionTokenOnServer(String(user.UserId),sessionToken,rememberMeChecked,res.sessionTicket);
+      }
       if(!_tokenWritten){
         setMsg("loginMsg","❌ Could not complete sign-in — please try again.","error");
         const retryBtn=document.getElementById("retryBtn");

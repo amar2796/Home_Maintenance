@@ -1,4 +1,4 @@
-    function _renderPagination(containerId, totalPages, currentPage, onPageFn) {
+function _renderPagination(containerId, totalPages, currentPage, onPageFn) {
       var el = document.getElementById(containerId);
       if (!el) return;
       if (totalPages <= 1) { el.innerHTML = ""; return; }
@@ -655,9 +655,19 @@
             </button>` : `
             <button class="btn-sm" onclick="event.stopPropagation();openEditUser('${u.UserId}')"><i class="fa-solid fa-pen"></i></button>
             ` + (function(){
+              // [FIX] Previously ONLY checked contribution total — an Admin
+              // account with ₹0 contributions (e.g. a freshly created admin,
+              // or one who never personally contributed) could be deleted
+              // outright via this button. Admin accounts should never be
+              // deletable at all — Enable/Disable (already available via
+              // status) is the correct way to remove admin access safely.
+              var isAdmin = String(u.Role || "").toLowerCase() === "admin";
               var ct = (typeof data !== "undefined" ? data : [])
                 .filter(function(c){ return String(c.UserId) === String(u.UserId); })
                 .reduce(function(s,c){ return s + Number(c.Amount||0); }, 0);
+              if (isAdmin) {
+                return '<button class="btn-sm btn-danger" style="background:#cbd5e1;cursor:not-allowed;opacity:0.55;" disabled title="Admin accounts cannot be deleted. Use Enable/Disable instead."><i class="fa-solid fa-trash"></i></button>';
+              }
               return ct === 0
                 ? '<button class="btn-sm btn-danger" onclick="event.stopPropagation();deleteUser(\'' + u.UserId + '\')" title="Delete User"><i class="fa-solid fa-trash"></i></button>'
                 : '<button class="btn-sm btn-danger" style="background:#cbd5e1;cursor:not-allowed;opacity:0.55;" disabled title="Cannot delete: user has \u20b9' + fmt(ct) + ' in contributions. Set status to Inactive instead."><i class="fa-solid fa-trash"></i></button>';
@@ -713,6 +723,11 @@
         ["Email",              escapeHtml(u.Email || "—")],
         ["Role",               '<span class="badge ' + roleClass + '">' + escapeHtml(u.Role || "User") + '</span>'],
         ["Status",             '<span class="badge ' + statClass + '">' + escapeHtml(u.Status || "Active") + '</span>'],
+        // [FIX] These three existed on the user record (used in the Edit form)
+        // but were never shown in the read-only Member Details view.
+        ["Monthly Target",     (APP.currency||'₹') + ' ' + fmt(Number(u.MonthlyTarget || 0))],
+        ["Date of Birth",      escapeHtml(u.DOB || "—")],
+        ["Contribution Start", escapeHtml(u.ContribStartDate || "—")],
         ["Total Contributions",'<span style="color:#27ae60;font-weight:700;">' + (APP.currency||'₹') + ' ' + fmt(contribTotal) + '</span>'],
       ];
       const tableRows = rows.map(function(r) {
@@ -722,13 +737,19 @@
           + '</tr>';
       }).join("");
       const _safeId = String(id).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-      const _canDelete = contribTotal === 0;
+      // [FIX] Admin accounts can never be deleted, regardless of contribution
+      // total — same rule as the table row's delete button. Use Enable/Disable
+      // (Status) instead, which already exists for exactly this purpose.
+      const _isAdmin = String(u.Role || "").toLowerCase() === "admin";
+      const _canDelete = !_isAdmin && contribTotal === 0;
       const _deleteBtnStyle = _canDelete
         ? 'background:#e74c3c;cursor:pointer;'
         : 'background:#cbd5e1;cursor:not-allowed;opacity:0.55;';
-      const _deleteBtnTitle = _canDelete
-        ? 'Delete User'
-        : 'Cannot delete: user has contributions. Set status to Inactive instead.';
+      const _deleteBtnTitle = _isAdmin
+        ? 'Admin accounts cannot be deleted. Use Enable/Disable instead.'
+        : (_canDelete
+            ? 'Delete User'
+            : 'Cannot delete: user has contributions. Set status to Inactive instead.');
       const _deleteBtnOnclick = _canDelete
         ? 'onclick="closeModal();deleteUser(\'' + _safeId + '\')"'
         : '';
@@ -1691,4 +1712,4 @@
     /* ════════════════════════════════════════════════════════
        RETRY BULK — re-sends only genuinely-failed rows,
        skips any that already exist (dedup safety net)
-    ════════════════════════════════════════════════════════ */
+    ════════════════════════════════════════════════════════ */

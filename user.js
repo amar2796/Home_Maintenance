@@ -169,18 +169,11 @@ const _U_NOTIF_DISMISSED = _U_PREFIX + "_notif_dismissed_ids"; // notification b
     endSessionAndRedirect("User clicked logout button", { extraKeys: [_U_RMK, _U_DARK, _U_LANG] });
   }
 
-  // ── [SEC] TAB / BROWSER CLOSE — clear session on server via sendBeacon
-  // [NEW] user.js previously had no handler for this at all — admin.js did
-  // (even though it was broken until this same fix), but a member closing
-  // their tab without clicking Logout got no server-side clear attempt
-  // whatsoever; the token just sat there until natural 30-min expiry (or the
-  // daily cleanupExpiredSessions() sweep). Same pattern as admin.js: beacon
-  // only, never redirect from beforeunload — it fires for ANY page-leave
-  // reason, not just logout.
-  window.addEventListener("beforeunload", function () {
-    if (window._navFlag) return; // logout already cleared token — skip
-    sendLogoutBeacon("User tab or browser closed");
-  });
+  // ── [SEC] TAB / BROWSER CLOSE — now handled by the single shared
+  // beforeunload listener in app.js (uses sendLogoutBeacon(), which this file
+  // used correctly too — but app.js's shared handler covers user.html the
+  // same way, so this was a harmless duplicate firing the beacon twice per
+  // close). Removed to keep exactly one handler per page.
 
   function toggleUserDropdown() {
     const dd = document.getElementById("userDropdown");

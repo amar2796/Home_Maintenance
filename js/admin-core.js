@@ -543,34 +543,16 @@
       if (!document.hidden && _vcReady) _checkAdminSession();
     });
 
-    // ── [SEC] TAB / BROWSER CLOSE — clear session on server via sendBeacon
-    // sendBeacon is the only reliable way to fire a request on page unload.
-    // Regular fetch/XHR gets cancelled when the tab closes.
-    // _navFlag is set by logout() so we don't double-clear on intentional logout.
-    window.addEventListener("beforeunload", function () {
-      if (window._navFlag) return; // logout already cleared token — skip
-      try {
-        var s = JSON.parse(localStorage.getItem("session") || "{}");
-        if (s && s.userId && s.sessionToken) {
-          // [FIX-B] sendBeacon always POSTs → hits doPost, not doGet.
-          // clearSessionToken was only in doGet so beacon was silently dropped.
-          // postData (JSON body → doPost) is correct path. Beacon as fallback only.
-          postData({
-            action:       "clearSessionToken",
-            userId:       s.userId,
-            sessionToken: s.sessionToken || "",
-            reason:       "Admin tab or browser closed"
-          }).then(function(r){
-          }).catch(function(){
-            // Browser cancelled postData on unload — beacon as last resort
-            try {
-              var p = new URLSearchParams({ action:"clearSessionToken", userId:s.userId, reason:"unload-beacon-fallback", callback:"cb_unload" });
-              navigator.sendBeacon(API_URL + "?" + p.toString());
-            } catch(be){}
-          });
-        }
-      } catch(e) { console.error("[ADMIN SESSION] beforeunload error:", e); }
-    });
+    // ── [SEC] TAB / BROWSER CLOSE — handled by the shared beforeunload
+    // listener in app.js (uses sendLogoutBeacon(), a real sendBeacon() with a
+    // JSON body — the only version of this that actually survives page
+    // unload). This file used to register its own SEPARATE beforeunload here
+    // that called postData() (a JSONP <script> request) as its primary path —
+    // but browsers cancel any pending <script> request the instant the page
+    // unloads, so that almost never actually ran, and its sendBeacon fallback
+    // (inside .catch()) never fired either since the promise never settles on
+    // a real close. Removed rather than left as a second, broken, duplicate
+    // handler alongside the one that already works.
 
     // ── [SEC] SCREEN LOCK / APP SWITCH — Visibility API hidden-duration check
     // When a user locks their phone, switches apps, or minimises the browser,

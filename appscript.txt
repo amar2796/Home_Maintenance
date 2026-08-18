@@ -194,11 +194,30 @@ function _verifySession(params, actionName) {
               const storedTtl = Number(allData[i][ttlCol]);
               if (!isNaN(storedTtl) && storedTtl > 0) slideMs = storedTtl;
             }
-            try {
-              const newExpiry = Date.now() + slideMs;
-              sheet.getRange(i + 1, expiryCol + 1).setValue(newExpiry);
-              _bustSheetCache(_VS_CACHE_KEY);
-            } catch(slErr) { /* non-fatal — don't block the action */ }
+            // [PERF] Previously this rewrote TokenExpiry on EVERY single
+            // authenticated action — dashboard loads, list fetches, every
+            // click. Each write is a real Sheets API call (~200-500ms+), and
+            // it also busted the 30s read-cache above every time, so that
+            // cache almost never actually got used in practice — nearly every
+            // action paid for a fresh sheet read AND a sheet write, just to
+            // extend an expiry that had barely moved.
+            //
+            // Now: only actually slide the expiry once at least 2 minutes of
+            // the window have already been "used" since the last slide. The
+            // session still behaves as a sliding window from the user's
+            // perspective — it only truly expires after being idle for the
+            // full 30min/24h — but a burst of rapid actions (e.g. browsing a
+            // dashboard, opening a form) now shares one write instead of one
+            // per action, and lets the 30s read-cache above actually do its job.
+            const _SLIDE_THROTTLE_MS = 2 * 60 * 1000; // 2 min
+            const timeAlreadyUsedMs = slideMs - (expiryTime - Date.now());
+            if (timeAlreadyUsedMs > _SLIDE_THROTTLE_MS) {
+              try {
+                const newExpiry = Date.now() + slideMs;
+                sheet.getRange(i + 1, expiryCol + 1).setValue(newExpiry);
+                _bustSheetCache(_VS_CACHE_KEY);
+              } catch(slErr) { /* non-fatal — don't block the action */ }
+            }
           }
         }
         return true;
@@ -2356,48 +2375,88 @@ function doGet(e) {
           delete safeUser.Password;
           const deviceInfo = sanitize(e.parameter.deviceInfo || "", 200);
           const loginTime  = formatDate();
-          // Write LastLogin timestamp back to USERS sheet
+
+          // [MERGE-LOGIN] Previously this was two full network round trips from
+          // the client: (1) "login" verifies credentials + writes LastLogin,
+          // then (2) a SEPARATE "setSessionToken" call writes the session
+          // token/expiry — each doing its OWN full sheet read. On a slow
+          // connection, step 2 had a much tighter client timeout than step 1
+          // and would fail even after the correct password had already been
+          // accepted, showing a confusing "could not complete sign-in" error.
+          //
+          // Now: if the client sends a `token` along with mobile/password
+          // (new login.js does), we verify credentials AND write LastLogin AND
+          // write the session token in ONE sheet read + one pass — no second
+          // round trip, no second full sheet scan. `sessionSet:true` in the
+          // response tells the client it's fully done, no follow-up call needed.
+          //
+          // [BACKWARD-COMPAT] If no `token` is sent (older cached client, or
+          // this inline write fails for any reason), we fall back to the
+          // ORIGINAL ticket-based two-step flow below, unchanged — so nothing
+          // breaks for anyone still running the old frontend.
+          const _inlineToken = sanitize(e.parameter.token, 64);
+          const _rememberMe  = sanitize(e.parameter.rememberMe, 5) === "1";
+          let sessionSet = false;
           try {
             const sheet   = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEETS.USERS);
             const data    = sheet.getDataRange().getValues();
             const headers = data[0];
             let llCol = headers.indexOf("LastLogin");
-            if (llCol === -1) {
-              // Column doesn't exist yet — create it
-              llCol = headers.length;
-              sheet.getRange(1, llCol + 1).setValue("LastLogin");
-            }
-            // [FIX-8] Use header-based UserId column lookup — not hardcoded col 0.
-            // If sheet columns are ever reordered, col 0 may not be UserId.
+            if (llCol === -1) { llCol = headers.length; sheet.getRange(1, llCol + 1).setValue("LastLogin"); }
+            let tokenCol  = headers.indexOf("SessionToken");
+            if (tokenCol === -1) { tokenCol = headers.length; sheet.getRange(1, tokenCol + 1).setValue("SessionToken"); }
+            let expiryCol = headers.indexOf("TokenExpiry");
+            if (expiryCol === -1) { expiryCol = Math.max(llCol, tokenCol) + 1; sheet.getRange(1, expiryCol + 1).setValue("TokenExpiry"); }
+            let ttlCol = headers.indexOf("SessionTTL");
+            if (ttlCol === -1) { ttlCol = Math.max(llCol, tokenCol, expiryCol) + 1; sheet.getRange(1, ttlCol + 1).setValue("SessionTTL"); }
+
+            // [FIX-8] Header-based UserId column lookup — not hardcoded col 0.
             const _uidCol = headers.indexOf("UserId");
+            const sessionTtlMs = _rememberMe ? 24 * 60 * 60 * 1000 : 30 * 60 * 1000;
+            const expiryTime   = Date.now() + sessionTtlMs;
+
             for (let i = 1; i < data.length; i++) {
               const _rowId = _uidCol !== -1 ? String(data[i][_uidCol] || "") : String(data[i][0] || "");
               if (_rowId === String(safeUser.UserId)) {
                 sheet.getRange(i + 1, llCol + 1).setValue(loginTime);
+                if (_inlineToken) {
+                  // [SEC] Same as the old setSessionToken action — store the HASH
+                  // of the client-generated token, never the raw value.
+                  sheet.getRange(i + 1, tokenCol  + 1).setValue(_hashSessionToken(_inlineToken));
+                  sheet.getRange(i + 1, expiryCol + 1).setValue(expiryTime);
+                  sheet.getRange(i + 1, ttlCol    + 1).setValue(sessionTtlMs);
+                  sessionSet = true;
+                }
                 SpreadsheetApp.flush();
                 break;
               }
             }
-          } catch(llErr) { /* non-fatal — never block login on this */ }
+            // Bust verify cache so the new token is visible to _verifySession immediately
+            if (sessionSet) _bustSheetCache("c_users_verify");
+          } catch(llErr) { /* non-fatal — never block login on this; sessionSet stays false, falls back below */ }
+
           logAction(
             safeUser.Name || "User",
             "Login",
             "Mobile: " + mobile + " | Role: " + (safeUser.Role || "User") + " | UserId: " + (safeUser.UserId || ""),
-            "User initiated login",
+            "User initiated login" + (sessionSet ? " (session set inline — merged call)" : ""),
             deviceInfo
           );
-          // [SEC] Issue a short-lived, single-use "session ticket" proving this
-          // caller just passed the password check above. setSessionToken (the
-          // very next call the client makes) must present this ticket — without
-          // it, setSessionToken has no way to know the caller ever authenticated
-          // at all, since it only takes a userId + a client-chosen token with no
-          // password re-check of its own. 90s is generous for the immediate
-          // follow-up call but far too short to be guessed/replayed usefully.
-          const sessionTicket = Utilities.getUuid();
-          try {
-            CacheService.getScriptCache().put("ticket_" + safeUser.UserId, sessionTicket, 90);
-          } catch(tkErr) { /* if cache fails, setSessionToken below will simply reject — fail closed */ }
-          result = { status: "success", user: safeUser, lastLogin: safeUser.LastLogin || "", sessionTicket: sessionTicket };
+
+          if (sessionSet) {
+            // Fully done in this one call — no follow-up setSessionToken needed.
+            result = { status: "success", user: safeUser, lastLogin: safeUser.LastLogin || "", sessionSet: true };
+          } else {
+            // [LEGACY FALLBACK] No inline token was sent (or the inline write
+            // failed) — issue the original short-lived, single-use ticket so an
+            // older client (or this same client falling back) can still complete
+            // login via the old separate setSessionToken call, exactly as before.
+            const sessionTicket = Utilities.getUuid();
+            try {
+              CacheService.getScriptCache().put("ticket_" + safeUser.UserId, sessionTicket, 90);
+            } catch(tkErr) { /* if cache fails, setSessionToken below will simply reject — fail closed */ }
+            result = { status: "success", user: safeUser, lastLogin: safeUser.LastLogin || "", sessionTicket: sessionTicket };
+          }
         }
       }
     }
@@ -2504,7 +2563,24 @@ function doGet(e) {
     else {
       try {
         const sheet    = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEETS.USERS);
-        const allData  = sheet.getDataRange().getValues();
+        // [PERF] This poll runs continuously in the background for every logged-in
+        // session (every 60s for Admin, every 10min for User) purely to detect a
+        // remote logout/kick — it doesn't need millisecond-fresh data. It was
+        // previously doing its own full sheet.getDataRange().getValues() every
+        // single poll, completely ignoring the 30s cache _verifySession already
+        // maintains for this exact same sheet (c_users_verify). Reusing that cache
+        // means most polls now cost nothing extra — only a genuinely stale cache
+        // (>30s old) triggers a fresh read here.
+        const _CS_CACHE_KEY = "c_users_verify";
+        let allData;
+        try {
+          const _cc = CacheService.getScriptCache().get(_CS_CACHE_KEY);
+          allData = _cc ? JSON.parse(_cc) : null;
+        } catch(ce) { allData = null; }
+        if (!allData) {
+          allData = sheet.getDataRange().getValues();
+          try { CacheService.getScriptCache().put(_CS_CACHE_KEY, JSON.stringify(allData), 30); } catch(ce) {}
+        }
         const headers  = allData[0];
         const tokenCol  = headers.indexOf("SessionToken");
         const expiryCol = headers.indexOf("TokenExpiry");
@@ -3446,6 +3522,19 @@ function doGet(e) {
     // response and the frontend stores it in _undoSaved for the restore call.
     const _allUsersRaw = getSheetData(SHEETS.USERS); // has Password (not stripped here)
     const _delUser = _allUsersRaw.find(u => String(u.UserId) === id);
+    // [SEC] Admin accounts must never be deletable — only the frontend button
+    // enforced this before, which is a UI convenience, not a real guarantee.
+    // A direct API call (or a future UI bug) could bypass it entirely. Fail
+    // closed here regardless of how the request arrived.
+    if (_delUser && String(_delUser.Role || "").toLowerCase() === "admin") {
+      logAction(sanitize(e.parameter.AdminName||"Admin",100), "DELETE_USER_BLOCKED",
+        "UserId: " + id + " | Name: " + (_delUser.Name||"") + " — attempted delete of Admin account",
+        "", "", { severity:"WARN", result:"BLOCKED" });
+      result = { status: "error", message: "Admin accounts cannot be deleted. Set status to Inactive instead." };
+      return ContentService
+        .createTextOutput(callback + "(" + JSON.stringify(result) + ")")
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
     result = deleteRow(SHEETS.USERS, id);
     if (result.status === "deleted") {
       // Return password hash so undo can restore it exactly
