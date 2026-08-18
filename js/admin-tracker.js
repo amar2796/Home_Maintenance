@@ -69,23 +69,30 @@ function _trYM(y, m) { return y * 12 + m; }
 // 2) their earliest recorded (non walk-in) contribution, else
 // 3) their RegisteredAt date, else
 // 4) null — no restriction, always countable
+// Then clamped forward to ReactivatedAt if they were ever reactivated after a
+// spell inactive — otherwise a reactivated member's pending would re-count
+// their whole inactive gap as unpaid months, since InactiveSince alone can't
+// tell us "resume counting from here" once Status is active again.
 function _trEffectiveStart(u) {
-  const cs = _trParseDMY(u.ContribStartDate);
-  if (cs) return cs;
-  const allContribs = trackerModuleState.yearContribs || [];
-  const mine = allContribs.filter(c =>
-    String(c.UserId) === String(u.UserId) && !String(c.UserId).startsWith('WALKIN_')
-  );
-  let best = null;
-  mine.forEach(c => {
-    const y = Number(c.Year), mi = TRACKER_MONTH_NAMES.indexOf(c.ForMonth);
-    if (isNaN(y) || mi === -1) return;
-    if (!best || y < best.y || (y === best.y && mi < best.m)) best = { y, m: mi };
-  });
-  if (best) return best;
-  const reg = _trParseDMY(u.RegisteredAt);
-  if (reg) return reg;
-  return null;
+  let start = _trParseDMY(u.ContribStartDate);
+  if (!start) {
+    const allContribs = trackerModuleState.yearContribs || [];
+    const mine = allContribs.filter(c =>
+      String(c.UserId) === String(u.UserId) && !String(c.UserId).startsWith('WALKIN_')
+    );
+    let best = null;
+    mine.forEach(c => {
+      const y = Number(c.Year), mi = TRACKER_MONTH_NAMES.indexOf(c.ForMonth);
+      if (isNaN(y) || mi === -1) return;
+      if (!best || y < best.y || (y === best.y && mi < best.m)) best = { y, m: mi };
+    });
+    start = best || _trParseDMY(u.RegisteredAt);
+  }
+  const reactivated = _trParseDMY(u.ReactivatedAt);
+  if (reactivated && (!start || _trYM(reactivated.y, reactivated.m) > _trYM(start.y, start.m))) {
+    return reactivated;
+  }
+  return start;
 }
 
 // Month a now-inactive member's pending tracking should freeze at, or null
@@ -381,6 +388,57 @@ function runTrackerMain() {
   renderTrackerMembers(paidMembers, pendingMembers);
 }
 
+// All of this member's real (non walk-in) contributions, across EVERY year —
+// unlike _trackerFilteredContribs() this deliberately ignores the Year
+// filter (Total Pending is a lifetime count, not a per-year one), but still
+// respects the Type filter so it stays consistent with what "paid" means
+// everywhere else on this page.
+function _trackerFilteredContribsAllYears() {
+  let contribs = (trackerModuleState.yearContribs || []).filter(c =>
+    !String(c.UserId).startsWith('WALKIN_')
+  );
+  const type = trackerModuleState.filters.type;
+  if (type) {
+    contribs = contribs.filter(c => {
+      const cType = (c.TypeId !== undefined && c.TypeId !== null) ? c.TypeId : c.Type;
+      return String(cType) === String(type);
+    });
+  }
+  return contribs;
+}
+
+// Counts how many months are genuinely "pending" for one member across their
+// WHOLE membership — from their effective start date (ContribStartDate, or
+// earliest contribution, or RegisteredAt) up to the current month, not just
+// the Year filter's selected year. If they've since gone inactive, counting
+// stops at their inactive-freeze month, same as everywhere else in this file.
+function _trPendingCountAllTime(member, allContribs) {
+  const start = _trEffectiveStart(member);
+  const freeze = _trInactiveFreeze(member);
+  const now = new Date();
+  const curYM = _trYM(now.getFullYear(), now.getMonth());
+
+  // Lower bound to count from. Normally `start` always resolves to
+  // something (ContribStartDate → earliest contribution → RegisteredAt),
+  // but if a member record is missing all three, fall back to the same
+  // "current year - 5" window the Year filter dropdown itself offers,
+  // instead of counting back to year zero.
+  const startYM = start ? _trYM(start.y, start.m) : _trYM(now.getFullYear() - 5, 0);
+  const endYM = freeze ? Math.min(curYM, _trYM(freeze.y, freeze.m)) : curYM;
+
+  let count = 0;
+  for (let ym = startYM; ym <= endYM; ym++) {
+    const y = Math.floor(ym / 12), mi = ym % 12;
+    const paid = allContribs.some(c =>
+      String(c.UserId) === String(member.UserId) &&
+      String(c.Year) === String(y) &&
+      c.ForMonth === TRACKER_MONTH_NAMES[mi]
+    );
+    if (!paid) count++;
+  }
+  return count;
+}
+
 // ═══ GRID RENDERING ═══
 
 function renderTrackerGrid(members, contribs) {
@@ -404,12 +462,16 @@ function renderTrackerGrid(members, contribs) {
   monthLabels.forEach(m => {
     html += `<th style="padding:8px;text-align:center;font-weight:600;border-left:1px solid #e2e8f0;color:#1e293b;">${m}</th>`;
   });
-  
+  html += '<th style="padding:8px;text-align:center;font-weight:600;border-left:2px solid #e2e8f0;color:#1e293b;" title="Pending months from their join/start date to now, ignoring the Year filter above">Total<br>Pending</th>';
+
   html += '</tr>';
 
   if (members.length === 0) {
-    html += '<tr><td colspan="13" style="padding:16px;text-align:center;color:#999;">No members found</td></tr>';
+    html += '<tr><td colspan="14" style="padding:16px;text-align:center;color:#999;">No members found</td></tr>';
   } else {
+    // Computed once here (not per-row) since it's the same all-years,
+    // type-filtered contribution list for every member in the grid.
+    const allYearsContribs = _trackerFilteredContribsAllYears();
     members.forEach(m => {
       // FIX: restored the old tracker's per-cell states. Before this, a
       // member who joined in June showed Jan–May as "pending" (red ✕), and
@@ -444,7 +506,14 @@ function renderTrackerGrid(members, contribs) {
         }
         html += `<td style="padding:8px;text-align:center;background:${color}20;border-left:1px solid #e2e8f0;color:${color};font-weight:600;">${icon}</td>`;
       });
-      
+
+      // Total Pending — lifetime count from this member's start date to now
+      // (NOT limited to the Year filter above), still freeze-aware if they've
+      // since gone inactive. See _trPendingCountAllTime.
+      const pendingCount = _trPendingCountAllTime(m, allYearsContribs);
+      const pendingColor = pendingCount > 0 ? '#ef4444' : '#10b981';
+      html += `<td style="padding:8px;text-align:center;border-left:2px solid #e2e8f0;color:${pendingColor};font-weight:700;">${pendingCount}</td>`;
+
       html += '</tr>';
     });
   }

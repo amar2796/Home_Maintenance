@@ -1192,25 +1192,50 @@ function _admParseDMY(s) {
 
 function _admYM(y, m) { return y * 12 + m; }
 
+// Formats a PaymentDate cell (stored as "dd-MM-yyyy HH:mm:ss" text, per the
+// sheet's convention) as "dd MMM" — e.g. "07 Aug". Deliberately does NOT use
+// `new Date(rawString)`: JS's native Date constructor assumes US-style
+// MM-DD-YYYY for ambiguous strings, which silently swaps day/month for any
+// dd-MM-yyyy value (and returns Invalid Date whenever the day is > 12).
+// Goes through _admParseDMY's regex (day-month-year safe) first, then
+// builds the Date from plain numbers — never from a string — so there's no
+// ambiguity left for the Date constructor to get wrong.
+function _admFormatShortDate(raw) {
+  if (!raw) return "";
+  if (raw instanceof Date) {
+    return isNaN(raw.getTime()) ? "" : Utilities.formatDate(raw, "GMT+5:30", "dd MMM");
+  }
+  const parsed = _admParseDMY(raw);
+  if (!parsed) return "";
+  return Utilities.formatDate(new Date(parsed.y, parsed.m, parsed.d), "GMT+5:30", "dd MMM");
+}
+
 // Effective start month for a member: ContribStartDate → earliest non-walk-in
-// contribution → RegisteredAt → null (not countable).
+// contribution → RegisteredAt → null (not countable). Then clamped forward to
+// ReactivatedAt if the member was ever reactivated after a spell inactive —
+// otherwise a reactivated member's pending would re-count their entire
+// inactive gap as unpaid months, since InactiveSince alone can't tell us
+// "resume counting from here" once Status is active again.
 function _admEffectiveStart(u, allContribs) {
-  const cs = _admParseDMY(u.ContribStartDate);
-  if (cs) return cs;
-  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-  const mine = allContribs.filter(function(c) {
-    return String(c.UserId) === String(u.UserId) && String(c.UserId).indexOf("WALKIN_") !== 0;
-  });
-  let best = null;
-  mine.forEach(function(c) {
-    const y = Number(c.Year), mi = MONTHS.indexOf(String(c.ForMonth || "").trim());
-    if (isNaN(y) || mi === -1) return;
-    if (!best || y < best.y || (y === best.y && mi < best.m)) best = { y: y, m: mi };
-  });
-  if (best) return best;
-  const reg = _admParseDMY(u.RegisteredAt);
-  if (reg) return reg;
-  return null;
+  let start = _admParseDMY(u.ContribStartDate);
+  if (!start) {
+    const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    const mine = allContribs.filter(function(c) {
+      return String(c.UserId) === String(u.UserId) && String(c.UserId).indexOf("WALKIN_") !== 0;
+    });
+    let best = null;
+    mine.forEach(function(c) {
+      const y = Number(c.Year), mi = MONTHS.indexOf(String(c.ForMonth || "").trim());
+      if (isNaN(y) || mi === -1) return;
+      if (!best || y < best.y || (y === best.y && mi < best.m)) best = { y: y, m: mi };
+    });
+    start = best || _admParseDMY(u.RegisteredAt);
+  }
+  const reactivated = _admParseDMY(u.ReactivatedAt);
+  if (reactivated && (!start || _admYM(reactivated.y, reactivated.m) > _admYM(start.y, start.m))) {
+    return reactivated;
+  }
+  return start;
 }
 
 // Freeze point for an inactive member — pending stops accruing at InactiveSince.
@@ -1330,6 +1355,15 @@ function _buildAdminSummaryData(month, year) {
   // ── Lifetime pending (Tracker-equivalent) for Not-Yet-Paid members —
   // months × MonthlyTarget, using the _adm* helpers above. Members with no
   // MonthlyTarget set get amount:null and show "—" instead of a figure.
+  //
+  // ✅ [FIX] This used to only be computed inside the "didn't pay this
+  // month" branch below, so a member who DID pay the current month but
+  // still had unpaid months earlier in their history (e.g. paid August but
+  // missed July) was silently dropped from this list entirely — their
+  // lifetime debt never showed up in "Total Pending". It's now computed
+  // for EVERY active member independent of whether they paid this month,
+  // and included whenever they have any lifetime pending months at all —
+  // exactly matching how the Tracker grid's "Total Pending" column works.
   const pendingList = [];
   let totalPendingAmount = 0;
   let pendingHasAnyTarget = false;
@@ -1344,10 +1378,18 @@ function _buildAdminSummaryData(month, year) {
       // ✅ Multiple entries this month → summed into ONE total, one row.
       const totalAmt = myContribs.reduce((sum, c) => sum + Number(c.Amount || 0), 0);
       totalCollected += totalAmt;
-      paidList.push({ name: member.Name, mobile: member.Mobile, amount: totalAmt, entries: myContribs.length });
+      // Entry date(s) for this month's payment(s) — "dd MMM" per entry,
+      // joined with ", " when there's more than one. See _admFormatShortDate
+      // for why this can't use `new Date(rawString)` directly.
+      const dates = myContribs.map(c => _admFormatShortDate(c.PaymentDate)).filter(Boolean);
+      paidList.push({ name: member.Name, mobile: member.Mobile, amount: totalAmt, entries: myContribs.length, dateDisplay: dates.join(", ") });
     } else {
       unpaidList.push({ name: member.Name, mobile: member.Mobile });
-      const months = _admLifetimePendingCount(member, contributions);
+    }
+
+    // Lifetime pending — checked for every active member, paid-this-month or not.
+    const months = _admLifetimePendingCount(member, contributions);
+    if (months > 0) {
       const target = Number(member.MonthlyTarget || 0);
       const hasTarget = target > 0;
       if (hasTarget) {
@@ -1404,11 +1446,9 @@ function _buildAdminSummaryData(month, year) {
     if (_normalizeMonth(x.ForMonth) !== month || String(x.Year) !== year) return;
     const amt = Number(x.Amount || 0);
     expenseTotal += amt;
-    let dateDisplay = "";
-    if (x.PaymentDate) {
-      const d = x.PaymentDate instanceof Date ? x.PaymentDate : new Date(x.PaymentDate);
-      if (!isNaN(d.getTime())) dateDisplay = Utilities.formatDate(d, "GMT+5:30", "dd MMM");
-    }
+    // See _admFormatShortDate — avoids the day/month swap that
+    // `new Date(rawString)` causes on dd-MM-yyyy text.
+    const dateDisplay = _admFormatShortDate(x.PaymentDate);
     expenseList.push({ title: x.Title || "Expense", amount: amt, date: dateDisplay });
   });
   expenseList.sort((a, b) => b.amount - a.amount);
@@ -1478,15 +1518,30 @@ function _buildAdminSummaryPdfHtml(data) {
   let sectionsA = "";
 
   if (data.paidList.length > 0) {
+    // Entries column (header AND per-row cell) only exists at all if at
+    // least one member has >1 entry this month. If every member paid in a
+    // single entry, the whole column is dropped — not just blanked per row —
+    // since showing an "Entries" header above a column that's always empty
+    // would be pointless.
+    const anyMultiEntry = data.paidList.some(m => m.entries > 1);
     const paidRows = data.paidList.map((m, i) =>
       "<tr><td style='" + tdPaid + numCol + "'>" + (i + 1) + ".</td>" +
       "<td style='" + tdPaid + "'>" + esc(m.name) + "</td>" +
-      "<td style='" + tdPaid + "text-align:right;'>" + CFG.currencyText + " " + m.amount + "</td>" +
-      "<td style='" + tdPaid + "text-align:center;'>" + m.entries + "</td></tr>"
+      "<td style='" + tdPaid + "text-align:center;'>" + esc(m.dateDisplay || "") + "</td>" +
+      (anyMultiEntry
+        ? (m.entries > 1
+            ? "<td style='" + tdPaid + "text-align:center;'>" + m.entries + "</td>" +
+              "<td style='" + tdPaid + "text-align:right;'>" + CFG.currencyText + " " + m.amount + "</td>"
+            : "<td style='" + tdPaid + "text-align:right;' colspan='2'>" + CFG.currencyText + " " + m.amount + "</td>"
+          )
+        : "<td style='" + tdPaid + "text-align:right;'>" + CFG.currencyText + " " + m.amount + "</td>"
+      ) + "</tr>"
     ).join("");
     sectionsA += "<p style='color:#166534;font-size:12.5px;font-weight:700;margin:0 0 6px;'>✅ Paid</p>" +
       "<table style='border-collapse:collapse;width:100%;margin-bottom:10px;'>" +
-        "<tr><th style='" + thPaid + numCol + "'>#</th><th style='" + thPaid + "'>Name</th><th style='" + thPaid + "text-align:right;'>Amount</th><th style='" + thPaid + "text-align:center;'>Entries</th></tr>" +
+        "<tr><th style='" + thPaid + numCol + "'>#</th><th style='" + thPaid + "'>Name</th><th style='" + thPaid + "text-align:center;'>Entry Date</th>" +
+          (anyMultiEntry ? "<th style='" + thPaid + "text-align:center;'>Entries</th>" : "") +
+          "<th style='" + thPaid + "text-align:right;'>Amount</th></tr>" +
         paidRows +
       "</table>";
   }
@@ -1638,7 +1693,9 @@ function _buildAdminSummaryPlainText(data) {
     lines.push("");
     lines.push("✅ PAID (" + data.paidList.length + ")");
     data.paidList.forEach((m, i) => {
-      lines.push((i + 1) + ". " + m.name + " — " + CFG.currencyText + " " + m.amount + " (" + m.entries + " entries)");
+      const datePart = m.dateDisplay ? " · " + m.dateDisplay : "";
+      const entriesPart = m.entries > 1 ? " (" + m.entries + " entries)" : "";
+      lines.push((i + 1) + ". " + m.name + datePart + " — " + CFG.currencyText + " " + m.amount + entriesPart);
     });
   }
 
@@ -1735,7 +1792,12 @@ function _buildAdminSummaryEmail(data) {
 
   if (data.paidList.length > 0) {
     const paidRows = data.paidList.map((m, i) =>
-      _adminSummaryRow(i + 1, m.name, CFG.currencyText + " " + m.amount + " (" + m.entries + " entries)", "#166534")
+      _adminSummaryRow(
+        i + 1,
+        m.name + (m.dateDisplay ? " · " + m.dateDisplay : ""),
+        CFG.currencyText + " " + m.amount + (m.entries > 1 ? " (" + m.entries + " entries)" : ""),
+        "#166534"
+      )
     ).join("");
     sectionsHtml += `
     <p style="color:#166534;font-size:13px;font-weight:600;margin:0 0 8px;">✅ Paid</p>
@@ -3888,7 +3950,7 @@ function doGet(e) {
 
       // ── Column integrity check per sheet ──
       var expectedCols = {
-        "USERS":                 ["UserId","Name","Mobile","Role","Password","Email","Status","SessionToken","Village","Address","RegisteredAt","PhotoURL","MonthlyTarget","LastLogin","DOB","TokenExpiry","ContribStartDate","InactiveSince","SessionTTL"],
+        "USERS":                 ["UserId","Name","Mobile","Role","Password","Email","Status","SessionToken","Village","Address","RegisteredAt","PhotoURL","MonthlyTarget","LastLogin","DOB","TokenExpiry","ContribStartDate","InactiveSince","SessionTTL","ReactivatedAt"],
         "CONTRIBUTION_REQUESTS": ["ReqId","UserId","Amount","PaymentMode","ForMonth","Year","Note","UtrRef","Status","RequestedAt","SlipURL","RejectionNote"],
         "BROADCAST":             ["BcId","Type","Priority","Title","Message","Time","AdminName","Status"],
         "CONTRIBUTIONS":         ["Id","UserId","Amount","PaymentDate","ForMonth","Year","TypeId","OccasionId","Note","ReceiptID","PaymentMode"],
@@ -4870,14 +4932,24 @@ function updateUser(p) {
       // [TRACKER] Contribution Start Date — optional, admin-set. Used by the Tracker
       // to know from which month a late-joining member's pending should start counting.
       if (p.ContribStartDate !== undefined) _setCol("ContribStartDate", sanitize(p.ContribStartDate || "", 12));
-      // [TRACKER] InactiveSince — auto-managed, not directly editable from the form.
-      // Active → Inactive: stamp today's date so Tracker freezes pending from here.
-      // Inactive → Active: clear it, member is back to normal pending tracking.
+      // [TRACKER] InactiveSince / ReactivatedAt — auto-managed, not directly editable
+      // from the form.
+      // Active → Inactive: stamp InactiveSince = today, so pending freezes from here.
+      // Inactive → Active: DO NOT clear InactiveSince (that used to erase all memory
+      // of the inactive period, which made pending re-count the entire inactive gap
+      // as unpaid months once reactivated). Instead stamp ReactivatedAt = today.
+      // Pending calculations use ReactivatedAt to resume counting from the
+      // reactivation date, correctly skipping over the inactive stretch.
+      // InactiveSince is left in place purely as a historical record — it's
+      // harmless once Status !== "inactive", since freeze logic only ever applies
+      // while a member is currently inactive.
       if (headers.indexOf("InactiveSince") !== -1) {
         if (_oldStatus.toLowerCase() !== "inactive" && _newStatus.toLowerCase() === "inactive") {
           _setCol("InactiveSince", Utilities.formatDate(new Date(), "GMT+5:30", "dd-MM-yyyy"));
         } else if (_oldStatus.toLowerCase() === "inactive" && _newStatus.toLowerCase() !== "inactive") {
-          _setCol("InactiveSince", "");
+          if (headers.indexOf("ReactivatedAt") !== -1) {
+            _setCol("ReactivatedAt", Utilities.formatDate(new Date(), "GMT+5:30", "dd-MM-yyyy"));
+          }
         }
       }
       // Single batched write — 1 API call instead of ~10
@@ -4890,6 +4962,8 @@ function updateUser(p) {
       if (_csdCol !== -1) sheet.getRange(i + 1, _csdCol + 1).setNumberFormat("@");
       const _isCol = headers.indexOf("InactiveSince");
       if (_isCol !== -1) sheet.getRange(i + 1, _isCol + 1).setNumberFormat("@");
+      const _raCol = headers.indexOf("ReactivatedAt");
+      if (_raCol !== -1) sheet.getRange(i + 1, _raCol + 1).setNumberFormat("@");
       SpreadsheetApp.flush();
       found = true; break;
     }

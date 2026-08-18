@@ -2244,6 +2244,13 @@ existing updateUser action. No new Apps Script action needed.
         });
         effStart = best || _u_parseDMY(myProfileForPending.RegisteredAt);
       }
+      // Clamp forward to ReactivatedAt if this member was ever reactivated
+      // after a spell inactive — otherwise pending would re-count the whole
+      // inactive gap as unpaid months (same fix as admin Tracker/mail).
+      const reactivated = _u_parseDMY(myProfileForPending.ReactivatedAt);
+      if (reactivated && (!effStart || _u_ym(reactivated.y, reactivated.m) > _u_ym(effStart.y, effStart.m))) {
+        effStart = reactivated;
+      }
       let freeze = null;
       if (String(myProfileForPending.Status || "").toLowerCase() === "inactive") {
         freeze = _u_parseDMY(myProfileForPending.InactiveSince);
