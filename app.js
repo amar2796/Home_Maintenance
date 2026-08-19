@@ -899,7 +899,7 @@ function _ensureModalCSS(){
     ._mbtn:hover{filter:brightness(1.1);transform:translateY(-1px);}
     @media(max-width:520px){#_uniModal{padding:8px;}._mbdy{padding:16px;}._mft{padding:12px 16px;}}
     /* CROP MODAL */
-    #_cropWrap{position:relative;overflow:hidden;background:#111;width:100%;height:300px;cursor:grab;user-select:none;touch-action:none;}
+    #_cropWrap{position:relative;overflow:hidden;background:#111;width:100%;height:min(300px,45vh);min-height:200px;cursor:grab;user-select:none;touch-action:none;}
     #_cropWrap:active{cursor:grabbing;}
     #_cropImg{position:absolute;top:0;left:0;transform-origin:top left;transition:none;}
     #_cropBox{position:absolute;border:2.5px solid #0F766E;box-shadow:0 0 0 9999px rgba(0,0,0,0.55);pointer-events:none;border-radius:2px;}

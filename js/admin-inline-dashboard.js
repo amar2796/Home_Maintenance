@@ -1,4 +1,4 @@
-    var dash_contributions = [];
+var dash_contributions = [];
     var dash_expenses      = [];
     var dash_users         = [];
     var dash_types         = [];
@@ -323,14 +323,41 @@
       el.innerHTML = active.map(m => {
         const cH = Math.round(((mapC[m]||0)/maxVal)*120);
         const eH = Math.round(((mapE[m]||0)/maxVal)*120);
+        // [FIX-MOBILE] title="" tooltips never fire on touch devices, so this
+        // amount data was invisible on mobile — tapping a bar did nothing.
+        // Both bars in a month now open one modal showing the full breakdown.
+        const _onclick = `_dashShowMonthDetail('${_dashEsc(m)}', ${mapC[m]||0}, ${mapE[m]||0})`;
         return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;min-width:28px;flex:1;">
           <div style="display:flex;align-items:flex-end;gap:2px;height:120px;">
-            <div title="Income: ₹${(mapC[m]||0).toLocaleString(APP.locale||"en-IN")}" style="width:10px;height:${cH}px;background:#22c55e;border-radius:3px 3px 0 0;min-height:2px;cursor:pointer;"></div>
-            <div title="Expense: ₹${(mapE[m]||0).toLocaleString(APP.locale||"en-IN")}" style="width:10px;height:${eH}px;background:#f97316;border-radius:3px 3px 0 0;min-height:2px;cursor:pointer;"></div>
+            <div title="Income: ₹${(mapC[m]||0).toLocaleString(APP.locale||"en-IN")}" onclick="${_onclick}" style="width:10px;height:${cH}px;background:#22c55e;border-radius:3px 3px 0 0;min-height:2px;cursor:pointer;"></div>
+            <div title="Expense: ₹${(mapE[m]||0).toLocaleString(APP.locale||"en-IN")}" onclick="${_onclick}" style="width:10px;height:${eH}px;background:#f97316;border-radius:3px 3px 0 0;min-height:2px;cursor:pointer;"></div>
           </div>
           <div style="font-size:9px;color:#64748b;font-weight:600;">${m.slice(0,3)}</div>
         </div>`;
       }).join("");
+    }
+
+    function _dashEsc(s) {
+      return String(s ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[ch]));
+    }
+
+    // [FIX-MOBILE] Tap-to-view detail for a monthly bar — reuses the shared
+    // openModal() for consistency with Member Details / tracker day detail.
+    function _dashShowMonthDetail(month, income, expense) {
+      const fmt = n => "₹" + Number(n||0).toLocaleString(APP.locale||"en-IN");
+      const net = Number(income||0) - Number(expense||0);
+      const html = '<div class="_mhdr"><h3><i class="fa-solid fa-chart-column" style="color:#0F766E;margin-right:6px;"></i> ' + _dashEsc(month) + '</h3><button class="_mcls" onclick="closeModal()">×</button></div>'
+        + '<div class="_mbdy" style="padding:14px 20px;">'
+        + '<table style="width:100%;border-collapse:collapse;">'
+        + '<tr><td style="padding:10px 0;font-size:13px;color:#64748b;">Income</td><td style="padding:10px 0;text-align:right;font-weight:700;color:#16a34a;">' + fmt(income) + '</td></tr>'
+        + '<tr><td style="padding:10px 0;font-size:13px;color:#64748b;border-top:1px solid #f1f5f9;">Expense</td><td style="padding:10px 0;text-align:right;font-weight:700;color:#ea580c;border-top:1px solid #f1f5f9;">' + fmt(expense) + '</td></tr>'
+        + '<tr><td style="padding:10px 0;font-size:13px;color:#64748b;border-top:2px solid #e2e8f0;">Net</td><td style="padding:10px 0;text-align:right;font-weight:700;color:' + (net>=0?'#16a34a':'#dc2626') + ';border-top:2px solid #e2e8f0;">' + fmt(net) + '</td></tr>'
+        + '</table>'
+        + '</div>'
+        + '<div class="_mft"><button class="_mbtn" style="background:#94a3b8;" onclick="closeModal()"><i class="fa-solid fa-xmark"></i> Close</button></div>';
+      openModal(html, "340px");
     }
 
 
@@ -489,4 +516,4 @@
 
     // ═══════════════════════════════════════════════════════════
     // 💸 EXPENSE TRACKER — Power Filter (mirrors Contribution Tracker)
-    // ═══════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════

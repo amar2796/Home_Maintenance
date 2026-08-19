@@ -40,6 +40,42 @@ function _trEsc(s) {
   }[ch]));
 }
 
+// [FIX-MOBILE] Tap-to-view detail for a calendar day — replaces relying only
+// on hover/title tooltips, which don't work on touch devices. Reuses the
+// shared openModal() so this matches the look of Member Details etc.
+// instead of introducing a new UI pattern.
+function _trShowDayDetail(day, monthName, year, namesJson) {
+  let names = [];
+  try { names = JSON.parse(namesJson.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')); } catch (e) {}
+  const dateLabel = day + ' ' + monthName + ' ' + year;
+  const body = names.length > 0
+    ? '<ul style="margin:0;padding-left:20px;">' + names.map(n => '<li style="padding:5px 0;font-size:14px;color:#1e293b;">' + _trEsc(n) + '</li>').join('') + '</ul>'
+    : '<p style="text-align:center;color:#94a3b8;padding:20px 0;margin:0;">No collections on this day.</p>';
+  const html = '<div class="_mhdr"><h3><i class="fa-solid fa-calendar-day" style="color:#0F766E;margin-right:6px;"></i> ' + _trEsc(dateLabel) + '</h3><button class="_mcls" onclick="closeModal()">×</button></div>'
+    + '<div class="_mbdy" style="padding:14px 20px;">'
+    + '<div style="font-size:13px;color:#64748b;margin-bottom:10px;">' + names.length + ' ' + (names.length === 1 ? 'member' : 'members') + ' contributed' + '</div>'
+    + body
+    + '</div>'
+    + '<div class="_mft"><button class="_mbtn" style="background:#94a3b8;" onclick="closeModal()"><i class="fa-solid fa-xmark"></i> Close</button></div>';
+  openModal(html, "380px");
+}
+
+// [FIX-MOBILE] Tap-to-view detail for Total Pending — shows exactly which
+// months (with year) are pending instead of just a bare count.
+function _trShowPendingDetail(userId, memberName) {
+  const list = (window._trPendingLists && window._trPendingLists[userId]) || [];
+  const body = list.length > 0
+    ? '<ul style="margin:0;padding-left:20px;">' + list.map(p => '<li style="padding:5px 0;font-size:14px;color:#1e293b;">' + _trEsc(p.month) + ' ' + p.year + '</li>').join('') + '</ul>'
+    : '<p style="text-align:center;color:#94a3b8;padding:20px 0;margin:0;">No pending months.</p>';
+  const html = '<div class="_mhdr"><h3><i class="fa-solid fa-circle-exclamation" style="color:#ef4444;margin-right:6px;"></i> ' + _trEsc(memberName) + ' — Pending Months</h3><button class="_mcls" onclick="closeModal()">×</button></div>'
+    + '<div class="_mbdy" style="padding:14px 20px;max-height:340px;overflow-y:auto;">'
+    + '<div style="font-size:13px;color:#64748b;margin-bottom:10px;">' + list.length + ' month' + (list.length === 1 ? '' : 's') + ' pending, from their start date to now</div>'
+    + body
+    + '</div>'
+    + '<div class="_mft"><button class="_mbtn" style="background:#94a3b8;" onclick="closeModal()"><i class="fa-solid fa-xmark"></i> Close</button></div>';
+  openModal(html, "360px");
+}
+
 // ═══ ACTIVE/INACTIVE + START-DATE LOGIC (ported from the old tracker) ═══
 // This whole block was missing from the restructure. Without it, a member
 // who joined mid-year shows every earlier month as "pending" (they never
@@ -412,7 +448,10 @@ function _trackerFilteredContribsAllYears() {
 // earliest contribution, or RegisteredAt) up to the current month, not just
 // the Year filter's selected year. If they've since gone inactive, counting
 // stops at their inactive-freeze month, same as everywhere else in this file.
-function _trPendingCountAllTime(member, allContribs) {
+// [FIX-DETAIL] Now also returns the actual list of pending {year, month}
+// entries (not just the count) so the UI can show WHICH months are pending,
+// not just a number — pass `withList:true` to get it.
+function _trPendingCountAllTime(member, allContribs, withList) {
   const start = _trEffectiveStart(member);
   const freeze = _trInactiveFreeze(member);
   const now = new Date();
@@ -427,6 +466,7 @@ function _trPendingCountAllTime(member, allContribs) {
   const endYM = freeze ? Math.min(curYM, _trYM(freeze.y, freeze.m)) : curYM;
 
   let count = 0;
+  const list = [];
   for (let ym = startYM; ym <= endYM; ym++) {
     const y = Math.floor(ym / 12), mi = ym % 12;
     const paid = allContribs.some(c =>
@@ -434,9 +474,12 @@ function _trPendingCountAllTime(member, allContribs) {
       String(c.Year) === String(y) &&
       c.ForMonth === TRACKER_MONTH_NAMES[mi]
     );
-    if (!paid) count++;
+    if (!paid) {
+      count++;
+      if (withList) list.push({ year: y, month: TRACKER_MONTH_NAMES[mi] });
+    }
   }
-  return count;
+  return withList ? { count, list } : count;
 }
 
 // ═══ GRID RENDERING ═══
@@ -510,9 +553,19 @@ function renderTrackerGrid(members, contribs) {
       // Total Pending — lifetime count from this member's start date to now
       // (NOT limited to the Year filter above), still freeze-aware if they've
       // since gone inactive. See _trPendingCountAllTime.
-      const pendingCount = _trPendingCountAllTime(m, allYearsContribs);
+      const _pendingResult = _trPendingCountAllTime(m, allYearsContribs, /*withList*/true);
+      const pendingCount = _pendingResult.count;
       const pendingColor = pendingCount > 0 ? '#ef4444' : '#10b981';
-      html += `<td style="padding:8px;text-align:center;border-left:2px solid #e2e8f0;color:${pendingColor};font-weight:700;">${pendingCount}</td>`;
+      // [FIX-MOBILE] Previously just a static number — no way to see WHICH
+      // months were pending without opening the member and cross-checking
+      // manually. Stash the list on window (keyed by UserId) rather than
+      // embedding it in the onclick attribute — this table can have many
+      // rows, and a JSON blob per row bloats the HTML for no benefit since
+      // only one gets viewed at a time.
+      window._trPendingLists = window._trPendingLists || {};
+      window._trPendingLists[m.UserId] = _pendingResult.list;
+      const _pendingOnclick = pendingCount > 0 ? `onclick="_trShowPendingDetail('${String(m.UserId).replace(/'/g,"\\'")}', '${_trEsc(m.Name||'')}')" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted;"` : '';
+      html += `<td style="padding:8px;text-align:center;border-left:2px solid #e2e8f0;color:${pendingColor};font-weight:700;" ${_pendingOnclick}>${pendingCount}</td>`;
 
       html += '</tr>';
     });
@@ -1134,10 +1187,16 @@ function renderTrackerCalendar() {
       ? collections.join(', ')
       : 'No collections';
 
+    // [FIX-MOBILE] title="" tooltips and onmouseover never fire on touch
+    // devices, so this data was completely inaccessible on mobile before —
+    // tapping a day did nothing. Now every cell also opens a modal with the
+    // same info on click/tap, which works on both mobile and desktop.
+    const _dayNamesJson = _trEsc(JSON.stringify(collections));
     calendarHtml += `
-      <div class="tr-cal-cell" style="background:${bgColor};"
+      <div class="tr-cal-cell" style="background:${bgColor};cursor:pointer;"
            onmouseover="this.style.transform='scale(1.05)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)';"
            onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none';"
+           onclick="_trShowDayDetail(${day}, '${_trEsc(monthName)}', ${selYear}, '${_dayNamesJson}')"
            title="${_trEsc(tooltip)}">
         <div class="tr-cal-daynum" style="color:${textColor};">${day}</div>
         <div class="tr-cal-count" style="color:${countColor};">${count}</div>

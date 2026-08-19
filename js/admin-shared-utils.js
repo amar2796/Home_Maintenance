@@ -598,12 +598,16 @@ function _renderPagination(containerId, totalPages, currentPage, onPageFn) {
     }
     /* debounce user search — status tab clicks still call renderUsers() directly (instant) */
     var _renderUsersDebounced = debounce(renderUsers, 280);
-    document.addEventListener("DOMContentLoaded", function () {
-      var usrSrch = document.getElementById("userSearchInput");
-      if (usrSrch) {
-        usrSrch.removeAttribute("onkeyup");
-        usrSrch.addEventListener("input", _renderUsersDebounced);
-      }
+    // [FIX-SEARCH] The Users tab is loaded from a separate file (pages/usersPage.html)
+    // AFTER this script's DOMContentLoaded already fired, so a one-time
+    // getElementById + addEventListener setup here could never reach it — it was
+    // left running on its raw, un-debounced onkeyup="renderUsers()" (still in that
+    // file), which didn't reliably fire on the very first keystroke depending on
+    // exactly when the fragment got injected. Event delegation on document instead
+    // works no matter when the tab's HTML is loaded or reloaded — the browser
+    // checks e.target itself, no reference to the specific element needed.
+    document.addEventListener("input", function (e) {
+      if (e.target && e.target.id === "userSearchInput") _renderUsersDebounced();
     });
 
     function _gotoUsersPage(p) {
