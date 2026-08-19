@@ -377,6 +377,30 @@ function runTrackerMain() {
   if (trackerModuleState.filters.hideInactive) {
     members = members.filter(m => !_trIsInactive(m));
   }
+  // [FIX-SEARCH] The search box used to be a SEPARATE render path
+  // (filterTrackerMembers(), triggered only by its own onkeyup) that wasn't
+  // known to this function at all. Whenever something ELSE re-rendered the
+  // tracker in the background — refreshTrackerData() runs after any data
+  // change elsewhere in the app (approving a user, editing types, etc.) and
+  // every time the Tracker tab is reopened — it called runTrackerMain()
+  // with the FULL unfiltered member list, silently wiping out whatever
+  // search was active. Reading the search box here, the same way
+  // hideInactive is read above, means EVERY render path — typing, other
+  // filters, or a background refresh — now respects the current search
+  // text consistently, instead of two paths fighting over the same table.
+  const _trSearchVal = (document.getElementById('tr_search_members')?.value || '').toLowerCase();
+  if (_trSearchVal) {
+    members = members.filter(m =>
+      String(m.Name || '').toLowerCase().includes(_trSearchVal) ||
+      // [FIX] m.Mobile is stored as a NUMBER, not a string. (m.Mobile || '')
+      // returns the number itself when truthy — a non-zero number is truthy,
+      // so the '' fallback never kicks in — and .includes() doesn't exist on
+      // numbers, throwing "TypeError: includes is not a function" on every
+      // single keystroke (confirmed by the console trace). String(...) forces
+      // it to a string regardless of the underlying type.
+      String(m.Mobile || '').includes(_trSearchVal)
+    );
+  }
 
   const filteredContribs = _trackerFilteredContribs();
   // FIX (Leaderboard): "YearAmount" was referenced but never computed
@@ -617,19 +641,23 @@ function renderTrackerMembers(paid, pending) {
 }
 
 function filterTrackerMembers() {
-  const search = document.getElementById('tr_search_members')?.value.toLowerCase() || '';
-  const members = (trackerModuleState.allMembers || []).filter(m =>
-    (m.Name || '').toLowerCase().includes(search) ||
-    (m.Mobile || '').includes(search)
-  );
-  const filteredContribs = _trackerFilteredContribs();
-  // FIX: was using the flat "paid this month or not" split, out of sync with
-  // the start-date/inactive-freeze aware split runTrackerMain() now uses —
-  // searching used to show different pending members than the main view.
-  const { paid, pending } = _trackerSplitPaidPending(members, filteredContribs, trackerModuleState.currentMonth);
-  renderTrackerGrid(members, filteredContribs);
-  renderTrackerMembers(paid, pending);
+  // [FIX-SEARCH] Used to run its own separate filter + render logic here,
+  // parallel to runTrackerMain(). Now that runTrackerMain() itself reads the
+  // search box (see its comment), this just re-runs the one real render
+  // path — keeps search consistent with every other filter instead of two
+  // code paths that could disagree or silently overwrite each other.
+  runTrackerMain();
 }
+
+// [FIX-SEARCH] Same event-delegation pattern as the Users tab search fix —
+// trackerPage.html is a separately-loaded fragment, so a one-time
+// getElementById + addEventListener at this script's own load time could
+// miss it entirely depending on load order. Delegating on document works
+// no matter when the fragment is injected.
+var _filterTrackerMembersDebounced = typeof debounce === "function" ? debounce(filterTrackerMembers, 280) : filterTrackerMembers;
+document.addEventListener("input", function (e) {
+  if (e.target && e.target.id === "tr_search_members") _filterTrackerMembersDebounced();
+});
 
 // ═══ EMAIL — USER-WISE SEND ONLY ═══
 // FIX: this used to be a 3-tab system (Bulk Send / User-Wise / Template
