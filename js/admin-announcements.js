@@ -1,4 +1,4 @@
-    var _annColorMap = {
+var _annColorMap = {
       purple: "linear-gradient(90deg,#4c1a6e,#6b21a8,#4c1a6e)",
       orange: "linear-gradient(90deg,#c2410c,#ea580c,#c2410c)",
       red: "linear-gradient(90deg,#991b1b,#dc2626,#991b1b)",
@@ -233,6 +233,15 @@
 
     /* ══ ADMIN RETRY ENGINE — improved ══ */
     var _aloRetryCount    = 0;
+    // [FIX-RELOAD] _doRetry below now does a full page reload instead of
+    // calling init() in-place (see that function's comment for why). A
+    // reload wipes this variable back to 0, so we persist the count across
+    // the reload via sessionStorage and restore it once here — keeps the
+    // "Attempt 2 failed" messaging accurate instead of always resetting to 1.
+    try {
+      var _aloSaved = sessionStorage.getItem("_alo_retryCount");
+      if (_aloSaved) { _aloRetryCount = parseInt(_aloSaved, 10) || 0; sessionStorage.removeItem("_alo_retryCount"); }
+    } catch(e) {}
     var _aloCountdownTimer = null;
     var _aloCountdownSec   = 0;
 
@@ -329,7 +338,23 @@
       if (overlay && !overlay.classList.contains("show")) overlay.classList.add("show");
     }
 
-    /* ── Retry handler — prevents double-fire, busts cache, shows feedback ── */
+    /* ── Retry handler — full reload, not an in-place retry ──
+       [FIX-RELOAD] The OLD version called init() again in the SAME page.
+       That never actually worked reliably: JSONP <script> requests are NOT
+       cancelled by removing the <script> tag — only a real page navigation
+       cancels them (see the sendLogoutBeacon comment in app.js, which
+       documents this exact browser behavior). So each "Retry Now" — and
+       especially each 8s auto-retry — piled a brand-new request on top of
+       the previous one(s) that were often still silently running server-side,
+       competing for the same limited browser connections and backend
+       capacity. That's exactly why retrying in place kept failing worse and
+       worse, while "Back to Login" (a real navigation) always worked — it's
+       the only thing that actually killed the stuck requests.
+       NOW: retry does a full page reload. The session is already safely in
+       localStorage, so this does NOT log the user out or require re-entering
+       credentials — it just guarantees a genuinely clean set of connections
+       before trying again, the same relief "Back to Login" gave, without the
+       unnecessary re-login step. */
     window._doRetry = function(btn) {
       if (btn && btn.disabled) return;
       if (btn) {
@@ -338,21 +363,8 @@
         btn.style.opacity = '0.8';
       }
       _aloClearCountdown();
-      _aloRetryCount++;
-      // Bust cache — primary via app.js helper, fallback manual clear
-      if (typeof mandirCacheBust === "function") {
-        mandirCacheBust("getAllData");
-      } else {
-        try {
-          ["getAllData", "mandir_cache_getAllData"].forEach(function(k) {
-            sessionStorage.removeItem(k); localStorage.removeItem(k);
-          });
-        } catch(e) {}
-      }
-      setTimeout(function() {
-        _resetLoadingOverlay();
-        init();
-      }, 180);
+      try { sessionStorage.setItem("_alo_retryCount", String(_aloRetryCount + 1)); } catch(e) {}
+      location.reload();
     };
 
     /* ── Back to Login — clears session so guard doesn't bounce back ── */
@@ -716,4 +728,4 @@
     /* ═══════════════════════════════════════════════════════════
        HOME DASHBOARD — render all new panels
        Called from loadSummary() after data is ready.
-    ═══════════════════════════════════════════════════════════ */
+    ═══════════════════════════════════════════════════════════ */

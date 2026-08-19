@@ -1188,6 +1188,13 @@ existing updateUser action. No new Apps Script action needed.
 
   /* ── 3. Overlay helpers ───────────────────────────────────────── */
   var _uloRetryCount = 0;
+  // [FIX-RELOAD] _doUserRetry below now does a full page reload instead of
+  // calling init() in-place — see that function's comment for why. Persist
+  // the count across the reload so "Attempt 2 failed" stays accurate.
+  try {
+    var _uloSaved = sessionStorage.getItem("_ulo_retryCount");
+    if (_uloSaved) { _uloRetryCount = parseInt(_uloSaved, 10) || 0; sessionStorage.removeItem("_ulo_retryCount"); }
+  } catch(e) {}
 
   /* ── Step-progress engine ──────────────────────────────────────
      Steps (0-based):
@@ -1567,7 +1574,13 @@ existing updateUser action. No new Apps Script action needed.
     if (overlay && !overlay.classList.contains("show")) overlay.classList.add("show");
   }
 
-  /* ── 4. Retry handler (called by overlay button) ─────────────── */
+  /* ── 4. Retry handler — full reload, not an in-place retry ──
+     [FIX-RELOAD] Same fix as admin's _doRetry (js/admin-announcements.js) —
+     see that comment for the full explanation. In short: JSONP <script>
+     requests are only truly cancelled by a real page navigation, not by
+     removing the tag, so retrying init() in place piled new requests on top
+     of old ones still running. A reload guarantees a clean slate; the
+     session stays in localStorage, so no re-login is needed. */
   window._doUserRetry = function(btn) {
     if (btn && btn.disabled) return;
     if (btn) {
@@ -1575,25 +1588,9 @@ existing updateUser action. No new Apps Script action needed.
       btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Retrying…';
       btn.style.opacity = "0.8";
     }
-    // Cancel any running auto-retry countdown
     _clearCountdown();
-    _uloRetryCount++;
-    // Bust cache — primary method via app.js helper
-    if (typeof mandirCacheBust === "function") {
-      mandirCacheBust("getAllData");
-    } else {
-      // Fallback: clear known cache keys directly
-      try {
-        ["getAllData", "mandir_cache_getAllData"].forEach(function(k) {
-          sessionStorage.removeItem(k);
-          localStorage.removeItem(k);
-        });
-      } catch(e) {}
-    }
-    setTimeout(function() {
-      _showUserLoadingOverlay(); // reset to spinner state
-      init();
-    }, 180);
+    try { sessionStorage.setItem("_ulo_retryCount", String(_uloRetryCount + 1)); } catch(e) {}
+    location.reload();
   };
 
   /* ── Back to Login — clears session so guard doesn't bounce back ── */

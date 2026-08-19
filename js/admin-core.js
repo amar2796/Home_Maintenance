@@ -571,27 +571,11 @@
           _pageHiddenAt = null;
           if (hiddenDuration >= _VISIBILITY_TIMEOUT_MS) {
             // Hidden for 30+ min — treat as session timeout, force logout
-            // [FIX] Same race-condition fix as logout(): wait for clearSessionToken
-            // JSONP to resolve before wiping localStorage + redirecting.
-            try {
-              var s = JSON.parse(localStorage.getItem("session") || "{}");
-              if (s && s.userId) {
-                var _visDone = false;
-                function _visFinish() {
-                  if (_visDone) return; _visDone = true;
-                  localStorage.clear(); sessionStorage.clear(); location.replace("login.html");
-                }
-                postData({
-                  action:       "clearSessionToken",
-                  userId:       s.userId,
-                  sessionToken: s.sessionToken || "",
-                  reason:       "Session expired - 30 min screen lock / inactivity"
-                }).then(function(){ _visFinish(); }).catch(function(){ _visFinish(); });
-                setTimeout(_visFinish, 3000); // safety net
-                return;
-              }
-            } catch(e) {}
-            localStorage.clear(); sessionStorage.clear(); location.replace("login.html");
+            // [FIX] This still had the same postData()+3s-race pattern that
+            // logout() just above was fixed to remove — same bug, same fix:
+            // use the sendBeacon-based endSessionAndRedirect() instead of
+            // racing a JSONP call against a timer.
+            endSessionAndRedirect("Session expired - 30 min screen lock / inactivity", { clearAll: true });
             return;
           }
         }
@@ -718,45 +702,15 @@
     }
 
     function logout() {
-      // [FIX] postData is JSONP (async script tag). We must WAIT for clearSessionToken
-      // to complete before calling localStorage.clear() + location.replace().
-      // Previously localStorage.clear() ran synchronously right after postData() was
-      // called — the page unloaded before the JSONP script tag even got a response,
-      // so the token was never cleared in the sheet.
-      function _doRedirect() {
-        window._navFlag = true;
-        clearRememberToken();
-        localStorage.clear();
-        sessionStorage.clear();
-        history.replaceState(null, "", "login.html");
-        location.replace("login.html");
-      }
-      try {
-        var s = JSON.parse(localStorage.getItem("session") || "{}");
-        if (s && s.userId) {
-          var devInfo = typeof window._getDeviceInfo === "function" ? window._getDeviceInfo() : "";
-          // Fire audit log (fire-and-forget, do not await)
-          postData({ action: "logout", userId: s.userId, userName: s.name || "Admin",
-                     deviceInfo: devInfo, logoutReason: "Admin clicked logout button" }).catch(function(){});
-          // Clear server-side token FIRST, then redirect when done (or after 3s timeout)
-          var _done = false;
-          function _finish() { if (_done) return; _done = true; _doRedirect(); }
-          postData({
-            action:       "clearSessionToken",
-            userId:       s.userId,
-            sessionToken: s.sessionToken || "",
-            reason:       "Admin clicked logout button"
-          }).then(function(r) {
-            _finish();
-          }).catch(function(err) {
-            _finish();
-          });
-          // Safety net: redirect after 3s even if postData never resolves
-          setTimeout(_finish, 3000);
-          return; // _doRedirect called by _finish above
-        }
-      } catch (e) { console.error("[ADMIN SESSION] logout error:", e); }
-      _doRedirect(); // no session — redirect immediately
+      // [FIX] This used the OLD postData()+setTimeout race pattern — the
+      // exact bug endSessionAndRedirect() (app.js) was already built to fix
+      // (see its comment block for the full explanation). user.js was
+      // migrated to it already; this admin version never was. Now uses the
+      // same proven sendBeacon-based helper — no race, and it also merges
+      // what used to be two separate calls (a "logout" audit log call, plus
+      // a separate "clearSessionToken" call) into the ONE combined backend
+      // action (doPost, action:"logout") that already does both.
+      endSessionAndRedirect("Admin clicked logout button", { clearAll: true });
     }
 
     function toggleAdminDropdown() {
