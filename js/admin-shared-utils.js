@@ -734,23 +734,22 @@ function _renderPagination(containerId, totalPages, currentPage, onPageFn) {
         ["Contribution Start", escapeHtml(u.ContribStartDate || "—")],
         ["Total Contributions",'<span style="color:#27ae60;font-weight:700;">' + (APP.currency||'₹') + ' ' + fmt(contribTotal) + '</span>'],
       ];
+      // [REBUILD] Replaced the <table> layout entirely with flexbox rows.
+      // Root cause of the email still overflowing after two prior attempts:
+      // a table/flex child's default sizing lets long unbreakable content
+      // (a long email with no spaces) push it wider than its box regardless
+      // of word-break/overflow-wrap — UNLESS min-width is explicitly zeroed.
+      // Flex items default to min-width:auto, which means "never shrink
+      // below my content's natural width" — that default silently overrides
+      // word-break every time, in every browser, not just Safari. Setting
+      // min-width:0 on the value column is the actual fix; everything before
+      // this was fighting the wrong layer (table cell quirks) instead of
+      // this one universal flex/table default.
       const tableRows = rows.map(function(r) {
-        return '<tr>'
-          + '<td style="padding:10px 14px;font-size:13px;color:#64748b;white-space:nowrap;border-bottom:1px solid #f1f5f9;vertical-align:top;width:38%;">' + r[0] + '</td>'
-          // [FIX-SAFARI] word-break/overflow-wrap directly on a <td> — especially
-          // combined with text-align:right + table-layout:fixed — is a known
-          // WebKit/Safari rendering gap: it's spec-correct CSS but Safari's table
-          // engine doesn't reliably act on it, so the cell just overflows past the
-          // modal instead of wrapping (confirmed: happened only for the one value
-          // long enough to actually NEED wrapping — Name/Mobile just happened to
-          // fit already). Wrapping the value in an inner <div> forces Safari to
-          // treat it as a normal block box constrained by the cell's fixed width,
-          // which it DOES wrap correctly — this is the standard fix for this
-          // specific Safari table-cell gap, not just re-hiding the overflow.
-          + '<td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;vertical-align:top;width:62%;">'
-          +   '<div style="font-size:13px;color:#1e293b;font-weight:600;text-align:right;overflow-wrap:anywhere;word-break:break-word;">' + r[1] + '</div>'
-          + '</td>'
-          + '</tr>';
+        return '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:10px 14px;border-bottom:1px solid #f1f5f9;">'
+          + '<div style="flex:0 0 auto;font-size:13px;color:#64748b;white-space:nowrap;padding-top:1px;">' + r[0] + '</div>'
+          + '<div style="flex:1 1 auto;min-width:0;font-size:13px;color:#1e293b;font-weight:600;text-align:right;overflow-wrap:anywhere;word-break:break-word;">' + r[1] + '</div>'
+          + '</div>';
       }).join("");
       const _safeId = String(id).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
       // [FIX] Admin accounts can never be deleted, regardless of contribution
@@ -771,7 +770,7 @@ function _renderPagination(containerId, totalPages, currentPage, onPageFn) {
         : '';
       const html = '<div class="_mhdr"><h3><i class="fa-solid fa-eye" style="color:#0F766E;margin-right:6px;"></i> Member Details</h3><button class="_mcls" onclick="closeModal()">×</button></div>'
         + '<div class="_mbdy" style="padding:10px 16px;">'
-        + '<table style="width:100%;table-layout:fixed;border-collapse:collapse;">' + tableRows + '</table>'
+        + '<div style="width:100%;">' + tableRows + '</div>'
         + '</div>'
         + '<div class="_mft">'
         + '<button class="_mbtn" style="background:#94a3b8;" onclick="closeModal()"><i class="fa-solid fa-xmark"></i> Close</button>'
