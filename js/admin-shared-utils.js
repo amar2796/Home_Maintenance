@@ -765,7 +765,7 @@ function _renderPagination(containerId, totalPages, currentPage, onPageFn) {
         : '';
       const html = '<div class="_mhdr"><h3><i class="fa-solid fa-eye" style="color:#0F766E;margin-right:6px;"></i> Member Details</h3><button class="_mcls" onclick="closeModal()">×</button></div>'
         + '<div class="_mbdy" style="padding:10px 16px;">'
-        + '<table style="width:100%;border-collapse:collapse;">' + tableRows + '</table>'
+        + '<table style="width:100%;table-layout:fixed;border-collapse:collapse;">' + tableRows + '</table>'
         + '</div>'
         + '<div class="_mft">'
         + '<button class="_mbtn" style="background:#94a3b8;" onclick="closeModal()"><i class="fa-solid fa-xmark"></i> Close</button>'
