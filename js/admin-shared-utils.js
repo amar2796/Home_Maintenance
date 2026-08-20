@@ -737,13 +737,19 @@ function _renderPagination(containerId, totalPages, currentPage, onPageFn) {
       const tableRows = rows.map(function(r) {
         return '<tr>'
           + '<td style="padding:10px 14px;font-size:13px;color:#64748b;white-space:nowrap;border-bottom:1px solid #f1f5f9;vertical-align:top;width:38%;">' + r[0] + '</td>'
-          // [FIX-RESPONSIVE] Long unbroken values (long email addresses in
-          // particular) had no wrap rule here, so on mobile they forced this
-          // cell — and the whole modal box — wider than the screen instead of
-          // wrapping onto a second line. word-break + overflow-wrap make long
-          // values wrap properly; width:62% keeps this column from being
-          // squeezed to nothing next to the label column.
-          + '<td style="padding:10px 14px;font-size:13px;color:#1e293b;font-weight:600;border-bottom:1px solid #f1f5f9;text-align:right;vertical-align:top;width:62%;word-break:break-word;overflow-wrap:anywhere;">' + r[1] + '</td>'
+          // [FIX-SAFARI] word-break/overflow-wrap directly on a <td> — especially
+          // combined with text-align:right + table-layout:fixed — is a known
+          // WebKit/Safari rendering gap: it's spec-correct CSS but Safari's table
+          // engine doesn't reliably act on it, so the cell just overflows past the
+          // modal instead of wrapping (confirmed: happened only for the one value
+          // long enough to actually NEED wrapping — Name/Mobile just happened to
+          // fit already). Wrapping the value in an inner <div> forces Safari to
+          // treat it as a normal block box constrained by the cell's fixed width,
+          // which it DOES wrap correctly — this is the standard fix for this
+          // specific Safari table-cell gap, not just re-hiding the overflow.
+          + '<td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;vertical-align:top;width:62%;">'
+          +   '<div style="font-size:13px;color:#1e293b;font-weight:600;text-align:right;overflow-wrap:anywhere;word-break:break-word;">' + r[1] + '</div>'
+          + '</td>'
           + '</tr>';
       }).join("");
       const _safeId = String(id).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
