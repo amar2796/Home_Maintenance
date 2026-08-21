@@ -13,11 +13,11 @@
         <div class="card">
           <h3>
             <span><i class="fa-solid fa-users-gear"></i> Manage Users <span style="font-size:11px;font-weight:400;color:#999;">(click row to view · edit via button)</span></span>
-            <div class="status-tabs" id="userStatusTabs" style="margin-left:auto;">
-              <button class="status-tab active" onclick="filterUsers('all',this)"><i class="fa-solid fa-list"></i> All <span class="tab-ct" id="ct_all">0</span></button>
-              <button class="status-tab tab-pending" onclick="filterUsers('pending',this)"><i class="fa-solid fa-clock"></i> Pending <span class="tab-ct" id="ct_pending">0</span></button>
-              <button class="status-tab tab-approved" onclick="filterUsers('active',this)"><i class="fa-solid fa-circle-check"></i> Approved <span class="tab-ct" id="ct_approved">0</span></button>
-              <button class="status-tab tab-rejected" onclick="filterUsers('rejected',this)"><i class="fa-solid fa-circle-xmark"></i> Rejected <span class="tab-ct" id="ct_rejected">0</span></button>
+            <div class="wave-bar status-tabs" id="userStatusTabs" style="margin-left:auto;">
+              <button class="wave-tab status-tab active" data-color="#334155" onclick="filterUsers('all',this)"><i class="fa-solid fa-list"></i> All <span class="tab-ct" id="ct_all">0</span></button>
+              <button class="wave-tab status-tab tab-pending" data-color="#d97706" onclick="filterUsers('pending',this)"><i class="fa-solid fa-clock"></i> Pending <span class="tab-ct" id="ct_pending">0</span></button>
+              <button class="wave-tab status-tab tab-approved" data-color="#16a34a" onclick="filterUsers('active',this)"><i class="fa-solid fa-circle-check"></i> Approved <span class="tab-ct" id="ct_approved">0</span></button>
+              <button class="wave-tab status-tab tab-rejected" data-color="#dc2626" onclick="filterUsers('rejected',this)"><i class="fa-solid fa-circle-xmark"></i> Rejected <span class="tab-ct" id="ct_rejected">0</span></button>
             </div>
           </h3>
           <input class="search-bar" id="userSearchInput" placeholder="🔍 Search by Name or Mobile..." />

@@ -413,12 +413,14 @@
 
     function _hmMemberTab(filter, btn) {
       _hmMemberFilter = filter;
-      // Update tab button styles
+      // Update tab active state — the wave-tab curve/color styling is
+      // driven entirely by the .active class (see css/admin-wave-tabs.css
+      // and js/admin-wave-tabs.js), so this just needs to toggle it.
       ["hm_tab_all", "hm_tab_paid", "hm_tab_pending"].forEach(function(id) {
         var el = document.getElementById(id);
-        if (el) { el.style.background = "#f1f5f9"; el.style.color = "#334155"; }
+        if (el) { el.classList.remove("active"); }
       });
-      if (btn) { btn.style.background = "#334155"; btn.style.color = "#fff"; }
+      if (btn) { btn.classList.add("active"); }
       _hmRenderMemberList();
     }
 
@@ -427,6 +429,18 @@
       if (!d) return;
       var el = document.getElementById("hm_member_list");
       if (!el) return;
+
+      // Count badges on the All/Paid/Pending tabs — same pattern as the
+      // Users page's ct_all/ct_pending/ct_approved badges.
+      var totalCount = d.activeMembers.length;
+      var paidCount = d.activeMembers.filter(function(u) { return d.paidUserIds.has(String(u.UserId)); }).length;
+      var pendingCount = totalCount - paidCount;
+      var ctAll = document.getElementById("hm_ct_all");
+      var ctPaid = document.getElementById("hm_ct_paid");
+      var ctPending = document.getElementById("hm_ct_pending");
+      if (ctAll) ctAll.textContent = totalCount;
+      if (ctPaid) ctPaid.textContent = paidCount;
+      if (ctPending) ctPending.textContent = pendingCount;
 
       var list = d.activeMembers;
       if (_hmMemberFilter === "paid")    list = list.filter(function(u) { return d.paidUserIds.has(String(u.UserId)); });

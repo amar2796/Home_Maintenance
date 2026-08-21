@@ -1,0 +1,273 @@
+/* ══════════════════════════════════════════════════════════════════
+   WAVE TABS — shared curved active-tab indicator
+   Used by: Home member contribution tabs, Tracker page tabs,
+            Dashboard financial tracker tab, Users page status tabs.
+
+   Markup contract (JS in admin-wave-tabs.js does the rest):
+     <div class="wave-bar" id="...">
+       <button class="wave-tab active" data-color="#0f766e">Label</button>
+       <button class="wave-tab" data-color="#16a34a">Label</button>
+     </div>
+   - Exactly one child should carry the page's existing "active" class
+     (default "active"; override per-bar with data-wave-active-class).
+   - data-color sets that tab's curve/tint/text color when active.
+   - The library injects its own <svg> as the first child — don't add one.
+   ══════════════════════════════════════════════════════════════════ */
+
+.wave-bar {
+  position: relative;
+  display: flex;
+  flex-wrap: nowrap;   /* the curve math assumes one row — never let tabs wrap to a 2nd line */
+  height: 54px;         /* was 46 — extra headroom so the curve's plateau
+                           always clears the label with real margin */
+  background: #f8fafc;
+  border-radius: 14px;
+  border: 1px solid #eef1f4;
+  padding: 0 10px;     /* breathing room so the first/last tab's curve leg
+                          has somewhere to go instead of hitting the edge */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.wave-bar.wave-scrollable {
+  /* Only applied by JS when content actually overflows the bar (see
+     admin-wave-tabs.js) — bars that already fit (Home's 3 tabs) are
+     never touched by this. When there are more tabs than fit (Tracker's
+     6, Users' 4-with-badges on a phone), the last tab used to just get
+     sliced off hard at the container edge — reads as a bug ("cropped
+     text") even though it's technically reachable by scrolling. This
+     fades it out instead, which reads as "there's more, scroll" rather
+     than "this is broken". */
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+}
+.wave-bar::-webkit-scrollbar { display: none; }
+
+.wave-bar-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.wave-stroke {
+  transition: stroke .3s ease;
+  /* Soft drop-shadow under the curve for a little lift/depth instead of
+     a flat line sitting on the surface. Kept subtle — this is meant to
+     read as "gently raised", not a heavy card shadow. */
+  filter: drop-shadow(0 2px 3px rgba(15, 23, 42, 0.10));
+}
+.wave-grad-stop-top,
+.wave-grad-stop-bottom { transition: stop-color .3s ease; }
+
+.wave-tab {
+  position: relative;
+  flex: 1 1 auto;  /* NOT `flex:1` (= flex-basis:0%) — that ignores content
+                      size as a starting point entirely, which is what let
+                      "Approved 9" get squeezed smaller than it needs and
+                      overlap the next tab. auto respects content size, only
+                      growing/shrinking from there. */
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  /* NOT min-width:0 — that was letting tabs shrink below their content's
+     natural width when 4+ tabs (esp. with count badges) didn't fit the
+     bar, causing the label/badge to visually overlap the next tab. The
+     default (min-width:auto) means a tab never shrinks smaller than its
+     own content needs; if the row as a whole doesn't fit, the BAR
+     scrolls (overflow-x:auto above) instead of squeezing individual tabs. */
+  /* Deliberately the SAME padding for active and inactive — the old
+     design added extra padding-bottom only on .active, which shoves the
+     label upward right as it becomes active and was cropping it against
+     the curve's plateau. Keeping padding fixed means the label never
+     moves vertically when a tab is selected — only the curve does. */
+  padding: 8px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #94a3b8;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: 'Poppins', sans-serif;
+  transition: color .3s ease;
+  /* Buttons get a browser-default blue tap-highlight (mobile) and/or
+     focus outline that flashes on click — we never overrode it, so
+     clicking a tab briefly painted it blue underneath our own styling.
+     Replaced with a subtle ring in the bar's own palette instead, kept
+     for keyboard/accessibility use (:focus-visible) rather than removed
+     outright. */
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+/* Hover only on devices that actually have a precise pointer (mouse) —
+   `hover` media guard so this doesn't leave a "stuck" hover tint on
+   phones after a tap, which is a common mobile web papercut. */
+@media (hover: hover) and (pointer: fine) {
+  .wave-tab:not(.active):not(.is-active):hover {
+    color: #64748b;
+  }
+}
+
+.wave-tab:focus-visible {
+  outline: 2px solid #0f766e;
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+
+.wave-tab.active,
+.wave-tab.is-active {
+  font-weight: 700;
+  /* Bold text has less inherent whitespace around its own glyph edges
+     than regular weight — the SAME numeric gap as an inactive tab reads
+     as visibly tighter next to it (this is what made "All" + its badge
+     look like they were touching, even though the gap was identical to
+     "Pending"). Give the active tab's badge a touch more breathing room
+     to compensate. */
+  gap: 8px;
+}
+
+.wave-tab .tab-ct,
+.wave-tab .ct {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 20px;
+  background: #e2e8f0;
+  color: #64748b;
+  transition: background .3s ease, color .3s ease;
+}
+
+/* Dark mode: keep the bar legible against the dark surface */
+body.dark-mode .wave-bar {
+  background: #0d1525;
+  border-color: #1e2d45;
+}
+body.dark-mode .wave-tab {
+  color: #64748b;
+}
+body.dark-mode .wave-tab .tab-ct,
+body.dark-mode .wave-tab .ct {
+  background: #1e2d45;
+  color: #94a3b8;
+}
+
+@media (max-width: 480px) {
+  .wave-bar { height: 50px; }
+  .wave-tab { font-size: 10.5px; padding: 7px 6px; gap: 5px; }
+  .wave-tab.active, .wave-tab.is-active { gap: 7px; }
+}
+
+/* .tr-tabs-bar (admin-tracker-v4.css) also sets its own bottom padding
+   on this same container — clear only that, keep the wave-bar's own
+   left/right padding (needed for the curve's edge-tab breathing room). */
+.wave-bar.tr-tabs-bar { padding-top: 0; padding-bottom: 0; margin: 0 0 20px 0; }
+
+/* ── Tracker page override ──────────────────────────────────────────
+   admin-tracker-v4.css's `.tracker-tab-btn.active` rule (kept on these
+   buttons purely so switchTrackerTab()'s existing querySelectorAll
+   still works) paints a SOLID teal background + box-shadow — the old
+   filled-pill look this curve is replacing. Left un-neutralized, that
+   solid background sits directly under our teal active-tab text and
+   makes it unreadable (teal text on a teal block). Same treatment as
+   the Users-page override below: kill the old fill/border/shadow with
+   a selector specific enough to beat it regardless of source order,
+   scoped so it can only ever match a tab actually in this migration. */
+.wave-tab.tracker-tab-btn,
+.wave-tab.tracker-tab-btn.active,
+.wave-tab.tracker-tab-btn.is-active {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 8px 10px;
+}
+.wave-tab.tracker-tab-btn:hover {
+  background: transparent !important;
+  border: none !important;
+  transform: none !important;
+}
+
+/* ── Tracker page override ──────────────────────────────────────────
+   admin-tracker-v4.css switches .tr-tabs-bar to a 3x2 icon-grid and
+   .tracker-tab-btn to a stacked icon-over-label tile below 768px (see
+   "MOBILE TAB GRID" in that file). That's incompatible with a single
+   curved row, so keep this bar in a scrollable single row on mobile
+   instead. These selectors are two classes deep (.wave-bar.tr-tabs-bar,
+   .wave-tab.tracker-tab-btn) specifically so they only ever apply where
+   both the old and new classes are present together — they can't affect
+   any other tab bar or any element that isn't part of this migration. */
+@media (max-width: 768px) {
+  .wave-bar.tr-tabs-bar {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .wave-bar.tr-tabs-bar::-webkit-scrollbar { display: none; }
+  .wave-tab.tracker-tab-btn {
+    flex: 0 0 auto;
+    flex-direction: row;
+    min-height: auto;
+    padding: 7px 8px;
+    border-radius: 0;
+    font-size: 10.5px;
+    white-space: nowrap;
+    gap: 4px;
+  }
+  .wave-tab.tracker-tab-btn.active,
+  .wave-tab.tracker-tab-btn.is-active {
+    box-shadow: none;
+  }
+  .wave-tab.tracker-tab-btn .tr-tab-icon { font-size: 13px; }
+}
+
+/* ── Users page override ─────────────────────────────────────────────
+   admin-users-chatbot.css (and its dark-mode variant in
+   admin-dark-mode.css, which uses !important) paints .status-tab.active
+   as a solid filled pill. That's the exact look being replaced with the
+   curve, so it needs to be explicitly neutralized here — otherwise the
+   old solid-pill background would sit underneath/behind the curve.
+   Scoped to the two/three-class combo (.wave-tab.status-tab[...]) so it
+   can only ever match a tab that's actually part of this migration. */
+.wave-tab.status-tab,
+.wave-tab.status-tab.active,
+.wave-tab.status-tab.tab-pending.active,
+.wave-tab.status-tab.tab-rejected.active,
+.wave-tab.status-tab.tab-approved.active {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 8px 10px;
+}
+body.dark-mode .wave-tab.status-tab,
+body.dark-mode .wave-tab.status-tab.active,
+body.dark-mode .wave-tab.status-tab.tab-pending.active,
+body.dark-mode .wave-tab.status-tab.tab-rejected.active,
+body.dark-mode .wave-tab.status-tab.tab-approved.active {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+.wave-tab.status-tab:not(.active) .tab-ct { background: #e2e8f0 !important; color: #64748b !important; }
+body.dark-mode .wave-tab.status-tab:not(.active) .tab-ct { background: #1e2d45 !important; color: #94a3b8 !important; }
+
+@media (max-width: 600px) {
+  .wave-bar.status-tabs {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .wave-tab.status-tab {
+    flex-shrink: 0 !important;
+    font-size: 11px !important;
+    padding: 7px 8px !important;
+  }
+}

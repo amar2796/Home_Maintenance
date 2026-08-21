@@ -63,14 +63,16 @@
     gap: 8px !important;
   }
 
-  /* Member-status tabs: smaller, wrap cleanly */
+  /* Member-status tabs: smaller on phones.
+     Was flex-wrap:wrap for the old inline-styled pill buttons — the
+     curve in css/admin-wave-tabs.css needs a single row (it clips to
+     nowrap + horizontal scroll itself), so wrap is intentionally left
+     off here now; only the size reduction is kept. */
   #hm_member_tabs {
-    flex-wrap: wrap !important;
     gap: 5px !important;
   }
-  #hm_member_tabs button {
+  #hm_member_tabs .wave-tab {
     font-size: 10px !important;
-    padding: 3px 10px !important;
   }
 
   /* Lists: trim height so both cards are visible above fold */
