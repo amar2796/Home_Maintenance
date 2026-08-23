@@ -67,11 +67,11 @@
         </div>
 
         <!-- ── Row 2b: Full-width folder-style tab switcher ── -->
-        <div class="dash-tab-folder" id="dash_tab_switch">
-          <button id="dash_tab_contrib" class="dash-tab-btn tab-type-contrib is-active" onclick="dash_switchTab('contrib')">
+        <div class="dash-tab-folder wave-bar" id="dash_tab_switch">
+          <button id="dash_tab_contrib" class="dash-tab-btn wave-tab tab-type-contrib is-active" data-color="#16a34a" onclick="dash_switchTab('contrib')">
             <i class="fa-solid fa-hand-holding-dollar"></i> Contributions
           </button>
-          <button id="dash_tab_expense" class="dash-tab-btn tab-type-expense" onclick="dash_switchTab('expense')">
+          <button id="dash_tab_expense" class="dash-tab-btn wave-tab tab-type-expense" data-color="#dc2626" onclick="dash_switchTab('expense')">
             <i class="fa-solid fa-file-invoice-dollar"></i> Expenses
           </button>
         </div>
@@ -207,14 +207,14 @@
 
         <!-- View toggle + sort bar -->
         <div class="ct-view-bar">
-          <div class="ct-vtoggle">
-            <button class="ct-vbtn active" id="ct_vbtn_table" onclick="ct_switchView('table',this)">
+          <div class="ct-vtoggle wave-bar">
+            <button class="ct-vbtn wave-tab active" id="ct_vbtn_table" data-color="#0F766E" onclick="ct_switchView('table',this)">
               <i class="fa-solid fa-table-list"></i> Table View
             </button>
-            <button class="ct-vbtn" id="ct_vbtn_cards" onclick="ct_switchView('cards',this)">
+            <button class="ct-vbtn wave-tab" id="ct_vbtn_cards" data-color="#0F766E" onclick="ct_switchView('cards',this)">
               <i class="fa-solid fa-id-card"></i> Member Cards
             </button>
-            <button class="ct-vbtn" id="ct_vbtn_grid" onclick="ct_switchView('grid',this)">
+            <button class="ct-vbtn wave-tab" id="ct_vbtn_grid" data-color="#0F766E" onclick="ct_switchView('grid',this)">
               <i class="fa-solid fa-calendar-days"></i> Month Grid
             </button>
           </div>

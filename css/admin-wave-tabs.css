@@ -37,9 +37,18 @@
      sliced off hard at the container edge — reads as a bug ("cropped
      text") even though it's technically reachable by scrolling. This
      fades it out instead, which reads as "there's more, scroll" rather
-     than "this is broken". */
-  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
-  mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+     than "this is broken".
+
+     --fade-l / --fade-r (set by JS on scroll, default 0 = no fade) are
+     each either 0px or 14px depending on whether there's actually
+     unscrolled content on that side — e.g. at the very start of the
+     list there's nothing to the left, so --fade-l is 0 and the first
+     tab renders at full opacity instead of being needlessly faded like
+     every other tab. Without this, the first tab was permanently faded
+     even though it was already fully visible and had nowhere further
+     to scroll. */
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--fade-l, 0px), #000 calc(100% - var(--fade-r, 0px)), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--fade-l, 0px), #000 calc(100% - var(--fade-r, 0px)), transparent 100%);
 }
 .wave-bar::-webkit-scrollbar { display: none; }
 
@@ -270,4 +279,59 @@ body.dark-mode .wave-tab.status-tab:not(.active) .tab-ct { background: #1e2d45 !
     font-size: 11px !important;
     padding: 7px 8px !important;
   }
+}
+
+/* ── Dashboard "view toggle" override (Table View / Member Cards /
+   Month Grid) ────────────────────────────────────────────────────────
+   .ct-vbtn painted its own folder-tab look (rounded top corners, a
+   border that fakes a connection into the panel below via
+   border-bottom-color:#fff, and a dark-mode variant that uses
+   !important for all of it). All of that needs to be cleared the same
+   way as the Tracker/Users overrides above, or it fights the curve —
+   scoped to the two-class combo so it can only touch a tab that's
+   actually part of this migration. */
+.wave-tab.ct-vbtn,
+.wave-tab.ct-vbtn.active {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  margin-bottom: 0 !important;
+  padding: 8px 10px;
+}
+.wave-tab.ct-vbtn:hover:not(.active) {
+  background: transparent !important;
+  color: #94a3b8;
+}
+body.dark-mode .wave-tab.ct-vbtn,
+body.dark-mode .wave-tab.ct-vbtn.active,
+body.dark-mode .wave-tab.ct-vbtn:hover:not(.active) {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+/* ── Dashboard "Contributions / Expenses" tab override ───────────────
+   .dash-tab-btn was the biggest/bulkiest of all the tab bars — 14px
+   padding, 14px font — plus its own folder-tab background/border like
+   .ct-vbtn above. Neutralize the old paint the same way, AND size it
+   down to match the compact footprint of every other wave-tab bar in
+   the app (8px/10px padding, ~12px font) rather than leaving it
+   oversized relative to its new curve-tab siblings. */
+.wave-tab.dash-tab-btn,
+.wave-tab.dash-tab-btn.is-active {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  margin-bottom: 0 !important;
+  padding: 8px 10px;
+  font-size: 12.5px;
+}
+.wave-tab.dash-tab-btn:hover:not(.is-active) {
+  background: transparent !important;
+  color: #94a3b8;
+}
+body.dark-mode .wave-tab.dash-tab-btn,
+body.dark-mode .wave-tab.dash-tab-btn.is-active,
+body.dark-mode .wave-tab.dash-tab-btn:hover:not(.is-active) {
+  background: transparent !important;
+  border-color: transparent !important;
 }

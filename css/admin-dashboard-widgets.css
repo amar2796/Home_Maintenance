@@ -179,8 +179,14 @@ body.dark-mode [style*="color:#16a34a"] { color: #4ade80 !important; }
   .ct-scard { padding: 8px 10px !important; }
   .ct-scard .sc-val { font-size: 13px !important; }
 
-  /* Audit stats → 2-col */
-  #audit_stats { grid-template-columns: 1fr 1fr !important; display: grid !important; gap: 8px !important; }
+  /* Audit stats → 2-col grid (columns only — NOT `display`, which is
+     driven by JS: _renderAuditStats() in admin-audit.js sets
+     display:none when there's no data yet and display:grid once there
+     is. The old `display: grid !important` here was overriding that,
+     making the empty stat cards show up on mobile before/without any
+     data — this only needs to set the column layout for whenever JS
+     does turn it on. */
+  #audit_stats { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
 
   /* Email info banner → stack */
   #emailAutoPage [style*="display:flex;align-items:flex-start;gap:12px"] {

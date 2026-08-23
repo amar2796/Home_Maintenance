@@ -203,9 +203,25 @@
     stateByBar.set(bar, state);
   }
 
+  var FADE_PX = 14;
+
   function updateScrollable(bar) {
     var overflowing = bar.scrollWidth > bar.clientWidth + 1;
     bar.classList.toggle("wave-scrollable", overflowing);
+    if (!overflowing) return;
+    updateFadeEdges(bar);
+  }
+
+  function updateFadeEdges(bar) {
+    // Only fade a side if there's actually more content to scroll to on
+    // that side — otherwise the first/last tab gets needlessly faded
+    // even though it's already fully visible and there's nowhere
+    // further to scroll (this is what was washing out "Overview" on the
+    // Tracker bar even at rest, scrolled all the way to the start).
+    var atStart = bar.scrollLeft <= 1;
+    var atEnd = bar.scrollLeft >= bar.scrollWidth - bar.clientWidth - 1;
+    bar.style.setProperty("--fade-l", atStart ? "0px" : FADE_PX + "px");
+    bar.style.setProperty("--fade-r", atEnd ? "0px" : FADE_PX + "px");
   }
 
   function refresh(barOrId, animate) {
@@ -248,6 +264,12 @@
     } else {
       global.addEventListener("resize", function () { refresh(bar, false); });
     }
+
+    // Keep the fade in sync as the user actually scrolls the bar (e.g.
+    // scrolling Tracker's 6 tabs left/right) — passive for scroll
+    // performance, and only touches the two CSS custom properties, not
+    // a full repaint.
+    bar.addEventListener("scroll", function () { updateFadeEdges(bar); }, { passive: true });
 
     refresh(bar, false);
   }

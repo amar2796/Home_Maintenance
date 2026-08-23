@@ -660,7 +660,17 @@ body.dark-mode [style*="color:#14B8A6"] { color: #99F6E4 !important; }
 .ct-pf-g6 { display: grid; grid-template-columns: repeat(4,1fr) auto auto; gap: 8px; align-items: end; }
 @media (max-width: 900px) {
   .ct-pf-g5 { grid-template-columns: repeat(2,1fr); }
-  .ct-pf-g6 { grid-template-columns: 1fr 1fr; }
+  /* align-items:start (not the desktop `end`) below 900px — once this
+     wraps to 2 columns, Amount Range's Min/Max stack vertically on top
+     of each other (see .ct-amt-range mobile rule in
+     admin-mobile-responsive.css) and become taller than their row
+     sibling (e.g. Payment Status). With `end`, that taller cell pushes
+     every shorter cell in the same row down to match its bottom edge —
+     which is what made "Payment Status" float below "Amount Range"'s
+     Min field instead of lining up with it. `start` keeps every label
+     anchored to the top of its cell regardless of how tall any one
+     cell in the row gets. */
+  .ct-pf-g6 { grid-template-columns: 1fr 1fr; align-items: start; }
 }
 .ct-pf-lbl { font-size: 9px; font-weight: 600; color: #64748b; margin-bottom: 3px; display: block; }
 .ct-pf-sel, .ct-pf-inp {
