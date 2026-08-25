@@ -204,10 +204,9 @@ td[style*="white-space: normal"] {
   word-break: break-word;
 }
 
-tbody tr:hover {
-  background: #fdfbf7;
-  cursor: pointer;
-}
+/* [MOVED] tbody tr:hover — consolidated into css/admin-tables.css to
+   remove the 3-way duplicate hover-color conflict that used to exist
+   across this file, admin-tables.css, and admin-sidebar-nav.css. */
 
 .action-btns {
   display: flex;

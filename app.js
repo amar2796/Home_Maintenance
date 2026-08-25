@@ -113,6 +113,17 @@ function toast(msg, type) {
       @keyframes tBar{from{width:100%}to{width:0%}}
       .to{animation:tDn .3s ease forwards!important;}
       @keyframes tDn{to{opacity:0;transform:translateY(12px)}}
+      /* [FIX] On mobile, admin.html's fixed glass bottom-nav (see
+         admin-mobile-glass-menubar.css) reserves ~80px + safe-area at the
+         bottom of .page. The toast wrapper's z-index (999999) is far above
+         the nav's (max 1100), so at the old bottom:24px it rendered on top
+         of the nav instead of above it, blocking taps on Home/Contribution/
+         Tracker/More whenever a toast was showing. Lifting it clear of that
+         reserved zone on narrow screens fixes this without touching the
+         nav's own CSS or z-index. */
+      @media (max-width: 768px){
+        #_tw{bottom:calc(88px + env(safe-area-inset-bottom));left:12px;right:12px;max-width:none;align-items:stretch;}
+      }
     `;
     document.head.appendChild(s);
   }

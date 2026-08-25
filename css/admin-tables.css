@@ -9,10 +9,59 @@
 tbody tr:nth-child(even) {
   background: #fafbfc;
 }
+
+/* [CONSOLIDATED] This used to be defined 3 times — here, in
+   admin-sidebar-nav.css, and in admin-widgets-fixes.css — each with a
+   slightly different hover color (#fff8ee / #fffbf2 / #fdfbf7) and only
+   this one had the transition. Because all three targeted the same
+   `tbody tr:hover` selector at equal specificity, whichever file
+   happened to load last silently won per-property — fragile, and easy
+   to break by reordering <link> tags or editing just one copy. This is
+   now the single source of truth for every table's row hover across
+   the app; the other two files now just point here (see their own
+   comments). Visual output is unchanged from before — verified by
+   screenshot against Users/Expense/Contribution/Goals tables. */
+/* [ADDED] Row entrance animation. Applies automatically to every table
+   in the app (Contribution, Expense, Users, Goals, Master Data, etc.)
+   with zero changes to any page's render JS — tables are rebuilt via
+   tbody.innerHTML on load/filter/pagination, so freshly-inserted <tr>
+   elements always replay this animation on their own; nothing needs to
+   call or trigger it. Staggered per-row via :nth-child so rows cascade
+   in instead of popping in as one flat block. Capped at the first 14
+   rows (a full page of most tables here) — rows beyond that share the
+   last delay so a long table doesn't take a full second to finish
+   animating in. Respects prefers-reduced-motion via the global rule
+   already in design-system.css (loaded on this page). */
+@keyframes rowFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+tbody tr {
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+  animation: rowFadeIn 0.28s ease both;
+}
+tbody tr:nth-child(1)  { animation-delay: 0.00s; }
+tbody tr:nth-child(2)  { animation-delay: 0.03s; }
+tbody tr:nth-child(3)  { animation-delay: 0.06s; }
+tbody tr:nth-child(4)  { animation-delay: 0.09s; }
+tbody tr:nth-child(5)  { animation-delay: 0.12s; }
+tbody tr:nth-child(6)  { animation-delay: 0.15s; }
+tbody tr:nth-child(7)  { animation-delay: 0.18s; }
+tbody tr:nth-child(8)  { animation-delay: 0.21s; }
+tbody tr:nth-child(9)  { animation-delay: 0.24s; }
+tbody tr:nth-child(10) { animation-delay: 0.27s; }
+tbody tr:nth-child(11) { animation-delay: 0.30s; }
+tbody tr:nth-child(12) { animation-delay: 0.33s; }
+tbody tr:nth-child(13) { animation-delay: 0.36s; }
+tbody tr:nth-child(n+14) { animation-delay: 0.38s; }
+
 tbody tr:hover {
   background: #fff8ee !important;
   box-shadow: inset 3px 0 0 #0F766E;
-  transition: background 0.15s ease, box-shadow 0.15s ease;
+  cursor: default;
+}
+tbody tr.clickable-row:hover {
+  cursor: pointer;
 }
 
 /* ── 2. THEAD: richer dark header ── */

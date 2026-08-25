@@ -187,15 +187,11 @@ tbody tr {
   transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 
-tbody tr:hover {
-  background: #fffbf2 !important;
-  box-shadow: inset 3px 0 0 #0F766E;
-  cursor: default;
-}
-
-tbody tr.clickable-row:hover {
-  cursor: pointer;
-}
+/* [MOVED] tbody tr:hover, tbody tr.clickable-row:hover — consolidated
+   into css/admin-tables.css (loaded after this file) to remove the
+   3-way duplicate hover-color conflict that used to exist across this
+   file, admin-tables.css, and admin-widgets-fixes.css. Look there for
+   both rules; nothing else in this file changed. */
 
 .card:hover {
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
@@ -326,4 +322,3 @@ tbody tr.clickable-row:hover {
   flex-shrink: 0;
   margin-top: 5px;
 }
-
