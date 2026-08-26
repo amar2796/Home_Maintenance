@@ -125,7 +125,27 @@
   }
 
   function measure(bar, tab) {
-    var r = bar.getBoundingClientRect();
+    // [FIX] This used to measure every tab against bar.getBoundingClientRect()
+    // — the bar's OUTER frame, which stays fixed on screen even while its
+    // contents scroll (overflow-x:auto on .wave-bar). But the curve is
+    // drawn inside .wave-bar-svg, which is a normal child of that same
+    // scrolling bar — confirmed directly: scrolling the bar by 194px moved
+    // the SVG's own on-screen position by exactly -194px too. So the SVG
+    // does NOT stay pinned to the bar's outer frame; it scrolls right along
+    // with the tabs. Measuring tabs against the bar's static frame instead
+    // of the SVG's own (also-scrolling) frame meant every path coordinate
+    // was off by the current scroll amount whenever the bar wasn't at
+    // scrollLeft 0 — invisible before because nothing ever auto-scrolled
+    // the bar during a switch, but immediately visible once
+    // scrollActiveIntoView (above) started doing exactly that: the curve
+    // would render at the pre-scroll position while the tabs themselves
+    // had already moved, landing the curve on the wrong tab (Calendar
+    // instead of Predict, in the reported case). Using the SVG's own rect
+    // as the reference point is scroll-position-invariant: both the SVG
+    // and every tab move by the same amount when the bar scrolls, so their
+    // difference stays correct at any scroll position.
+    var svg = ensureSvg(bar);
+    var r = svg.getBoundingClientRect();
     var tr = tab.getBoundingClientRect();
     return { x1: tr.left - r.left, x2: tr.right - r.left, W: r.width, H: r.height };
   }
@@ -185,11 +205,24 @@
       if (!start) start = ts;
       var p = Math.min(1, (ts - start) / ANIM_MS);
       var e = easeOutSoftBack(p);
-      paint(bar, {
-        x1: from.x1 + (to.x1 - from.x1) * e,
-        x2: from.x2 + (to.x2 - from.x2) * e,
-        W: to.W, H: to.H
-      }, color);
+      // [FIX] easeOutSoftBack intentionally overshoots slightly past 1.0
+      // for the "soft landing" feel (see its own comment above). For a
+      // tab near the middle of the bar that overshoot has room on both
+      // sides and is invisible. For the FIRST or LAST tab — especially
+      // after a long jump, e.g. Tracker's Overview→Predict — it pushes
+      // the interpolated x1 below 0 or x2 past the bar's real width W.
+      // legFor()'s clamp (Math.max(4, ..., W - x2)) then sees a negative
+      // "room" value and snaps the curve's corner to its 4px floor for
+      // that instant, producing a visible glitch right as the animation
+      // settles — confirmed by replaying the real easing math: on
+      // Tracker's 6-tab bar, jumping to the last tab overshoots x2 by
+      // ~5px past W. Clamping the interpolated position (not the easing
+      // curve itself) keeps the intended bounce feel everywhere except
+      // the last ~5px at each edge, where it now holds flush against
+      // the boundary instead of snapping the corner radius.
+      var ix1 = Math.max(0, from.x1 + (to.x1 - from.x1) * e);
+      var ix2 = Math.min(to.W, from.x2 + (to.x2 - from.x2) * e);
+      paint(bar, { x1: ix1, x2: ix2, W: to.W, H: to.H }, color);
       if (p < 1) {
         state.raf = requestAnimationFrame(step);
         stateByBar.set(bar, state);
@@ -208,6 +241,26 @@
   function updateScrollable(bar) {
     var overflowing = bar.scrollWidth > bar.clientWidth + 1;
     bar.classList.toggle("wave-scrollable", overflowing);
+    // [FIX — root cause of the "curve lands on the wrong tab after
+    // scrolling" bug] .wave-bar-svg is CSS-sized to width:100%, which
+    // resolves to the bar's VISIBLE width (clientWidth) — but the SVG is
+    // a normal scrolling child of .wave-bar (confirmed directly: scrolling
+    // the bar by 194px moved the SVG's own on-screen position by exactly
+    // -194px too, i.e. it's pinned to a fixed spot in the CONTENT, not to
+    // the viewport). A 350px-wide SVG pinned at content-position 0 can only
+    // ever draw a curve for tabs that live in that first 0-350px slice of
+    // content — any tab further along (like "Predict", sitting out past
+    // 450px of content) falls completely outside the SVG's own box, so no
+    // correct curve can be drawn there at all no matter how the coordinates
+    // are computed. Sizing the SVG to the FULL scrollable width instead of
+    // just the visible width means it always spans every tab regardless of
+    // scroll position, and — since it then scrolls in lockstep with the
+    // tabs it overlays — a tab's offset from the SVG's own edge stays
+    // correct at any scroll position. Only touches bars that actually
+    // overflow; bars that already fit (Home's 3 tabs) are untouched, same
+    // scope as wave-scrollable above.
+    var svg = ensureSvg(bar);
+    svg.style.width = overflowing ? bar.scrollWidth + "px" : "";
     if (!overflowing) return;
     updateFadeEdges(bar);
   }
@@ -224,6 +277,39 @@
     bar.style.setProperty("--fade-r", atEnd ? "0px" : FADE_PX + "px");
   }
 
+  function scrollActiveIntoView(bar, tab) {
+    // [FIX] The bug you're seeing: on mobile the tab bar overflows (6
+    // Tracker tabs don't fit in ~350px), so tapping an off-screen tab
+    // like "Predict" activates it correctly, but nothing ever scrolls
+    // the bar so you can see it — confirmed the bar's scrollLeft simply
+    // stays at 0 before and after the tap. The curve then animates to
+    // Predict's real position, which is off past the visible edge, so
+    // every tab still on screen (Overview/Analytics/Email/Calendar)
+    // shows no active indicator at all — looking exactly like the
+    // switch got "stuck mid-transition" on whichever tab you can see.
+    // This brings the newly active tab into view first — instantly,
+    // not smoothly, since measure() runs right after this and needs
+    // the tab's FINAL position up front rather than a still-moving
+    // target from a separate smooth-scroll animation racing the
+    // curve's own animation (that would just reintroduce the same
+    // class of desync bug fixed above for the sidebar-collapse case).
+    // The curve's existing 340ms animation still supplies all the
+    // visible motion the user perceives. No-ops when the bar doesn't
+    // overflow (desktop, or any bar where every tab already fits).
+    if (bar.scrollWidth <= bar.clientWidth + 1) return;
+    var barRect = bar.getBoundingClientRect();
+    var tabRect = tab.getBoundingClientRect();
+    var tabLeft = tabRect.left - barRect.left + bar.scrollLeft;
+    var tabRight = tabLeft + tabRect.width;
+    var visibleLeft = bar.scrollLeft;
+    var visibleRight = bar.scrollLeft + bar.clientWidth;
+    if (tabLeft < visibleLeft || tabRight > visibleRight) {
+      var target = tabLeft - (bar.clientWidth - tabRect.width) / 2;
+      target = Math.max(0, Math.min(target, bar.scrollWidth - bar.clientWidth));
+      bar.scrollLeft = target;
+    }
+  }
+
   function refresh(barOrId, animate) {
     var bar = typeof barOrId === "string" ? document.getElementById(barOrId) : barOrId;
     if (!bar) return;
@@ -232,8 +318,26 @@
     syncColors(bar, active);
     updateScrollable(bar);
     if (animate) {
+      // Only for real tab-switch calls (see the function above) — not
+      // on passive resize/sidebar-collapse refreshes, where suddenly
+      // auto-scrolling an unrelated tab bar would itself be jarring.
+      scrollActiveIntoView(bar, active);
       animateTo(bar, active);
     } else {
+      // [FIX] This branch runs on every ResizeObserver firing — including
+      // when the sidebar is collapsed/expanded, which changes every bar's
+      // width. It used to overwrite stateByBar with a brand-new object
+      // (`raf: null`) without ever reading the OLD state first, so if a
+      // tab-switch animation was still mid-flight (its `requestAnimationFrame`
+      // already scheduled) when the sidebar was toggled, that old animation
+      // frame was never actually cancelled — just orphaned. It would still
+      // fire on the next frame and repaint with its own stale interpolated
+      // position, immediately overwriting the correct resize-driven paint
+      // this branch just drew, producing a visible jump/flicker right after
+      // collapsing the sidebar mid-animation. Reading the existing state and
+      // cancelling its pending frame first closes that race.
+      var existing = stateByBar.get(bar);
+      if (existing && existing.raf) cancelAnimationFrame(existing.raf);
       var geo = measure(bar, active);
       stateByBar.set(bar, { current: geo, raf: null });
       paint(bar, geo, active.getAttribute("data-color") || "#0f766e");
