@@ -1,4 +1,4 @@
-    var _hmMemberFilter = "all";
+var _hmMemberFilter = "all";
 
     /* ══════════════════════════════════════════════════
        VIEWING PERIOD BAR — fully interactive
@@ -136,6 +136,20 @@
           'onmouseout="if(this.dataset.active!==\'1\'){this.style.background=\'rgba(255,255,255,0.06)\';this.style.color=\'#94a3b8\';}" ' +
           'data-active="' + (isActive ? '1' : '0') + '">' + m + '</div>';
       }).join("");
+      // [FIX] On mobile this bar only shows ~3-4 of the 12 months at once
+      // (confirmed: 709px of content in a 246px-wide visible area) — tapping
+      // any of the other 8-9 months worked correctly (the pill's own color
+      // updates fine, no shared overlay involved here unlike the wave-tabs
+      // bars), but nothing ever scrolled to bring the newly-active pill
+      // into view, so picking an off-screen month gave no visible sign the
+      // tap registered at all. innerHTML was just rebuilt above, so the
+      // active pill is the only one with data-active="1" in the fresh DOM.
+      var activeEl = container.querySelector('[data-active="1"]');
+      if (activeEl && container.scrollWidth > container.clientWidth + 1) {
+        var target = activeEl.offsetLeft - (container.clientWidth - activeEl.offsetWidth) / 2;
+        target = Math.max(0, Math.min(target, container.scrollWidth - container.clientWidth));
+        container.scrollTo({ left: target, behavior: "smooth" });
+      }
     }
 
     /* ── Live clock ── */
@@ -1205,4 +1219,4 @@
     /* ══ PAGINATION UTILITY ══════════════════════════════════════════
        _renderPagination(containerId, totalPages, currentPage, onPageFn)
        Renders Previous / numbered / Next buttons into the given container.
-    ═══════════════════════════════════════════════════════════════════ */
+    ═══════════════════════════════════════════════════════════════════ */
