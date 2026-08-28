@@ -7,18 +7,21 @@
 // ── SIDEBAR COLLAPSE FUNCTIONALITY (DESKTOP) ──
 class SidebarToggle {
   constructor() {
-    this.isCollapsed = this.loadCollapseState();
     this.sidebar = document.querySelector('.sidebar');
     this.toggleBtn = document.getElementById('sidebarToggleBtn');
+    this.isCollapsed = this.loadCollapseState();
     this.init();
   }
 
   init() {
     if (!this.toggleBtn) return;
 
-    // Apply saved state on page load
+    // Apply saved/default state on page load WITHOUT persisting it — see
+    // applyInitialCollapseState(). Only an actual click or the keyboard
+    // shortcut (collapseSidebar/expandSidebar below) should ever write to
+    // localStorage; this just paints the correct starting visual.
     if (this.isCollapsed) {
-      this.collapseSidebar(false); // false = don't animate on init
+      this.applyInitialCollapseState();
     }
 
     // Add click event listener
@@ -27,8 +30,12 @@ class SidebarToggle {
     // Keyboard shortcut: "[" toggles the sidebar on desktop, same idea as
     // VS Code/Notion. Ignored while typing in an input/textarea/select or
     // any contenteditable so it never hijacks normal typing.
+    // [CHANGED] Was window.innerWidth < 1024 — the collapse feature itself
+    // now works from 769px up (see admin-sidebar-collapse.css), so this
+    // guard needs to match or the shortcut would silently do nothing on
+    // tablets even though the toggle button and CSS both work there.
     document.addEventListener('keydown', (e) => {
-      if (e.key !== '[' || window.innerWidth < 1024) return;
+      if (e.key !== '[' || window.innerWidth < 769) return;
       const tag = (e.target.tagName || '').toLowerCase();
       if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
       this.toggleSidebar();
@@ -58,7 +65,7 @@ class SidebarToggle {
 
     this.sidebar.addEventListener('mouseenter', (e) => {
       const li = e.target.closest && e.target.closest('li[data-label]');
-      if (!li || !this.sidebar.classList.contains('collapsed') || window.innerWidth < 1024) return;
+      if (!li || !this.sidebar.classList.contains('collapsed') || window.innerWidth < 769) return;
       this.showFlyoutTooltip(li);
     }, true);
 
@@ -105,6 +112,19 @@ class SidebarToggle {
     this.saveCollapseState(true);
   }
 
+  // [ADDED] Paints the initial collapsed visual on page load without
+  // writing to localStorage — used for both an actual saved "true"
+  // preference (which is already in storage, so re-saving is harmless
+  // but pointless) and the tablet width auto-default in
+  // loadCollapseState() below (which must NOT be saved, or a tablet
+  // visitor's one-time auto-default would wrongly follow them to a
+  // later desktop session as if they'd explicitly chosen it).
+  applyInitialCollapseState() {
+    if (!this.sidebar || !this.toggleBtn) return;
+    this.sidebar.classList.add('collapsed');
+    this.toggleBtn.classList.add('collapsed');
+  }
+
   expandSidebar() {
     if (!this.sidebar || !this.toggleBtn) return;
 
@@ -128,7 +148,22 @@ class SidebarToggle {
   loadCollapseState() {
     try {
       const saved = localStorage.getItem('adminSidebarCollapsed');
-      return saved === 'true';
+      if (saved !== null) return saved === 'true';
+      // [ADDED] No explicit preference saved yet (first visit, or this
+      // browser has never touched the toggle) — default to collapsed
+      // specifically in the narrow band that's actually measured to need
+      // it. Testing every width from 769-1023px with a FULL (uncollapsed)
+      // sidebar showed content squeezed to a 2-column card layout only
+      // from 769-840px; by 850px it's already back to 3 columns on its
+      // own. Scoping the auto-default to just 769-849 (rather than the
+      // whole 769-1023 tablet band) also avoids trading one boundary
+      // problem for another: defaulting the *entire* band to collapsed
+      // would create a new dip exactly at the 1023→1024 seam (60px
+      // sidebar suddenly jumping to the normal 245px default at 1024),
+      // which doesn't exist with this narrower range since 900-1023
+      // already matches 1024+'s natural expanded default.
+      const w = window.innerWidth;
+      return w >= 769 && w <= 849;
     } catch (e) {
       console.warn('Could not load sidebar state:', e);
       return false;
@@ -138,8 +173,17 @@ class SidebarToggle {
   handleResize() {
     this.hideFlyoutTooltip();
 
-    // Hide toggle button on mobile
-    if (window.innerWidth < 1024) {
+    // Hide toggle button below the bottom-nav breakpoint (see
+    // admin-mobile-glass-menubar.css / mobileGlassMenubar) — that's the
+    // real boundary for "does this device get a sidebar at all", not
+    // 1024px. [CHANGED] Was window.innerWidth < 1024, which also matched
+    // the whole 769-1023px tablet band — stripping the collapsed class
+    // and hiding the toggle button there even though that's exactly the
+    // range that most needs the icon-only option (full sidebar, no
+    // bottom-nav, confirmed to squeeze content down to 2-column card
+    // layouts that recover to 3 columns only once the viewport widens
+    // well past 900px).
+    if (window.innerWidth < 769) {
       if (this.toggleBtn) this.toggleBtn.style.display = 'none';
       if (this.sidebar) this.sidebar.classList.remove('collapsed');
     } else {

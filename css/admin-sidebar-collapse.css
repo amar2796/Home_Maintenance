@@ -1,10 +1,24 @@
 /* ╔══════════════════════════════════════════════════════╗
    ║  SIDEBAR COLLAPSE / EXPAND FEATURE                  ║
-   ║  Desktop mode (1024px+): Full sidebar ↔ Icon-only   ║
+   ║  Tablet+desktop (769px+): Full sidebar ↔ Icon-only  ║
+   ║  [CHANGED] Was min-width:1024px. Below 1024px but at ║
+   ║  or above 769px, the sidebar switches from the mobile║
+   ║  bottom-nav to this full-width sidebar (245px) with  ║
+   ║  no icon-only option at all — confirmed by measuring ║
+   ║  actual rendered widths: at 768px content gets 748px ║
+   ║  (bottom-nav, no sidebar); at 769px it drops to just ║
+   ║  484px (sidebar appears at full width), not recovering║
+   ║  to a comparable 3-column card layout until ~900px.  ║
+   ║  Extending this collapse styling down to 769px (to   ║
+   ║  match the actual bottom-nav/sidebar boundary, see   ║
+   ║  admin-sidebar-toggle.js's handleResize) lets tablets ║
+   ║  use the same icon-only rail desktop already has,    ║
+   ║  instead of being stuck with the full sidebar and no ║
+   ║  way to reclaim that space.                          ║
    ╚══════════════════════════════════════════════════════╝ */
 
 /* ── DESKTOP SIDEBAR COLLAPSE ANIMATION ── */
-@media (min-width: 1024px) {
+@media (min-width: 769px) {
   
   /* Main sidebar transition for width change */
   .sidebar {
@@ -238,8 +252,11 @@
 /* ── FLYOUT TOOLTIP FOR COLLAPSED SIDEBAR ITEMS ──
    Appended once to <body> and repositioned on hover via JS (fixed
    positioning escapes the sidebar's overflow-x:hidden, so it can sit
-   beside the rail instead of being clipped or overlapping the next icon). */
-@media (min-width: 1024px) {
+   beside the rail instead of being clipped or overlapping the next icon).
+   [CHANGED] Was min-width:1024px — extended to 769px alongside the
+   collapse feature itself above, so tablets get working flyout labels
+   on their now-collapsible icon rail too, not just desktop. */
+@media (min-width: 769px) {
   #sidebarFlyoutTooltip {
     position: fixed;
     background: rgba(15, 23, 42, 0.95);
@@ -276,8 +293,15 @@
   }
 }
 
-/* ── ENSURE MOBILE DOESN'T SHOW COLLAPSE BUTTON ── */
-@media (max-width: 1023px) {
+/* ── ENSURE MOBILE (BOTTOM-NAV) DOESN'T SHOW COLLAPSE BUTTON ──
+   [CHANGED] Was max-width:1023px, which unconditionally hid this button
+   with !important for the entire tablet band too — silently overriding
+   everything above no matter what other rules said, and the actual
+   reason this button appeared to not exist/not be clickable at tablet
+   widths while testing this fix. The real boundary for "does this
+   device use the sidebar at all vs. the bottom-nav" is 768/769px (see
+   admin-sidebar-toggle.js's handleResize), not 1024px. */
+@media (max-width: 768px) {
   #sidebarToggleBtn {
     display: none !important;
   }
