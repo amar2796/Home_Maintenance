@@ -1,0 +1,134 @@
+/* ══════════════════════════════════════════════════════════════════
+   DESIGN SYSTEM v2 — MODERNIZED
+   Evolution of the existing teal + gold identity, not a replacement.
+   Adds what v1 was missing: a real spacing scale, a cooler neutral
+   ramp for data-dense admin UI, layered elevation, and component-
+   ready tokens (control height, border width) so buttons/cards/tabs
+   can share one source instead of being redefined per page.
+   PREVIEW ONLY — lives in home-app-preview/, not the live project.
+   ══════════════════════════════════════════════════════════════════ */
+:root {
+  /* ── Brand (unchanged from v1 — this is your identity, not what's dated) ── */
+  --color-primary:      #115E59;
+  --color-primary-dark: #0B4742;
+  --color-brand:         #0F766E;
+  --color-brand-light:   #99F6E4;
+  --color-brand-tint:    #E6FBF7;
+  --color-gold:          #C8860D;
+  --color-gold-soft:     #FBEBC8;
+
+  /* ── NEW: full brand ramp for hover/active/disabled states,
+     instead of every component inventing its own darker/lighter shade ── */
+  --brand-50:  #F0FDFA;
+  --brand-100: #CCFBF1;
+  --brand-200: #99F6E4;
+  --brand-500: #0F766E;
+  --brand-600: #115E59;
+  --brand-700: #0B4742;
+  --gold-100:  #FBEBC8;
+  --gold-500:  #C8860D;
+  --gold-600:  #A66F0A;
+
+  /* ── NEW: cool neutral ramp — for admin/data UI specifically.
+     v1 only had warm cream tones (nice for the public/member-facing
+     pages) but nothing between white and slate for dense tables,
+     borders, and secondary text — every admin file ended up picking
+     its own one-off gray, which is the root of the "2,700 hardcoded
+     colors" fragmentation from the original UI audit. */
+  --gray-50:  #F8FAFC;
+  --gray-100: #F1F5F9;
+  --gray-200: #E2E8F0;
+  --gray-300: #CBD5E1;
+  --gray-400: #94A3B8;
+  --gray-500: #64748B;
+  --gray-600: #475569;
+  --gray-700: #334155;
+  --gray-800: #1E293B;
+  --gray-900: #0F172A;
+
+  /* ── Surfaces (kept, public pages still get the warm cream) ── */
+  --bg-page:          #F5F0E8;
+  --bg-page-admin:    var(--gray-50);
+  --bg-surface:       #FFFFFF;
+  --bg-surface-cream: #FFFBF5;
+  --bg-input:         #FAFAF8;
+
+  /* ── Text ── */
+  --text-body:     #2B2B2B;
+  --text-muted:    var(--gray-500);
+  --text-faint:    var(--gray-400);
+  --text-on-brand: #FFFFFF;
+
+  /* ── Borders ── */
+  --border-light: var(--brand-200);
+  --border-soft:  var(--gray-200);
+
+  /* ── Semantic ── */
+  --success-bg: #EAFAF1; --success-text: #1E8449; --success-border: #A9DFBF;
+  --error-bg:   #FDEDEC; --error-text:   #C0392B; --error-border:   #F5B7B1;
+  --warn-bg:    #FEF9E7; --warn-text:    #B7791F; --warn-border:    #FBEBC8;
+  --info-bg:    #EFF6FF; --info-text:    #1D4ED8; --info-border:    #BFDBFE;
+
+  /* ── NEW: real spacing scale — v1 had none, so every file used its
+     own arbitrary px values (10px, 13px, 18px, 22px...). One 4px-based
+     scale everywhere reads as far more "designed." ── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ── Radius (unchanged) ── */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-pill: 999px;
+
+  /* ── NEW: layered elevation — v1 had 4 shadow depths but no
+     consistent RULE for which surfaces use which; this names them by
+     role (resting card vs. raised/hovered vs. floating modal/popover)
+     so every card, dropdown, and modal in the app picks from the same
+     3 depths instead of each file inventing its own box-shadow. ── */
+  --elevation-resting: 0 1px 2px rgba(15,23,42,.04), 0 1px 3px rgba(15,23,42,.06);
+  --elevation-raised:  0 4px 12px rgba(15,23,42,.08), 0 2px 4px rgba(15,23,42,.06);
+  --elevation-floating:0 12px 32px rgba(15,23,42,.14), 0 4px 8px rgba(15,23,42,.06);
+  --elevation-brand:   0 8px 24px rgba(15,118,110,.16);
+
+  /* Keep v1 names working for anything not yet migrated */
+  --shadow-xs: var(--elevation-resting);
+  --shadow-sm: var(--elevation-raised);
+  --shadow-md: var(--elevation-floating);
+  --shadow-lg: 0 24px 64px rgba(17,94,89,.18);
+  --shadow-focus: 0 0 0 3px rgba(15,118,110,.16);
+
+  /* ── Type (unchanged pairing, now with a real scale) ── */
+  --font-display: 'Fraunces', serif;
+  --font-body:    'Poppins', sans-serif;
+  --text-xs:   12px;
+  --text-sm:   13px;
+  --text-base: 14px;
+  --text-md:   16px;
+  --text-lg:   18px;
+  --text-xl:   22px;
+  --text-2xl:  28px;
+
+  /* ── NEW: component-ready tokens ── */
+  --control-height: 40px;
+  --control-height-sm: 32px;
+  --border-width: 1.5px;
+
+  /* ── Motion (unchanged) ── */
+  --ease-out: cubic-bezier(.21,1.02,.73,1);
+  --dur-fast: .18s;
+  --dur-med:  .32s;
+  --dur-slow: .5s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important;}
+}

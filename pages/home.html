@@ -45,47 +45,54 @@
 
         
         <!-- ── KPI Row: 4 stat cards ── (moved above the all-time summary: this is
-             the "what needs my attention today" data, so it should be seen first) -->
+             the "what needs my attention today" data, so it should be seen first)
+             PREVIEW: modernized stat-card-v2 styling with sparkline slot. -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:18px;">
 
           <!-- Month Collection -->
-          <div class="card-box" style="border-left-color:#27ae60;border-left-width:4px;padding:14px 16px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-              <div style="font-size:12px;font-weight:600;color:#64748b;">Month Collection</div>
+          <div class="stat-card-v2" style="--accent:#27ae60;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <div class="stat-label">Month Collection</div>
               <span style="font-size:18px;">💰</span>
             </div>
-            <div id="kpi_monthC" style="font-size:1.5rem;font-weight:700;color:#27ae60;line-height:1.1;">₹0</div>
-            <div id="kpi_monthC_trend" style="font-size:11px;color:#94a3b8;margin-top:4px;">&nbsp;</div>
+            <div id="kpi_monthC" class="stat-value" style="color:#27ae60;">₹0</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <div id="kpi_monthC_trend" class="stat-trend">&nbsp;</div>
+              <span id="kpi_monthC_spark"></span>
+            </div>
           </div>
 
           <!-- Walk-in This Month -->
-          <div class="card-box" style="border-left-color:#f59e0b;border-left-width:4px;padding:14px 16px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-              <div style="font-size:12px;font-weight:600;color:#64748b;">Walk-in This Month</div>
+          <div class="stat-card-v2" style="--accent:#f59e0b;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <div class="stat-label">Walk-in This Month</div>
               <span style="font-size:18px;">🚶</span>
             </div>
-            <div id="kpi_walkinC" style="font-size:1.5rem;font-weight:700;color:#d97706;line-height:1.1;">₹0</div>
-            <div id="kpi_walkinC_sub" style="font-size:11px;color:#94a3b8;margin-top:4px;">0 entries</div>
+            <div id="kpi_walkinC" class="stat-value" style="color:#d97706;">₹0</div>
+            <div id="kpi_walkinC_sub" class="stat-trend">0 entries</div>
           </div>
 
           <!-- Expenses This Month -->
-          <div class="card-box" style="border-left-color:#e74c3c;border-left-width:4px;padding:14px 16px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-              <div style="font-size:12px;font-weight:600;color:#64748b;">Expenses This Month</div>
+          <div class="stat-card-v2" style="--accent:#e74c3c;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <div class="stat-label">Expenses This Month</div>
               <span style="font-size:18px;">💸</span>
             </div>
-            <div id="kpi_monthE" style="font-size:1.5rem;font-weight:700;color:#e74c3c;line-height:1.1;">₹0</div>
-            <div id="kpi_monthE_trend" style="font-size:11px;color:#94a3b8;margin-top:4px;">&nbsp;</div>
+            <div id="kpi_monthE" class="stat-value" style="color:#e74c3c;">₹0</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <div id="kpi_monthE_trend" class="stat-trend">&nbsp;</div>
+              <span id="kpi_monthE_spark"></span>
+            </div>
           </div>
 
           <!-- Members Pending -->
-          <div class="card-box" style="border-left-color:#14B8A6;border-left-width:4px;padding:14px 16px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-              <div style="font-size:12px;font-weight:600;color:#64748b;">Members Pending</div>
+          <div class="stat-card-v2" style="--accent:#14B8A6;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <div class="stat-label">Members Pending</div>
               <span style="font-size:18px;">⏳</span>
             </div>
-            <div id="kpi_pending" style="font-size:1.5rem;font-weight:700;color:#14B8A6;line-height:1.1;">0</div>
-            <div id="kpi_pending_sub" style="font-size:11px;color:#94a3b8;margin-top:4px;">of <span id="kpi_total_members">0</span> active members</div>
+            <div id="kpi_pending" class="stat-value" style="color:#14B8A6;">0</div>
+            <div id="kpi_pending_sub" class="stat-trend">of <span id="kpi_total_members">0</span> active members</div>
             <div id="kpi_pending_amt" style="font-size:11px;color:#e74c3c;font-weight:700;margin-top:2px;">&nbsp;</div>
           </div>
 

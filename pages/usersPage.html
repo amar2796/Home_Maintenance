@@ -10,7 +10,7 @@
             </button>
           </div>
         </div>
-        <div class="card">
+        <div class="card-v2">
           <h3>
             <span><i class="fa-solid fa-users-gear"></i> Manage Users <span style="font-size:11px;font-weight:400;color:#999;">(click row to view · edit via button)</span></span>
             <div class="wave-bar status-tabs" id="userStatusTabs" style="margin-left:auto;">
@@ -21,10 +21,18 @@
             </div>
           </h3>
           <input class="search-bar" id="userSearchInput" placeholder="🔍 Search by Name or Mobile..." />
-          <div class="table-responsive">
-            <table>
+          <!-- PREVIEW: bulk action bar -->
+          <div class="bulk-bar-v2" id="users_bulkBar">
+            <span class="count"><span id="users_bulkCount">0</span> selected</span>
+            <div class="spacer"></div>
+            <button class="btn-v2 btn-v2-sm btn-v2-outline" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.3);" onclick="alert('Preview only \u2014 bulk approve is not wired to real data in this mockup.')"><i class="fa-solid fa-check"></i> Approve Selected</button>
+          </div>
+          <div class="table-v2-wrap">
+            <div class="table-v2-scroll">
+            <table class="table-v2">
               <thead>
                 <tr>
+                  <th class="row-check"><input type="checkbox" onchange="_bulkToggleAll(this,'userTable','users_bulkBar','users_bulkCount')"></th>
                   <th>Photo</th>
                   <th>Name</th>
                   <th>Mobile</th>
@@ -35,7 +43,7 @@
               </thead>
               <tbody id="userTable"></tbody>
             </table>
-          </div>
+          </div></div>
           <div id="users_pagination" class="pagination-bar"></div>
         </div>
       </div>

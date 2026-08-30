@@ -1,6 +1,9 @@
       <div id="goalsPage" class="page">
-        <div class="card">
-          <h3><i class="fa-solid fa-bullseye"></i> Add / Edit Goal</h3>
+        <!-- PREVIEW: card-v2 + btn-v2 -->
+        <div class="card-v2" style="margin-bottom:16px;">
+          <div class="card-v2-header">
+            <h3 class="card-v2-title"><i class="fa-solid fa-bullseye" style="color:#0F766E;"></i> Add / Edit Goal</h3>
+          </div>
           <div class="form-row">
             <div>
               <label>Goal Name</label><input id="g_name" placeholder="e.g. Home Renovation" />
@@ -23,14 +26,17 @@
               </select>
             </div>
           </div>
-          <button onclick="addGoal()">
+          <button class="btn-v2 btn-v2-primary" onclick="addGoal()" style="margin-top:8px;">
             <i class="fa-solid fa-plus"></i> Save Goal
           </button>
         </div>
-        <div class="card">
-          <h3><i class="fa-solid fa-list-ul"></i> Goals List</h3>
-          <div class="table-responsive">
-            <table>
+        <div class="card-v2">
+          <div class="card-v2-header">
+            <h3 class="card-v2-title"><i class="fa-solid fa-list-ul" style="color:#0F766E;"></i> Goals List</h3>
+          </div>
+          <div class="table-v2-wrap">
+            <div class="table-v2-scroll">
+            <table class="table-v2">
               <thead>
                 <tr>
                   <th>#</th>
@@ -44,8 +50,8 @@
               </thead>
               <tbody id="goalTableBody"></tbody>
             </table>
-          </div>
+          </div></div>
           <div id="goals_pagination" class="pagination-bar"></div>
         </div>
       </div>
-      <!-- YEAR SUMMARY -->
+      <!-- YEAR SUMMARY -->

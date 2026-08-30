@@ -591,12 +591,14 @@
       document.getElementById("goalTableBody").innerHTML =
         list.length === 0
           ? `<tr><td colspan="7" style="text-align:center;padding:36px 20px;">
-              <div style="font-size:2rem;margin-bottom:8px;">🎯</div>
-              <div style="font-weight:600;color:#334155;font-size:14px;margin-bottom:4px;">No goals yet</div>
-              <div style="color:#94a3b8;font-size:12px;margin-bottom:14px;">Set a fundraising target to track progress</div>
-              <button onclick="document.getElementById('g_name').focus()" style="background:#0F766E;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;">
-                <i class="fa-solid fa-plus"></i> Add First Goal
-              </button>
+              <div class="rt-empty-msg">
+                <div style="font-size:2rem;margin-bottom:8px;">🎯</div>
+                <div style="font-weight:600;color:#334155;font-size:14px;margin-bottom:4px;">No goals yet</div>
+                <div style="color:#94a3b8;font-size:12px;margin-bottom:14px;">Set a fundraising target to track progress</div>
+                <button onclick="document.getElementById('g_name').focus()" style="background:#0F766E;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;">
+                  <i class="fa-solid fa-plus"></i> Add First Goal
+                </button>
+              </div>
             </td></tr>`
           : items
             .map((g, idx) => {
@@ -632,7 +634,12 @@
                   )
                   : 0;
               let barColor =
-                pct >= 100 ? "#27ae60" : pct >= 60 ? "#0F766E" : "#e74c3c";
+                /* PREVIEW: red read as "something's wrong" for a goal
+                   that's simply early-stage, not actually broken — a
+                   fundraising goal at 20% isn't an error condition.
+                   Now: gold while in progress (any %<100), green only
+                   once actually complete. */
+                pct >= 100 ? "#27ae60" : "#C8860D";
               let _gk = _storeGoalId(g.GoalId);
               return `<tr>
                 <td>${i + 1}</td>

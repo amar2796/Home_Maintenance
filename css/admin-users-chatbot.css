@@ -87,8 +87,18 @@ tr.row-rejected td {
 }
 
 /* ── Chatbot Settings Page ── */
+/* [PREVIEW] Was a flat vertical stack of section headers with no visual
+   grouping (see earlier review) — now each .cbot-section renders as its
+   own card, matching the Master Data page's card-per-group pattern.
+   Pure CSS: no HTML restructuring, no id changes, so every existing
+   onclick/getElementById in the chatbot JS keeps working untouched. */
 .cbot-section {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
+  background: #fff;
+  border: 1px solid var(--border-soft, #E2E8F0);
+  border-radius: 14px;
+  padding: 18px 20px;
+  box-shadow: var(--elevation-resting, 0 1px 3px rgba(15,23,42,.06));
 }
 
 .cbot-section h4 {

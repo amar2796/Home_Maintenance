@@ -1,11 +1,19 @@
-    function exportContribCSV() {
+    function exportContribCSV(preSelectedList) {
       toast("⏳ Preparing contributions CSV...", "warn");
       setTimeout(function() {
       const txt = (document.getElementById("searchContrib")?.value || "").toLowerCase();
       const start = document.getElementById("contribStart")?.value || "";
       const end = document.getElementById("contribEnd")?.value || "";
 
-      const list = data.filter(function (c) {
+      // [FIX] "Export Selected" used to call this same function with no
+      // argument, so it silently ignored the checkboxes entirely and
+      // exported every record matching the search/date filters instead —
+      // confirmed directly: exporting 3 checked rows produced a 396-row
+      // CSV. When a pre-filtered list of records is passed in (the
+      // actually-checked rows), use that as-is instead of re-deriving
+      // from the search/date fields. Called with no argument (the main
+      // "Export CSV" button), behavior is 100% unchanged from before.
+      const list = preSelectedList || data.filter(function (c) {
         const user = users.find(u => String(u.UserId) === String(c.UserId));
         const displayRID = (c.ReceiptID || "").replace(new RegExp("^" + (APP.legacyReceiptPrefix||"TRX") + "-"), (APP.receiptPrefix||"REC") + "-");
         const walkInName = String(c.UserId).startsWith("WALKIN_")
@@ -79,16 +87,18 @@
       rows.push('"Total Records","' + list.length + '"');
       rows.push('"Total Amount (₹)","' + total.toLocaleString(APP.locale||"en-IN") + '"');
 
-      // Filter context in filename
+      // Filter context in filename — a selected-rows export gets its own
+      // tag so the filename itself confirms it's not the full/filtered set
       const dateTag = new Date().toISOString().slice(0, 10);
-      const filterTag = (start && end) ? ("_" + start + "_to_" + end)
+      const filterTag = preSelectedList ? "_selected"
+        : (start && end) ? ("_" + start + "_to_" + end)
         : start ? ("_from_" + start)
           : end ? ("_upto_" + end)
             : "";
       const filename = "contributions" + filterTag + "_exported_" + dateTag + ".csv";
 
       _downloadCSV([headers.join(","), ...rows].join("\n"), filename);
-      toast("✅ " + list.length + " contribution records exported", "");
+      toast("✅ " + list.length + (preSelectedList ? " selected" : "") + " contribution records exported", "");
       }, 50);
     }
 

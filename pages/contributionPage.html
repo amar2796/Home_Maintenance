@@ -29,12 +29,18 @@
               <i class="fa-solid fa-file-csv"></i> Export CSV
             </button>
           </h3>
-          <div class="ct-pf-panel" style="margin-bottom:14px;">
+          <!-- PREVIEW: collapsible filter panel (was always-open) -->
+          <div class="filter-v2" id="cr_filterV2">
+            <div class="filter-v2-head" onclick="document.getElementById('cr_filterV2').classList.toggle('open')">
+              <i class="fa-solid fa-sliders" style="color:#0F766E;"></i>
+              <span style="font-weight:600;">Filters</span>
+              <span class="chip" id="cr_filterCount" style="display:none;">0 active</span>
+              <i class="fa-solid fa-chevron-down caret"></i>
+            </div>
+            <div class="filter-v2-body">
+          <div class="ct-pf-panel" style="margin-bottom:14px;border:none;padding:0;">
             <div class="ct-pf-header">
               <div class="ct-pf-title">
-                <i class="fa-solid fa-sliders" style="color:#0F766E;"></i>
-                Filters
-                <span style="font-size:10px;font-weight:400;color:#94a3b8;" id="cr_filterCount"></span>
               </div>
               <div style="display:flex;align-items:center;gap:10px;">
                 <span class="ct-pf-hint">All filters combine together</span>
@@ -94,10 +100,21 @@
             <!-- Active filter tags -->
             <div class="ct-tags" id="cr_activeTags" style="margin-top:8px;"></div>
           </div>
-          <div class="table-responsive">
-            <table>
+            </div>
+          </div>
+          <!-- PREVIEW: bulk action bar (appears once rows are checked) -->
+          <div class="bulk-bar-v2" id="cr_bulkBar">
+            <span class="count"><span id="cr_bulkCount">0</span> selected</span>
+            <div class="spacer"></div>
+            <button class="btn-v2 btn-v2-sm btn-v2-outline" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.3);" onclick="exportSelectedContribCSV()"><i class="fa-solid fa-file-csv"></i> Export Selected</button>
+            <button class="btn-v2 btn-v2-sm btn-v2-danger" style="background:transparent;color:#fca5a5;border-color:rgba(252,165,165,.4);" onclick="deleteSelectedContribs()"><i class="fa-solid fa-trash"></i> Delete Selected</button>
+          </div>
+          <div class="table-v2-wrap">
+            <div class="table-v2-scroll">
+            <table class="table-v2">
               <thead>
                 <tr>
+                  <th class="row-check"><input type="checkbox" id="cr_checkAll" onchange="_cr2ToggleAll(this)"></th>
                   <th>#</th>
                   <th>Name</th>
                   <th>Amount</th>
@@ -111,9 +128,10 @@
               </thead>
               <tbody id="tb"></tbody>
             </table>
+            </div>
           </div>
           <div id="contrib_pagination" class="pagination-bar"></div>
         </div>
       </div>
 
-      <!-- EXPENSES -->
+      <!-- EXPENSES -->

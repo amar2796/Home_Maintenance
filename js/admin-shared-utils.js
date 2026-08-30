@@ -65,12 +65,14 @@ function _renderPagination(containerId, totalPages, currentPage, onPageFn) {
       var n = start;
       document.getElementById("tb").innerHTML = items.length === 0
         ? `<tr><td colspan="9" style="text-align:center;padding:36px 20px;">
+          <div class="rt-empty-msg">
             <div style="font-size:2rem;margin-bottom:8px;">🤲</div>
             <div style="font-weight:600;color:#334155;font-size:14px;margin-bottom:4px;">No contributions yet</div>
             <div style="color:#94a3b8;font-size:12px;margin-bottom:14px;">Add the first contribution using the form above</div>
             <button onclick="document.getElementById('user').focus()" style="background:#0F766E;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;">
               <i class="fa-solid fa-plus"></i> Add First Contribution
             </button>
+          </div>
           </td></tr>`
         : items
         .map((c) => {
@@ -96,6 +98,7 @@ function _renderPagination(containerId, totalPages, currentPage, onPageFn) {
             ? `<span style="font-size:9px;background:#946c44;color:#fff;border-radius:4px;padding:1px 5px;margin-left:4px;vertical-align:middle;">WALK-IN</span>`
             : "";
           return `<tr style="cursor:default;">
+        <td class="row-check" onclick="event.stopPropagation();"><input type="checkbox" class="cr2-row-check" data-id="${c.Id}" onchange="_cr2OnRowCheck()"></td>
         <td>${n}</td>
         <td><div style="display:flex;align-items:center;gap:8px;">${_avatarHtml(isWalkIn ? null : users.find((u) => String(u.UserId) === String(c.UserId)), 24)}<b>${escapeHtml(name)}</b>${walkInBadge}</div></td>
         <td class="amt-green">₹ ${fmt(c.Amount)}</td>
@@ -347,12 +350,14 @@ function _renderPagination(containerId, totalPages, currentPage, onPageFn) {
       var n = start;
       document.getElementById("expenseRecordsBody").innerHTML = items.length === 0
         ? `<tr><td colspan="8" style="text-align:center;padding:36px 20px;">
+          <div class="rt-empty-msg">
             <div style="font-size:2rem;margin-bottom:8px;">📋</div>
             <div style="font-weight:600;color:#334155;font-size:14px;margin-bottom:4px;">No expenses yet</div>
             <div style="color:#94a3b8;font-size:12px;margin-bottom:14px;">Add an expense using the form above</div>
             <button onclick="document.getElementById('title').focus()" style="background:#0F766E;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;">
               <i class="fa-solid fa-plus"></i> Add First Expense
             </button>
+          </div>
           </td></tr>`
         : items
         .map((e) => {
@@ -367,6 +372,7 @@ function _renderPagination(containerId, totalPages, currentPage, onPageFn) {
           var amtStyle  = isCorr ? "color:#16a34a;font-weight:600;" : "";
           return `<tr class="clickable-row" onclick="viewExpense('${e.Id
             }')" title="Click to view details" style="${corrStyle}">
+        <td class="row-check" onclick="event.stopPropagation();"><input type="checkbox" class="cr2-row-check" data-id="${e.Id}" onchange="_bulkOnRowCheck('expenseRecordsBody','exp_bulkBar','exp_bulkCount')"></td>
         <td>${n}</td>
         <td><b>${isCorr ? '<i class="fa-solid fa-rotate-left" style="color:#16a34a;margin-right:4px;font-size:10px;"></i>' : ''}${escapeHtml(e.Title || "")}</b></td>
         <td>${escapeHtml(tName)}</td>
@@ -634,14 +640,18 @@ function _renderPagination(containerId, totalPages, currentPage, onPageFn) {
         const sv = (document.getElementById("userSearchInput")?.value || "").trim();
         document.getElementById("userTable").innerHTML = sv
           ? `<tr><td colspan="6" style="text-align:center;padding:36px 20px;">
+            <div class="rt-empty-msg">
               <div style="font-size:2rem;margin-bottom:8px;">🔍</div>
               <div style="font-weight:600;color:#334155;font-size:14px;margin-bottom:4px;">No members match "${sv}"</div>
               <div style="color:#94a3b8;font-size:12px;">Try a different name or mobile number</div>
+            </div>
             </td></tr>`
           : `<tr><td colspan="6" style="text-align:center;padding:36px 20px;">
+            <div class="rt-empty-msg">
               <div style="font-size:2rem;margin-bottom:8px;">👥</div>
               <div style="font-weight:600;color:#334155;font-size:14px;margin-bottom:4px;">No members yet</div>
               <div style="color:#94a3b8;font-size:12px;margin-bottom:14px;">Add a member using the form above</div>
+            </div>
             </td></tr>`;
         _buildPagination("users_pagination", 1, 0, "_gotoUsersPage");
         return;
@@ -681,6 +691,7 @@ function _renderPagination(containerId, totalPages, currentPage, onPageFn) {
         const _fbSvgFallback = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Ccircle cx='16' cy='16' r='16' fill='%230F766E'/%3E%3Ctext x='16' y='21' text-anchor='middle' fill='white' font-size='14' font-family='Arial'%3E%26%23128100%3B%3C/text%3E%3C/svg%3E";
         return `
       <tr class="${rowClass}" onclick="viewUser('${u.UserId}')" title="Click to view details">
+        <td class="row-check" onclick="event.stopPropagation();"><input type="checkbox" class="cr2-row-check" data-id="${u.UserId}" onchange="_bulkOnRowCheck('userTable','users_bulkBar','users_bulkCount')"></td>
         <td onclick="event.stopPropagation();openEditUser('${u.UserId}')" title="Click to edit user" style="cursor:pointer;">
           <img src="${u.PhotoURL ? '' : _fbSvg}"
                data-userid="${escapeHtml(String(u.UserId))}"

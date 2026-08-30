@@ -1,5 +1,5 @@
       <div id="contributionRequestsPage" class="page">
-        <div class="card">
+        <div class="card-v2">
           <h3 style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
             <span><i class="fa-solid fa-inbox" style="color:#0F766E;"></i> Member Contribution Requests
               <span id="reqPageBadge"
@@ -22,8 +22,9 @@
               onkeyup="renderContributionRequests()"
               style="flex:1;min-width:180px;padding:8px 12px;border:1.5px solid #e8e8e8;border-radius:8px;font-size:13px;" />
           </div>
-          <div class="table-responsive">
-            <table>
+          <div class="table-v2-wrap">
+            <div class="table-v2-scroll">
+            <table class="table-v2">
               <thead>
                 <tr>
                   <th>#</th>
@@ -44,9 +45,9 @@
                 </tr>
               </tbody>
             </table>
-          </div>
+          </div></div>
           <div id="req_pagination" class="pagination-bar"></div>
         </div>
       </div>
 
-      <!-- EVENTS -->
+      <!-- EVENTS -->

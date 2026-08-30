@@ -559,7 +559,21 @@ function renderTrackerGrid(members, contribs) {
         const ym = _trYM(selYearNum, i);
         let color, icon;
         if (ym > curYM) {
-          color = '#cbd5e1'; icon = '·';   // future month — hasn't happened yet
+          // [FIX] This used to unconditionally show "·" for any month
+          // after today's real date, without ever checking whether a
+          // contribution record actually exists for it — so a member who
+          // paid ahead of time for a future month (e.g. September, paid
+          // in August) still showed as a neutral "hasn't happened yet"
+          // placeholder here, even though that payment is already counted
+          // correctly everywhere else (totals, CSV exports, etc). Now it
+          // checks for an actual paid record first, and only falls back
+          // to the "future" dot when there genuinely isn't one yet —
+          // never a red ✕, since an unpaid future month isn't overdue.
+          const advancePaid = contribs.find(c =>
+            String(c.UserId) === String(m.UserId) && c.ForMonth === TRACKER_MONTH_NAMES[i]
+          );
+          if (advancePaid) { color = '#10b981'; icon = '✓'; }
+          else { color = '#cbd5e1'; icon = '·'; }
         } else if (start && ym < _trYM(start.y, start.m)) {
           color = '#cbd5e1'; icon = '—';   // before this member's start date
         } else if (freeze && ym > _trYM(freeze.y, freeze.m)) {

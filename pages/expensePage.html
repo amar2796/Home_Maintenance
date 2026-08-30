@@ -10,7 +10,7 @@
             </button>
           </div>
         </div>
-        <div class="card">
+        <div class="card-v2">
           <h3 style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
             <span>
               <i class="fa-solid fa-list-ul"></i> Expense Records
@@ -23,9 +23,17 @@
               <i class="fa-solid fa-file-csv"></i> Export CSV
             </button>
           </h3>
-          <div class="ct-pf-panel" style="margin-bottom:14px;">
+          <!-- PREVIEW: collapsible filter panel -->
+          <div class="filter-v2" id="exp_filterV2">
+            <div class="filter-v2-head" onclick="document.getElementById('exp_filterV2').classList.toggle('open')">
+              <i class="fa-solid fa-sliders" style="color:#e74c3c;"></i>
+              <span style="font-weight:600;">Filters</span>
+              <i class="fa-solid fa-chevron-down caret"></i>
+            </div>
+            <div class="filter-v2-body">
+          <div class="ct-pf-panel" style="margin-bottom:14px;border:none;padding:0;">
             <div class="ct-pf-header">
-              <div class="ct-pf-title"><i class="fa-solid fa-sliders" style="color:#e74c3c;"></i> Filters <span style="font-size:10px;font-weight:400;color:#94a3b8;" id="exp_filterCount"></span></div>
+              <div class="ct-pf-title"><span id="exp_filterCount"></span></div>
               <div class="ct-pf-hint">All filters combine together</div>
             </div>
             <div class="ct-pf-g5" style="margin-bottom:8px;">
@@ -71,10 +79,21 @@
             <!-- Active filter tags -->
             <div class="ct-tags" id="exp_activeTags" style="margin-top:8px;"></div>
           </div>
-          <div class="table-responsive">
-            <table>
+            </div>
+          </div>
+          <!-- PREVIEW: bulk action bar -->
+          <div class="bulk-bar-v2" id="exp_bulkBar">
+            <span class="count"><span id="exp_bulkCount">0</span> selected</span>
+            <div class="spacer"></div>
+            <button class="btn-v2 btn-v2-sm btn-v2-outline" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.3);" onclick="exportExpenseCSV()"><i class="fa-solid fa-file-csv"></i> Export Selected</button>
+            <button class="btn-v2 btn-v2-sm btn-v2-danger" style="background:transparent;color:#fca5a5;border-color:rgba(252,165,165,.4);" onclick="alert('Preview only \u2014 bulk delete is not wired to real data in this mockup.')"><i class="fa-solid fa-trash"></i> Delete Selected</button>
+          </div>
+          <div class="table-v2-wrap">
+            <div class="table-v2-scroll">
+            <table class="table-v2">
               <thead>
                 <tr>
+                  <th class="row-check"><input type="checkbox" onchange="_bulkToggleAll(this,'expenseRecordsBody','exp_bulkBar','exp_bulkCount')"></th>
                   <th>#</th>
                   <th>Title</th>
                   <th>Type</th>
@@ -87,9 +106,9 @@
               </thead>
               <tbody id="expenseRecordsBody"></tbody>
             </table>
-          </div>
+          </div></div>
           <div id="expense_pagination" class="pagination-bar"></div>
         </div>
       </div>
 
-      <!-- USERS -->
+      <!-- USERS -->
