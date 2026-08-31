@@ -113,34 +113,46 @@
       '</svg>';
   };
 
-  // [PREVIEW ONLY] Populates the two Home-page sparkline slots once real
-  // month-collection/expense numbers exist in the DOM. This does NOT call
-  // any backend or read real historical data — it's illustrative trend
-  // shading for this design preview only, built from the single current
-  // month's number so the layout/visual can be judged. A real
-  // implementation would source the last 6 months from getYearlySummary
-  // or similar, already used elsewhere in the app.
-  function mockTrend(currentValue) {
-    var v = Math.max(1, currentValue);
-    var pts = [];
-    for (var i = 0; i < 6; i++) {
-      pts.push(Math.round(v * (0.55 + Math.random() * 0.5)));
+  // [REAL DATA] Aggregates actual contribution/expense records by month,
+  // for the current calendar year, Jan through the current month —
+  // replacing the earlier random mockTrend() placeholder. Uses the same
+  // global `data` (contributions) and `expenses` arrays, and the same
+  // ForMonth/Year field names, that every other Contribution/Expense
+  // view in the app already reads from — no new backend call, no new
+  // data source, just a real aggregation of what's already loaded.
+  var MONTH_NAMES_V2 = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  function monthlyTotalsThisYear(records) {
+    var year = new Date().getFullYear();
+    var uptoMonth = new Date().getMonth(); // 0=Jan ... so this includes the current month
+    var totals = [];
+    for (var m = 0; m <= uptoMonth; m++) {
+      var monthName = MONTH_NAMES_V2[m];
+      var sum = records
+        .filter(function (r) { return String(r.Year) === String(year) && r.ForMonth === monthName; })
+        .reduce(function (s, r) { return s + (parseFloat(r.Amount) || 0); }, 0);
+      totals.push(sum);
     }
-    pts.push(v);
-    return pts;
+    return totals;
   }
   function populateSparklines() {
-    var cEl = document.getElementById("kpi_monthC");
     var cSpark = document.getElementById("kpi_monthC_spark");
-    var eEl = document.getElementById("kpi_monthE");
     var eSpark = document.getElementById("kpi_monthE_spark");
-    if (cEl && cSpark && !cSpark.dataset.done) {
-      var cVal = parseInt((cEl.textContent || "0").replace(/[^\d]/g, ""), 10) || 0;
-      if (cVal > 0) { cSpark.innerHTML = renderSparklineV2(mockTrend(cVal), "#27ae60"); cSpark.dataset.done = "1"; }
+    // `data` (contributions) and `expenses` are the same globals every
+    // other Contribution/Expense view in the app reads from — set by
+    // smartRefresh() once the initial getAllData call resolves.
+    var haveData = typeof data !== "undefined" && Array.isArray(data) && data.length > 0;
+    var haveExpenses = typeof expenses !== "undefined" && Array.isArray(expenses) && expenses.length > 0;
+    if (cSpark && !cSpark.dataset.done && haveData) {
+      var cTotals = monthlyTotalsThisYear(data);
+      // renderSparklineV2 itself no-ops below 2 points (e.g. viewing
+      // January, only one month exists yet) — nothing extra needed here.
+      cSpark.innerHTML = renderSparklineV2(cTotals, "#27ae60");
+      cSpark.dataset.done = "1";
     }
-    if (eEl && eSpark && !eSpark.dataset.done) {
-      var eVal = parseInt((eEl.textContent || "0").replace(/[^\d]/g, ""), 10) || 0;
-      if (eVal > 0) { eSpark.innerHTML = renderSparklineV2(mockTrend(eVal), "#e74c3c"); eSpark.dataset.done = "1"; }
+    if (eSpark && !eSpark.dataset.done && haveExpenses) {
+      var eTotals = monthlyTotalsThisYear(expenses);
+      eSpark.innerHTML = renderSparklineV2(eTotals, "#e74c3c");
+      eSpark.dataset.done = "1";
     }
   }
   setInterval(populateSparklines, 500);

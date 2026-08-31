@@ -17,15 +17,6 @@
   "use strict";
 
   var SVG_NS = "http://www.w3.org/2000/svg";
-  var CURVE_W = 20;   // how far the curve's leg extends past the tab edge
-  var TOP_Y = 14;      // plateau height from the top of the bar. With the
-                        // bar now a fixed 54/50px tall and .wave-tab using
-                        // EQUAL top/bottom padding (see admin-wave-tabs.css
-                        // — this used to differ between active/inactive,
-                        // which is what caused the plateau line to cut
-                        // through the label), this leaves a verified ~8px
-                        // gap between the plateau and the label's top edge
-                        // in both states, so the curve never crosses text.
   var ANIM_MS = 340;   // was 260 — a touch slower reads as smoother/more
                         // deliberate rather than snappy-abrupt
   var gradCounter = 0;
@@ -39,34 +30,39 @@
     return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
   }
 
-  function legFor(x1, x2, W) {
-    // Symmetric clamp: if either side is tight on room, shrink BOTH legs
-    // equally so the curve stays a symmetric dome instead of turning
-    // lopsided (a full curve on one side, an abrupt near-vertical edge
-    // on the other) for tabs sitting at the very start/end of the bar.
-    return Math.max(4, Math.min(CURVE_W, x1, W - x2));
-  }
+  // [CHANGED] Floating rounded pill instead of the earlier "wave/dome"
+  // shape — a fully detached stadium-shaped indicator (inset from the
+  // bar's top/bottom/sides) reads as a cleaner, more premium tab
+  // indicator, closer to iOS/Linear-style segmented controls. The old
+  // shape's `legFor()` leg-clamping logic doesn't apply here (a pill's
+  // corners are a fixed radius, not a dynamic leg extension based on
+  // available room), so that function and its CURVE_W constant were
+  // removed rather than left as unused dead code. The animateTo() clamp
+  // that keeps interpolated x1/x2 within [0, W] (added when fixing the
+  // last-tab overshoot glitch) still applies unchanged here — it works
+  // on the coordinates before they ever reach pathD/fillD, so the pill
+  // still can't render outside the bar's bounds during the switch
+  // animation.
+  var PILL_INSET_Y = 6;   // gap from top/bottom of the bar
+  var PILL_INSET_X = 2;   // small horizontal breathing room per side
 
-  function pathD(x1, x2, W, H) {
-    var baseline = H - 1;
-    var leg = legFor(x1, x2, W);
-    return "M0," + baseline +
-      " L" + (x1 - leg) + "," + baseline +
-      " C" + (x1 - leg * 0.55) + "," + baseline + " " + (x1 - leg * 0.55) + "," + TOP_Y + " " + x1 + "," + TOP_Y +
-      " L" + x2 + "," + TOP_Y +
-      " C" + (x2 + leg * 0.55) + "," + TOP_Y + " " + (x2 + leg * 0.55) + "," + baseline + " " + (x2 + leg) + "," + baseline +
-      " L" + W + "," + baseline;
+  function pillRectD(x1, x2, W, H) {
+    var x = x1 + PILL_INSET_X, right = x2 - PILL_INSET_X;
+    var y = PILL_INSET_Y, bottom = H - PILL_INSET_Y;
+    var r = (bottom - y) / 2; // full stadium rounding
+    return "M" + (x + r) + "," + y +
+      " L" + (right - r) + "," + y +
+      " A" + r + "," + r + " 0 0 1 " + right + "," + (y + r) +
+      " L" + right + "," + (bottom - r) +
+      " A" + r + "," + r + " 0 0 1 " + (right - r) + "," + bottom +
+      " L" + (x + r) + "," + bottom +
+      " A" + r + "," + r + " 0 0 1 " + x + "," + (bottom - r) +
+      " L" + x + "," + (y + r) +
+      " A" + r + "," + r + " 0 0 1 " + (x + r) + "," + y + " Z";
   }
+  function pathD(x1, x2, W, H) { return pillRectD(x1, x2, W, H); }
 
-  function fillD(x1, x2, W, H) {
-    var baseline = H - 1;
-    var leg = legFor(x1, x2, W);
-    return "M" + (x1 - leg) + "," + baseline +
-      " C" + (x1 - leg * 0.55) + "," + baseline + " " + (x1 - leg * 0.55) + "," + TOP_Y + " " + x1 + "," + TOP_Y +
-      " L" + x2 + "," + TOP_Y +
-      " C" + (x2 + leg * 0.55) + "," + TOP_Y + " " + (x2 + leg * 0.55) + "," + baseline + " " + (x2 + leg) + "," + baseline +
-      " Z";
-  }
+  function fillD(x1, x2, W, H) { return pillRectD(x1, x2, W, H); }
 
   function ensureSvg(bar) {
     var svg = bar.querySelector(":scope > svg.wave-bar-svg");
