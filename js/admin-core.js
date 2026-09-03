@@ -481,16 +481,29 @@
     function _checkAdminSession() {
       var s = JSON.parse(localStorage.getItem("session") || "null");
 
-      // [DEBUG] Log every admin session check — visible in browser DevTools console
+      // [FIX] This block claimed to "log every admin session check" but
+      // never actually called console.log anywhere — pure dead code, so
+      // the one diagnostic tool built for exactly this kind of "why did
+      // my session just expire" report never produced any output. Now it
+      // actually logs what this check saw, so a real failure shows
+      // precisely which condition tripped (missing session, already-past
+      // expiry, or a role mismatch) instead of leaving it a mystery.
       if (!s) {
+        console.log("[session-check] no session object in localStorage");
       } else {
         var _timeLeftSec = Math.round((s.expiry - Date.now()) / 1000);
+        console.log("[session-check] role=" + s.role + " timeLeftSec=" + _timeLeftSec +
+          " expiry=" + new Date(s.expiry).toISOString() + " now=" + new Date().toISOString());
       }
 
       if (!s || Date.now() > s.expiry || s.role !== "Admin") {
+        console.log("[session-check] FAILED — reason: " +
+          (!s ? "no session" : Date.now() > s.expiry ? "expired (timeLeftSec was " + Math.round((s.expiry - Date.now()) / 1000) + ")" : "role was '" + s.role + "', expected 'Admin'"));
         // H12: try remember-me token before redirecting to login
         try {
           var rt = getRememberToken();
+          console.log("[session-check] trying remember-token fallback: " +
+            (rt ? ("found, role=" + rt.role + " timeLeftSec=" + Math.round((rt.expiry - Date.now()) / 1000)) : "no remember-token found"));
           if (rt && rt.role === "Admin" && Date.now() < rt.expiry) {
             // [FIX-24H] Previously hardcoded expiry:Date.now()+30*60*1000 here,
             // which silently capped a 24h "remember me" session back down to

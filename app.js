@@ -525,6 +525,18 @@ function mandirCacheBust(action) {
           if (typeof render          === "function") render();
           if (typeof loadSummary     === "function") loadSummary();
           if (typeof loadYears       === "function") loadYears();
+          // [FIX] Tracker page has its own render pipeline
+          // (refreshTrackerData -> applyGlobalTrackerFilters), reading
+          // from the same `data` global this function already updates
+          // above — but nothing here ever called it, so a new/edited/
+          // deleted contribution updated the underlying data correctly
+          // (visible on Home, Contribution list, exports, etc.) while
+          // the Tracker page kept showing whatever it had rendered
+          // before, until a full page reload rebuilt it from scratch.
+          // refreshTrackerData() already exists and is safe to call
+          // even when the Tracker page isn't currently open — it no-ops
+          // gracefully if its DOM elements aren't present.
+          if (typeof refreshTrackerData === "function") refreshTrackerData();
           break;
    
         case "expenses":
@@ -538,11 +550,25 @@ function mandirCacheBust(action) {
           if (typeof renderUsers         === "function") renderUsers();
           if (typeof updateUserTabCounts === "function") updateUserTabCounts(users);
           if (typeof loadUsers           === "function") loadUsers();
+          // [FIX] Same gap as the "contributions" case above — Tracker's
+          // Paid/Pending member lists and Member Ledger are built by
+          // matching contribution records against the `users` array
+          // (confirmed: admin-tracker.js reads `users` directly to build
+          // that list). Adding, editing, or deactivating a member updated
+          // `users` correctly but never told Tracker to re-render with
+          // the new member data.
+          if (typeof refreshTrackerData === "function") refreshTrackerData();
           break;
    
         case "types":
           if (typeof renderTypes === "function") renderTypes();
           if (typeof loadTypes   === "function") loadTypes();
+          // [FIX] Tracker's "Type" filter dropdown is built by
+          // populateTrackerDropdowns() (called inside refreshTrackerData),
+          // reading directly from this same `types` global — adding a new
+          // contribution type updated `types` correctly but the dropdown
+          // sitting on the Tracker page never got told to rebuild.
+          if (typeof refreshTrackerData === "function") refreshTrackerData();
           break;
    
         case "occasions":
@@ -575,6 +601,14 @@ function mandirCacheBust(action) {
           // Requests only affect the badge and contributions view
           if (typeof render      === "function") render();
           if (typeof loadSummary === "function") loadSummary();
+          // [FIX] Approving a contribution request calls the exact same
+          // "addContribution" backend action as a manual entry on the
+          // Contribution page (see admin-requests.js's
+          // _doApproveContribRequest) — it's a real new contribution
+          // record, just reached via a different button. Same gap as
+          // the "contributions" case: the record existed correctly
+          // everywhere else, but Tracker never got told to re-render.
+          if (typeof refreshTrackerData === "function") refreshTrackerData();
           break;
 
         case "summary":

@@ -1,4 +1,4 @@
-var _hmMemberFilter = "all";
+    var _hmMemberFilter = "all";
 
     /* ══════════════════════════════════════════════════
        VIEWING PERIOD BAR — fully interactive
@@ -1196,6 +1196,16 @@ var _hmMemberFilter = "all";
       if (_ltEl) _ltEl.innerHTML = types
         .map((t) => `<option value="${t.TypeId}">${t.TypeName}</option>`)
         .join("");
+      // [FIX] _cr_buildFilterDropdowns() (admin-traffic.js) reads
+      // window.dash_types / window.types, not the bare `types` variable
+      // here — they're in a different file's scope and can't see this
+      // one directly. Confirmed directly: window.types was `null` even
+      // though this file's own `types` had real data. admin-announcements.js
+      // and admin-core.js already sync a `dash_types = types.slice()`
+      // mirror for exactly this cross-file-access reason; this just adds
+      // the same sync here, right before calling the dropdown builder.
+      window.dash_types = types.slice();
+      if (typeof _cr_buildFilterDropdowns === "function") _cr_buildFilterDropdowns();
     }
     function loadExpenseTypes() {
       const _letEl = document.getElementById("expenseType");
@@ -1214,9 +1224,16 @@ var _hmMemberFilter = "all";
               `<option value="${o.OccasionId}">${o.OccasionName}</option>`
           )
           .join("");
+      // [FIX] Same root cause as loadTypes() above — _cr_buildFilterDropdowns()
+      // reads window.dash_occasions, which was never synced from this
+      // file's `occasions` variable, so the Contribution page's own
+      // Occasion filter dropdown stayed stale regardless of when the
+      // builder was called.
+      window.dash_occasions = occasions.slice();
+      if (typeof _cr_buildFilterDropdowns === "function") _cr_buildFilterDropdowns();
     }
 
     /* ══ PAGINATION UTILITY ══════════════════════════════════════════
        _renderPagination(containerId, totalPages, currentPage, onPageFn)
        Renders Previous / numbered / Next buttons into the given container.
-    ═══════════════════════════════════════════════════════════════════ */
+    ═══════════════════════════════════════════════════════════════════ */
