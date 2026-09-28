@@ -1205,7 +1205,7 @@
       if (_adminSelfCroppedB64) {
         toast("Uploading photo...", "warn");
         try {
-          let response = await fetch(API_URL, {
+          let response = await _fetchWithTimeout(API_URL, {
             method: "POST",
             body: JSON.stringify({
               action: "uploadAndSaveProfile",

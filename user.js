@@ -863,7 +863,7 @@ const _U_NOTIF_DISMISSED = _U_PREFIX + "_notif_dismissed_ids"; // notification b
       if (_saveBtn) _saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading photo…';
       try {
         const _uploadCtrl = new AbortController();
-        const _uploadTimer = setTimeout(function() { _uploadCtrl.abort(); }, 60000);
+        const _uploadTimer = setTimeout(function() { _uploadCtrl.abort(); }, 45000); // 45s — aligned with other timeouts app-wide
         let resp = await fetch(API_URL, { method: "POST", signal: _uploadCtrl.signal, body: JSON.stringify({ action: "uploadAndSaveProfile", UserId: s.userId, Name: name, Mobile: myProfile?.Mobile || "", Role: s.role, Password: "", Email: email, Village: village, Address: address, DOB: dob, Status: "Active", AdminName: name, base64: _pendingCroppedB64, fileName: "User_" + s.userId + "_" + Date.now() + ".jpg", oldPhotoURL: myProfile?.PhotoURL || "", sessionToken: s.sessionToken || "" }) });
         clearTimeout(_uploadTimer);
         let res = await resp.json(); if (res.status === "success") { photoURL = res.photoUrl; if (myProfile?.PhotoURL) delete window._photoB64Cache[myProfile.PhotoURL]; } else toast("Photo upload failed, profile still updating.", "warn");
@@ -1124,7 +1124,7 @@ existing updateUser action. No new Apps Script action needed.
      We patch window.fetch here so ALL requests get the timeout.   */
   (function() {
     var _nativeFetch = window.fetch;
-    var TIMEOUT_MS   = 12000; // 12 s — generous for slow App Script
+    var TIMEOUT_MS   = 45000; // 45s — aligned with other timeouts app-wide (was 12s)
     window.fetch = function(input, init) {
       // Only add timeout if caller hasn't already set a signal
       if (init && init.signal) return _nativeFetch.call(this, input, init);
@@ -4052,7 +4052,7 @@ if (isDark) {
       show("⏳ Uploading payment slip...", true);
       try {
         const _slipCtrl1 = new AbortController();
-        const _slipTid1 = setTimeout(function() { _slipCtrl1.abort(); }, 60000);
+        const _slipTid1 = setTimeout(function() { _slipCtrl1.abort(); }, 45000); // 45s — aligned with other timeouts app-wide
         const slipRes = await fetch(API_URL, {
           method: "POST", signal: _slipCtrl1.signal,
           body: JSON.stringify({
@@ -4899,7 +4899,7 @@ if (isDark) {
       show("⏳ Uploading new slip...", true);
       try {
         const _slipCtrl2 = new AbortController();
-        const _slipTid2 = setTimeout(function() { _slipCtrl2.abort(); }, 60000);
+        const _slipTid2 = setTimeout(function() { _slipCtrl2.abort(); }, 45000); // 45s — aligned with other timeouts app-wide
         const slipRes = await fetch(API_URL, {
           method: "POST", signal: _slipCtrl2.signal,
           body: JSON.stringify({

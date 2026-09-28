@@ -1,3 +1,33 @@
+/* ═══ _fetchWithTimeout ═══════════════════════════════════════════
+   Shared helper for the admin panel's direct fetch()-based upload
+   calls (profile photo, gallery photo, expense receipt), which
+   previously had NO timeout at all — if the Apps Script backend
+   stalled, the upload button would spin forever with no error and
+   no way to recover short of reloading the page.
+   Wraps fetch() with an AbortController so a stalled request always
+   fails after 45s with a clear, catchable error, matching every
+   other timeout in this app.
+   Usage: await _fetchWithTimeout(API_URL, { method: "POST", body: ... })
+   ═══════════════════════════════════════════════════════════════ */
+function _fetchWithTimeout(url, options, timeoutMs) {
+  timeoutMs = timeoutMs || 45000;
+  var controller = new AbortController();
+  var opts = Object.assign({}, options, { signal: controller.signal });
+  var tid = setTimeout(function () { controller.abort(); }, timeoutMs);
+  return fetch(url, opts).then(function (r) {
+    clearTimeout(tid);
+    return r;
+  }, function (err) {
+    clearTimeout(tid);
+    if (err && err.name === "AbortError") {
+      var te = new Error("Upload timed out after " + (timeoutMs / 1000) + "s — server did not respond. Please check and retry.");
+      te.name = "TimeoutError";
+      throw te;
+    }
+    throw err;
+  });
+}
+
 function _renderPagination(containerId, totalPages, currentPage, onPageFn) {
       var el = document.getElementById(containerId);
       if (!el) return;
@@ -962,7 +992,7 @@ function _renderPagination(containerId, totalPages, currentPage, onPageFn) {
       if (_adminPendingCroppedB64) {
         toast("Uploading photo...", "warn");
         try {
-          let response = await fetch(API_URL, {
+          let response = await _fetchWithTimeout(API_URL, {
             method: "POST",
             body: JSON.stringify({
               action: "uploadAndSaveProfile",

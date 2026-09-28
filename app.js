@@ -153,7 +153,7 @@ function getData(action) {
     window._activeJsonpCount = (window._activeJsonpCount||0) + 1;
     function _fin(){ if(!done){ done=true; window._activeJsonpCount = Math.max(0,(window._activeJsonpCount||1)-1); } }
     window[cb]=function(data){ _fin(); clearTimeout(timer); delete window[cb]; script.remove(); resolve(data); };
-    const timer=setTimeout(()=>{ _fin(); window[cb]=function(){try{delete window[cb];script.remove();}catch(e){}}; try{script.remove();}catch(e){} reject(new Error("Request timed out.")); },20000);
+    const timer=setTimeout(()=>{ _fin(); window[cb]=function(){try{delete window[cb];script.remove();}catch(e){}}; try{script.remove();}catch(e){} reject(new Error("Request timed out.")); },45000); // 45s — aligned with other timeouts app-wide
     script.onerror=function(){ _fin(); clearTimeout(timer); window[cb]=function(){try{delete window[cb];}catch(e){}}; try{script.remove();}catch(e){} reject(new Error("Network error. Check Apps Script deployment.")); };
     let _url=API_URL+"?action="+action+"&callback="+cb;
     try{const _sess=JSON.parse(localStorage.getItem("session")||"{}");if(_sess.sessionToken)_url+="&sessionToken="+encodeURIComponent(_sess.sessionToken);if(_sess.userId)_url+="&userId="+encodeURIComponent(_sess.userId);}catch(_e){}
@@ -307,7 +307,7 @@ function _postDataOnce(data, isRetry) {
       // Safe resend — same IdempotencyKey, so the backend either performs
       // the write for the first time, or hands back the original result.
       _postDataOnce(data, /*isRetry*/true).then(resolve).catch(reject);
-    },20000);
+    },45000); // 45s — aligned with other timeouts app-wide
     script.onerror=function(){ _fin(); clearTimeout(timer); window[cb]=function(){try{delete window[cb];}catch(e){}}; try{script.remove();}catch(e){} reject(new Error("Network error.")); };
     // ── AUTO-INJECT session token + userId so every write action is authenticated.
     // Only fills in missing fields — never overwrites values the caller already set.
@@ -752,7 +752,7 @@ function broadcastSessionRevoke(userId){
         window[cb] = function(){ try{ delete window[cb]; script.remove(); }catch(e){} };
         try{ script.remove(); }catch(e){}
         // Timeout — network issue, skip this poll, never log out
-      }, 15000);
+      }, 45000); // 45s — aligned with other timeouts app-wide
 
       script.onerror = function(){
         if(done) return; done = true;

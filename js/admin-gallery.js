@@ -1,4 +1,4 @@
-    var _glryB64 = null, _glryFileName = "";
+var _glryB64 = null, _glryFileName = "";
     var _glrySrcImg = null;   // HTMLImageElement of original
     var _glrySrcFile = null;
     var _glryCropRatioW = 4, _glryCropRatioH = 3;
@@ -310,7 +310,7 @@
       btn.style.cssText = "background:#ccc;color:#fff;border:none;padding:11px 28px;border-radius:8px;font-weight:600;font-size:14px;cursor:not-allowed;width:100%;";
       btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>&nbsp; Uploading...';
       try {
-        var response = await fetch(API_URL, {
+        var response = await _fetchWithTimeout(API_URL, {
           method: "POST",
           body: JSON.stringify({
             action: "uploadGalleryPhoto",
@@ -427,4 +427,4 @@
     /* ══════════════════════════════
        ANNOUNCEMENT ADMIN
        ══════════════════════════════ */
-    /* ── Announcement color map ── */
+    /* ── Announcement color map ── */

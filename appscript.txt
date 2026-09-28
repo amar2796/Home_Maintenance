@@ -1516,181 +1516,246 @@ function _buildAdminSummaryPdf(data) {
 
 function _buildAdminSummaryPdfHtml(data) {
   function esc(s) { return _htmlEscape(String(s || "")); }
-  // Compact spacing + a single unified type scale (was a mix of default/13/14/15px) —
-  // narrow padding throughout so a normal month's report fits on one page.
-  const thPaid   = "padding:4px 8px;border:1px solid #bbf7d0;text-align:left;background:#dcfce7;color:#166534;font-size:11px;";
-  const thUnpaid = "padding:4px 8px;border:1px solid #fecaca;text-align:left;background:#fee2e2;color:#991b1b;font-size:11px;";
-  const thWalkin = "padding:4px 8px;border:1px solid #fde68a;text-align:left;background:#fef3c7;color:#92400e;font-size:11px;";
-  const thExpense= "padding:4px 8px;border:1px solid #cbd5e1;text-align:left;background:#f1f5f9;color:#334155;font-size:11px;";
-  const tdPaid   = "padding:4px 8px;border:1px solid #bbf7d0;background:#f0fdf4;font-size:11.5px;";
-  const tdUnpaid = "padding:4px 8px;border:1px solid #fecaca;background:#fef2f2;font-size:11.5px;";
-  const tdWalkin = "padding:4px 8px;border:1px solid #fde68a;background:#fffbeb;font-size:11.5px;";
-  const tdExpense= "padding:4px 8px;border:1px solid #cbd5e1;background:#f8fafc;font-size:11.5px;";
-  const numCol   = "width:20px;text-align:center;color:#94a3b8;font-weight:600;";
+  const ACCENT = "#4f46e5";
   const walkinList  = data.walkinList  || [];
   const expenseList = data.expenseList || [];
   const pendingList = data.pendingList || [];
-  const hasWalkin   = walkinList.length > 0; // walk-in line/count hidden entirely when 0
+  const hasWalkin   = walkinList.length > 0;
+  const dash = "<span style='color:#94a3b8;'>—</span>";
 
-  // ── Each section is skipped entirely (no heading, no table) when its list is empty —
-  // rather than printing a placeholder row like "— none —".
-  let sectionsA = "";
-
-  if (data.paidList.length > 0) {
-    // Entries column (header AND per-row cell) only exists at all if at
-    // least one member has >1 entry this month. If every member paid in a
-    // single entry, the whole column is dropped — not just blanked per row —
-    // since showing an "Entries" header above a column that's always empty
-    // would be pointless.
-    const anyMultiEntry = data.paidList.some(m => m.entries > 1);
-    const paidRows = data.paidList.map((m, i) =>
-      "<tr><td style='" + tdPaid + numCol + "'>" + (i + 1) + ".</td>" +
-      "<td style='" + tdPaid + "'>" + esc(m.name) + "</td>" +
-      "<td style='" + tdPaid + "text-align:center;'>" + esc(m.dateDisplay || "") + "</td>" +
-      (anyMultiEntry
-        ? (m.entries > 1
-            ? "<td style='" + tdPaid + "text-align:center;'>" + m.entries + "</td>" +
-              "<td style='" + tdPaid + "text-align:right;'>" + CFG.currencyText + " " + m.amount + "</td>"
-            : "<td style='" + tdPaid + "text-align:right;' colspan='2'>" + CFG.currencyText + " " + m.amount + "</td>"
-          )
-        : "<td style='" + tdPaid + "text-align:right;'>" + CFG.currencyText + " " + m.amount + "</td>"
-      ) + "</tr>"
-    ).join("");
-    sectionsA += "<p style='color:#166534;font-size:12.5px;font-weight:700;margin:0 0 6px;'>✅ Paid</p>" +
-      "<table style='border-collapse:collapse;width:100%;margin-bottom:10px;'>" +
-        "<tr><th style='" + thPaid + numCol + "'>#</th><th style='" + thPaid + "'>Name</th><th style='" + thPaid + "text-align:center;'>Entry Date</th>" +
-          (anyMultiEntry ? "<th style='" + thPaid + "text-align:center;'>Entries</th>" : "") +
-          "<th style='" + thPaid + "text-align:right;'>Amount</th></tr>" +
-        paidRows +
-      "</table>";
-  }
-
-  if (hasWalkin) {
-    const walkinRows = walkinList.map((m, i) =>
-      "<tr><td style='" + tdWalkin + numCol + "'>" + (i + 1) + ".</td>" +
-      "<td style='" + tdWalkin + "'>" + esc(m.name) + "</td>" +
-      "<td style='" + tdWalkin + "text-align:right;'>" + CFG.currencyText + " " + m.amount + "</td></tr>"
-    ).join("");
-    sectionsA += "<p style='color:#92400e;font-size:12.5px;font-weight:700;margin:10px 0 6px;'>🚶 Walk-in Contributions</p>" +
-      "<table style='border-collapse:collapse;width:100%;margin-bottom:10px;'>" +
-        "<tr><th style='" + thWalkin + numCol + "'>#</th><th style='" + thWalkin + "'>Name</th><th style='" + thWalkin + "text-align:right;'>Amount</th></tr>" +
-        walkinRows +
-      "</table>";
-  }
-
-  if (expenseList.length > 0) {
-    const expenseRows = expenseList.map((x, i) =>
-      "<tr><td style='" + tdExpense + numCol + "'>" + (i + 1) + ".</td>" +
-      "<td style='" + tdExpense + "'>" + esc(x.title) + "</td>" +
-      "<td style='" + tdExpense + "'>" + esc(x.date || "—") + "</td>" +
-      "<td style='" + tdExpense + "text-align:right;'>" + CFG.currencyText + " " + x.amount + "</td></tr>"
-    ).join("");
-    sectionsA += "<p style='color:#334155;font-size:12.5px;font-weight:700;margin:10px 0 6px;'>💸 Expenses This Month</p>" +
-      "<table style='border-collapse:collapse;width:100%;margin-bottom:6px;'>" +
-        "<tr><th style='" + thExpense + numCol + "'>#</th><th style='" + thExpense + "'>Title</th><th style='" + thExpense + "'>Date</th><th style='" + thExpense + "text-align:right;'>Amount</th></tr>" +
-        expenseRows +
-      "</table>" +
-      "<p style='margin:0 0 3px;font-size:11.5px;'><strong>Total Expenses:</strong> " + CFG.currencyText + " " + (data.expenseTotal||0) + "</p>" +
-      "<p style='margin:0;font-size:12.5px;'><strong>Net Balance: " + CFG.currencyText + " " + (data.netBalance != null ? data.netBalance : data.grandTotal) + "</strong> <span style='color:#94a3b8;font-weight:400;font-size:10.5px;'>(collected − expenses)</span></p>";
-  }
-
-  // Not Yet Paid — plain name list, this-month status only. Lifetime pending
-  // figures live in Box B below, not merged in here.
-  if (data.unpaidList.length > 0) {
-    const unpaidRows = data.unpaidList.map((m, i) =>
-      "<tr><td style='" + tdUnpaid + numCol + "'>" + (i + 1) + ".</td>" +
-      "<td style='" + tdUnpaid + "font-weight:600;'>" + esc(m.name) + "</td></tr>"
-    ).join("");
-    sectionsA += "<p style='color:#991b1b;font-size:12.5px;font-weight:700;margin:10px 0 6px;'>⚠️ Not Yet Paid</p>" +
-      "<table style='border-collapse:collapse;width:100%;'>" +
-        "<tr><th style='" + thUnpaid + numCol + "'>#</th><th style='" + thUnpaid + "'>Name</th></tr>" +
-        unpaidRows +
-      "</table>";
-  }
-
-  // Members collected line — Grand total shown only when it actually differs
-  // from Members collected (i.e. there's walk-in income to add on top).
-  const membersLine = "<p style='margin:0 0 6px;font-size:12px;font-weight:700;'>" +
-    "Members collected: " + CFG.currencyText + " " + data.totalCollected +
-    (hasWalkin ? " &nbsp;|&nbsp; Walk-in collected: " + CFG.currencyText + " " + data.walkinTotal : "") +
-    "</p>" +
-    (hasWalkin
-      ? "<p style='font-size:12.5px;font-weight:700;margin:0 0 8px;'>Grand total: " + CFG.currencyText + " " + data.grandTotal + "</p>"
-      : "");
-
-  const boxA =
-    "<div style='border:1.2px solid #cbd5e1;border-radius:10px;padding:12px 14px;margin-bottom:40px;'>" +
-      "<h2 style='margin:0 0 2px;font-size:17px;'>" + esc(CFG.name) + "</h2>" +
-      "<p style='color:#64748b;margin:0 0 8px;font-size:11px;'>" + esc(data.month) + " " + esc(data.year) + " — Contribution Summary</p>" +
-      membersLine +
-      "<p style='margin:0 0 10px;font-size:12px;'>Paid: " + data.paidList.length + " &nbsp;|&nbsp; Not yet paid: " + data.unpaidList.length +
-        (hasWalkin ? " &nbsp;|&nbsp; Walk-in entries: " + walkinList.length : "") + "</p>" +
-      sectionsA +
+  // ── Header ──
+  const header =
+    "<div style='text-align:center;margin:0 0 16px;'>" +
+      "<div style='font-size:19px;font-weight:800;color:#1e1b4b;'>" + esc(CFG.name) + "</div>" +
+      "<div style='font-size:11px;color:#64748b;'>" + esc(data.month) + " " + esc(data.year) + " &middot; Contribution Summary</div>" +
     "</div>";
 
-  // ── Box B: Overall Summary — lifetime figures, not tied to this month.
-  //    1) Total Pending — Not Yet Paid Members (months × MonthlyTarget)
-  //    2) Overall Fund Summary (All-Time), unchanged, Net Balance color-coded.
-  let pendingBlock = "";
+  // ── Collection-progress bar. NOTE: Google Apps Script's PDF converter
+  // (Utilities.newBlob(html).getAs("application/pdf")) strips CSS
+  // background/background-color entirely — confirmed by testing both.
+  // The only reliably-rendered way to get a solid fill in that converter is
+  // the legacy HTML "bgcolor" attribute on table cells, so every colored
+  // block below is a <table>/<td bgcolor=...> instead of a styled <div>.
+  // The progress bar itself is a 2-cell table: filled cell + empty cell.
+  const totalMembers = data.paidList.length + data.unpaidList.length;
+  const pct = totalMembers > 0 ? Math.round((data.paidList.length / totalMembers) * 100) : 0;
+  const barInner = pct > 0 && pct < 100
+    ? "<tr><td bgcolor='" + ACCENT + "' width='" + pct + "%' style='font-size:1px;line-height:10px;'>&nbsp;</td>" +
+        "<td bgcolor='#e0e7ff' style='font-size:1px;line-height:10px;'>&nbsp;</td></tr>"
+    : "<tr><td bgcolor='" + (pct >= 100 ? ACCENT : "#e0e7ff") + "' style='font-size:1px;line-height:10px;'>&nbsp;</td></tr>";
+  const progressCard =
+    "<table width='100%' cellpadding='0' cellspacing='0' style='margin-bottom:16px;'><tr><td bgcolor='#f5f3ff' style='padding:14px 16px;'>" +
+      "<table width='100%' cellpadding='0' cellspacing='0'><tr>" +
+        "<td style='font-size:12.5px;font-weight:700;color:#1e1b4b;'>Collection Progress</td>" +
+        "<td style='font-size:14px;font-weight:800;color:" + ACCENT + ";text-align:right;'>" + pct + "% &middot; " + data.paidList.length + "/" + totalMembers + " paid</td>" +
+      "</tr></table>" +
+      "<table width='100%' cellpadding='0' cellspacing='0' style='margin-top:8px;'>" + barInner + "</table>" +
+    "</td></tr></table>";
+
+  // ── Top stat row: Collected / Expenses / Net Balance. No fill needed here
+  // (only a thin border, which the converter renders fine), so this stays a
+  // plain table with a border — no bgcolor required.
+  function miniStat(label, value, color) {
+    return "<td style='padding:10px 6px;text-align:center;'>" +
+      "<div style='font-size:9px;color:#94a3b8;font-weight:700;text-transform:uppercase;'>" + label + "</div>" +
+      "<div style='font-size:14px;font-weight:800;color:" + color + ";margin-top:2px;'>" + CFG.currencyText + " " + _admFormatINR(value||0) + "</div>" +
+    "</td>";
+  }
+  const collectedForStat = hasWalkin ? (data.grandTotal != null ? data.grandTotal : data.totalCollected) : data.totalCollected;
+  const netForStat = data.netBalance != null ? data.netBalance : collectedForStat;
+  const statsRow =
+    "<table width='100%' cellpadding='0' cellspacing='0' style='border:1px solid #e2e8f0;margin-bottom:18px;'><tr>" +
+      miniStat("Collected", collectedForStat, "#16a34a") +
+      miniStat("Expenses", data.expenseTotal, "#dc2626") +
+      miniStat("Net Balance", netForStat, netForStat < 0 ? "#dc2626" : "#16a34a") +
+    "</tr></table>";
+
+  // ── Payment Status: single table, paid + not-yet-paid. Row highlight now
+  // uses bgcolor="..." (not style="background:...") for the same converter
+  // reason as above. "Entries" column only exists at all when at least one
+  // member has >1 entry this month — unchanged from before.
+  const anyMultiEntry = data.paidList.some(m => m.entries > 1);
+  let memberRows = "";
+  let mi = 0;
+  data.paidList.forEach(m => {
+    mi++;
+    const bg = mi % 2 === 0 ? " bgcolor='#f8fafc'" : "";
+    memberRows += "<tr" + bg + ">" +
+      "<td style='padding:6px 8px;font-size:11px;color:#cbd5e1;'>" + mi + "</td>" +
+      "<td style='padding:6px 8px;font-size:12px;'>" + esc(m.name) + "</td>" +
+      "<td style='padding:6px 8px;font-size:11px;color:#64748b;text-align:center;'>" + esc(m.dateDisplay || "") + "</td>" +
+      (anyMultiEntry
+        ? (m.entries > 1
+            ? "<td style='padding:6px 8px;font-size:11px;color:#64748b;text-align:center;'>" + m.entries + "</td>" +
+              "<td style='padding:6px 8px;font-size:12px;text-align:right;font-weight:700;'>" + CFG.currencyText + " " + m.amount + "</td>"
+            : "<td style='padding:6px 8px;font-size:12px;text-align:right;font-weight:700;' colspan='2'>" + CFG.currencyText + " " + m.amount + "</td>"
+          )
+        : "<td style='padding:6px 8px;font-size:12px;text-align:right;font-weight:700;'>" + CFG.currencyText + " " + m.amount + "</td>"
+      ) +
+      "<td style='padding:6px 8px;text-align:center;'><span style='color:#16a34a;font-size:14px;'>&#9679;</span></td>" +
+    "</tr>";
+  });
+  data.unpaidList.forEach(m => {
+    mi++;
+    memberRows += "<tr bgcolor='#fef2f2'>" +
+      "<td style='padding:6px 8px;font-size:11px;color:#f3b4b4;'>" + mi + "</td>" +
+      "<td style='padding:6px 8px;font-size:12px;color:#b91c1c;font-weight:600;'>" + esc(m.name) + "</td>" +
+      "<td style='padding:6px 8px;font-size:11px;color:#f3b4b4;text-align:center;'>—</td>" +
+      (anyMultiEntry
+        ? "<td style='padding:6px 8px;font-size:12px;text-align:right;color:#dc2626;font-weight:700;' colspan='2'>Not Paid</td>"
+        : "<td style='padding:6px 8px;font-size:12px;text-align:right;color:#dc2626;font-weight:700;'>Not Paid</td>"
+      ) +
+      "<td style='padding:6px 8px;text-align:center;'><span style='color:#dc2626;font-size:14px;'>&#9679;</span></td>" +
+    "</tr>";
+  });
+
+  let sectionsA = "";
+  if (data.paidList.length > 0 || data.unpaidList.length > 0) {
+    sectionsA +=
+      "<div style='margin-bottom:20px;'>" +
+        "<div style='font-size:13px;font-weight:700;color:#1e1b4b;margin-bottom:8px;'>Payment Status</div>" +
+        "<table style='border-collapse:collapse;width:100%;'>" +
+          "<tr style='border-bottom:2px solid " + ACCENT + ";'>" +
+            "<th style='padding:6px 8px;text-align:left;font-size:9.5px;color:" + ACCENT + ";'>#</th>" +
+            "<th style='padding:6px 8px;text-align:left;font-size:9.5px;color:" + ACCENT + ";'>NAME</th>" +
+            "<th style='padding:6px 8px;text-align:center;font-size:9.5px;color:" + ACCENT + ";'>DATE</th>" +
+            (anyMultiEntry ? "<th style='padding:6px 8px;text-align:center;font-size:9.5px;color:" + ACCENT + ";'>ENTRIES</th>" : "") +
+            "<th style='padding:6px 8px;text-align:right;font-size:9.5px;color:" + ACCENT + ";'>AMOUNT</th>" +
+            "<th style='padding:6px 8px;text-align:center;font-size:9.5px;color:" + ACCENT + ";'>&nbsp;</th>" +
+          "</tr>" + memberRows +
+        "</table>" +
+        "<div style='margin-top:8px;font-size:11.5px;'><strong>Total Members Collected:</strong> " + CFG.currencyText + " " + _admFormatINR(data.totalCollected||0) + "</div>" +
+      "</div>";
+  }
+
+  // ── Walk-in Contributions — same bgcolor-based zebra treatment, amber tint.
+  if (hasWalkin) {
+    const walkinRows = walkinList.map((m, i) => {
+      const bg = i % 2 === 1 ? " bgcolor='#fffbeb'" : "";
+      return "<tr" + bg + ">" +
+        "<td style='padding:6px 8px;font-size:11px;color:#cbd5e1;'>" + (i + 1) + "</td>" +
+        "<td style='padding:6px 8px;font-size:12px;'>" + esc(m.name) + "</td>" +
+        "<td style='padding:6px 8px;font-size:12px;text-align:right;font-weight:700;'>" + CFG.currencyText + " " + m.amount + "</td>" +
+      "</tr>";
+    }).join("");
+    sectionsA +=
+      "<div style='margin-bottom:20px;'>" +
+        "<div style='font-size:13px;font-weight:700;color:#92400e;margin-bottom:8px;'>🚶 Walk-in Contributions</div>" +
+        "<table style='border-collapse:collapse;width:100%;'>" +
+          "<tr style='border-bottom:2px solid #d97706;'>" +
+            "<th style='padding:6px 8px;text-align:left;font-size:9.5px;color:#92400e;'>#</th>" +
+            "<th style='padding:6px 8px;text-align:left;font-size:9.5px;color:#92400e;'>NAME</th>" +
+            "<th style='padding:6px 8px;text-align:right;font-size:9.5px;color:#92400e;'>AMOUNT</th>" +
+          "</tr>" + walkinRows +
+        "</table>" +
+      "</div>";
+  }
+
+  // ── Expenses This Month — skipped entirely (no heading/table/totals) when
+  // there are no expenses, same as before.
+  if (expenseList.length > 0) {
+    const expenseRows = expenseList.map((x, i) => {
+      const bg = i % 2 === 1 ? " bgcolor='#f8fafc'" : "";
+      return "<tr" + bg + ">" +
+        "<td style='padding:6px 8px;font-size:11px;color:#cbd5e1;'>" + (i + 1) + "</td>" +
+        "<td style='padding:6px 8px;font-size:12px;'>" + esc(x.title) + "</td>" +
+        "<td style='padding:6px 8px;font-size:11px;color:#64748b;'>" + esc(x.date || "—") + "</td>" +
+        "<td style='padding:6px 8px;font-size:12px;text-align:right;'>" + CFG.currencyText + " " + x.amount + "</td>" +
+      "</tr>";
+    }).join("");
+    const netBalanceThisMonth = data.netBalance != null ? data.netBalance : data.grandTotal;
+    sectionsA +=
+      "<div style='margin-bottom:20px;'>" +
+        "<div style='font-size:13px;font-weight:700;color:#1e1b4b;margin-bottom:8px;'>💸 Expenses This Month</div>" +
+        "<table style='border-collapse:collapse;width:100%;'>" +
+          "<tr style='border-bottom:2px solid " + ACCENT + ";'>" +
+            "<th style='padding:6px 8px;text-align:left;font-size:9.5px;color:" + ACCENT + ";'>#</th>" +
+            "<th style='padding:6px 8px;text-align:left;font-size:9.5px;color:" + ACCENT + ";'>TITLE</th>" +
+            "<th style='padding:6px 8px;text-align:left;font-size:9.5px;color:" + ACCENT + ";'>DATE</th>" +
+            "<th style='padding:6px 8px;text-align:right;font-size:9.5px;color:" + ACCENT + ";'>AMOUNT</th>" +
+          "</tr>" + expenseRows +
+        "</table>" +
+        "<div style='margin-top:8px;font-size:11.5px;'><strong>Total Expenses:</strong> " + CFG.currencyText + " " + _admFormatINR(data.expenseTotal||0) +
+          " &nbsp;|&nbsp; <strong>Net Balance:</strong> <span style='color:" + (netBalanceThisMonth < 0 ? "#dc2626" : "#16a34a") + ";font-weight:800;'>" + CFG.currencyText + " " + _admFormatINR(netBalanceThisMonth||0) + "</span></div>" +
+      "</div>";
+  }
+
+  // ── Overall Summary: All-Time Pending Summary + All-Time Fund Summary,
+  // side by side (flex layout already renders correctly in the converter —
+  // it's specifically backgrounds that don't, so the flex wrapper stays a
+  // div, but each card itself is now a bgcolor'd table).
+  let overall = "";
+  let pendingCard = "";
   if (pendingList.length > 0) {
     if (!data.pendingHasAnyTarget) {
-      pendingBlock =
-        "<p style='color:#334155;font-size:12px;font-weight:700;margin:0 0 6px;'>Total Pending — Not Yet Paid Members</p>" +
-        "<div style='padding:8px 10px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;color:#92400e;font-size:11px;'>" +
-          "⚠️ Monthly Target not set for these members — pending amount unavailable." +
-        "</div>";
+      pendingCard =
+        "<div style='flex:1;'><table width='100%' cellpadding='0' cellspacing='0'><tr><td bgcolor='#fffbeb' style='padding:12px;'>" +
+          "<div style='font-size:12px;font-weight:700;color:#b45309;margin-bottom:8px;'>All-Time Pending Summary</div>" +
+          "<table width='100%' cellpadding='0' cellspacing='0'><tr><td bgcolor='#fef3c7' style='padding:8px 10px;border:1px solid #fde68a;color:#92400e;font-size:11px;'>" +
+            "⚠️ Monthly Target not set for these members — pending amount unavailable." +
+          "</td></tr></table>" +
+        "</td></tr></table></div>";
     } else {
-      const thPending = "padding:4px 6px;border:1px solid #fecaca;text-align:left;background:#fee2e2;color:#991b1b;font-size:10.5px;";
-      const tdPending = "padding:4px 6px;border:1px solid #fecaca;background:#fef2f2;font-size:11px;";
-      const dash = "<span style='color:#94a3b8;'>—</span>";
-      const pendingRows = pendingList.map((p, i) =>
-        "<tr><td style='" + tdPending + numCol + "'>" + (i + 1) + ".</td>" +
-        "<td style='" + tdPending + "'>" + esc(p.name) + "</td>" +
-        "<td style='" + tdPending + "text-align:center;'>" + (p.amount !== null ? p.months : dash) + "</td>" +
-        "<td style='" + tdPending + "text-align:right;'>" + (p.amount !== null ? CFG.currencyText + " " + p.target : dash) + "</td>" +
-        "<td style='" + tdPending + "text-align:right;font-weight:700;'>" + (p.amount !== null ? CFG.currencyText + " " + p.amount : dash) + "</td></tr>"
-      ).join("");
-      pendingBlock =
-        "<p style='color:#334155;font-size:12px;font-weight:700;margin:0 0 6px;'>Total Pending — Not Yet Paid Members</p>" +
-        "<table style='border-collapse:collapse;width:100%;margin-bottom:6px;'>" +
-          "<tr><th style='" + thPending + numCol + "'>#</th><th style='" + thPending + "'>Name</th>" +
-            "<th style='" + thPending + "text-align:center;'>Months</th>" +
-            "<th style='" + thPending + "text-align:right;'>Target</th>" +
-            "<th style='" + thPending + "text-align:right;'>Pending</th></tr>" +
-          pendingRows +
-        "</table>" +
-        "<p style='margin:0 0 10px;font-size:12px;font-weight:700;'>Total Pending: " + CFG.currencyText + " " + data.totalPendingAmount + "</p>";
+      const pendingRows = pendingList.map((p, i) => {
+        const bg = i % 2 === 1 ? " bgcolor='#fef3c7'" : "";
+        return "<tr" + bg + ">" +
+          "<td style='padding:6px 6px;font-size:11px;'>" + esc(p.name) + "</td>" +
+          "<td style='padding:6px 6px;font-size:11px;text-align:center;color:#92400e;'>" + (p.amount !== null ? p.months : dash) + "</td>" +
+          "<td style='padding:6px 6px;font-size:11px;text-align:right;font-weight:700;color:#b45309;'>" + (p.amount !== null ? CFG.currencyText + " " + p.amount : dash) + "</td>" +
+        "</tr>";
+      }).join("");
+      pendingCard =
+        "<div style='flex:1;'><table width='100%' cellpadding='0' cellspacing='0'><tr><td bgcolor='#fffbeb' style='padding:12px;'>" +
+          "<div style='font-size:12px;font-weight:700;color:#b45309;margin-bottom:8px;'>All-Time Pending Summary</div>" +
+          "<table style='border-collapse:collapse;width:100%;'>" +
+            "<tr style='border-bottom:2px solid #d97706;'>" +
+              "<th style='padding:4px 6px;text-align:left;font-size:9px;color:#92400e;'>NAME</th>" +
+              "<th style='padding:4px 6px;text-align:center;font-size:9px;color:#92400e;'>MONTHS</th>" +
+              "<th style='padding:4px 6px;text-align:right;font-size:9px;color:#92400e;'>AMOUNT</th>" +
+            "</tr>" + pendingRows +
+          "</table>" +
+          "<div style='margin-top:8px;padding-top:6px;border-top:1px dashed #f3d29e;font-size:12px;font-weight:800;color:#b45309;text-align:right;'>Total: " + CFG.currencyText + " " + _admFormatINR(data.totalPendingAmount||0) + "</div>" +
+        "</td></tr></table></div>";
     }
   }
 
-  const netBalanceColor = (data.allTimeNetBalance != null ? data.allTimeNetBalance : (data.allTimeCollected||0)) < 0 ? "#dc2626" : "#16a34a";
-  const allTimeBlock =
-    "<div style='padding:8px 10px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;'>" +
-      "<p style='color:#3730a3;font-size:12px;font-weight:700;margin:0 0 5px;'>Overall Fund Summary (All-Time)</p>" +
-      "<p style='margin:0 0 3px;font-size:11.5px;'>Total Collection (all-time): " + CFG.currencyText + " " + _admFormatINR(data.allTimeCollected||0) + "</p>" +
-      "<p style='margin:0 0 3px;font-size:11.5px;'>Total Expenses (all-time): " + CFG.currencyText + " " + _admFormatINR(data.allTimeExpenses||0) + "</p>" +
-      "<p style='margin:0;font-size:12.5px;font-weight:700;color:" + netBalanceColor + ";'>Current Net Balance: " + CFG.currencyText + " " + _admFormatINR(data.allTimeNetBalance != null ? data.allTimeNetBalance : (data.allTimeCollected||0)) + "</p>" +
-    "</div>";
+  const allTimeNet = data.allTimeNetBalance != null ? data.allTimeNetBalance : (data.allTimeCollected||0);
+  const netPillColor = allTimeNet < 0 ? "#fee2e2" : "#dcfce7";
+  const netTextColor = allTimeNet < 0 ? "#991b1b" : "#166534";
+  const netValColor  = allTimeNet < 0 ? "#dc2626" : "#16a34a";
+  const allTimeCard =
+    "<div style='flex:1;'><table width='100%' cellpadding='0' cellspacing='0'><tr><td bgcolor='#f5f3ff' style='padding:12px;'>" +
+      "<div style='font-size:12px;font-weight:700;color:#1e1b4b;margin-bottom:8px;'>All-Time Fund Summary</div>" +
+      "<table width='100%' cellpadding='0' cellspacing='0' style='border-bottom:1px solid #e0e7ff;'><tr>" +
+        "<td style='padding:5px 0;font-size:11px;color:#4c1d95;'>Total Collection</td>" +
+        "<td style='padding:5px 0;font-size:11.5px;font-weight:700;color:#1e1b4b;text-align:right;'>" + CFG.currencyText + " " + _admFormatINR(data.allTimeCollected||0) + "</td>" +
+      "</tr></table>" +
+      "<table width='100%' cellpadding='0' cellspacing='0' style='border-bottom:1px solid #e0e7ff;'><tr>" +
+        "<td style='padding:5px 0;font-size:11px;color:#4c1d95;'>Total Expenses</td>" +
+        "<td style='padding:5px 0;font-size:11.5px;font-weight:700;color:#1e1b4b;text-align:right;'>" + CFG.currencyText + " " + _admFormatINR(data.allTimeExpenses||0) + "</td>" +
+      "</tr></table>" +
+      "<table width='100%' cellpadding='0' cellspacing='0' style='margin-top:8px;'><tr><td bgcolor='" + netPillColor + "' style='padding:7px 10px;'>" +
+        "<table width='100%' cellpadding='0' cellspacing='0'><tr>" +
+          "<td style='font-size:11px;font-weight:700;color:" + netTextColor + ";'>Current Net Balance</td>" +
+          "<td style='font-size:14px;font-weight:800;color:" + netValColor + ";text-align:right;'>" + CFG.currencyText + " " + _admFormatINR(allTimeNet) + "</td>" +
+        "</tr></table>" +
+      "</td></tr></table>" +
+    "</td></tr></table></div>";
 
-  const boxB =
-    "<div style='border:1.2px solid #cbd5e1;border-radius:10px;padding:12px 14px;'>" +
-      "<p style='margin:0 0 8px;font-size:13.5px;font-weight:700;'>🏦 Overall Summary</p>" +
-      pendingBlock +
-      allTimeBlock +
-    "</div>";
+  overall = pendingCard
+    ? "<div style='display:flex;gap:14px;'>" + pendingCard + allTimeCard + "</div>"
+    : allTimeCard;
 
-  // [NEW] System-generated footer note — printed at the bottom of the PDF page.
   const footerNote =
-    "<p style='margin-top:8px;padding-top:6px;border-top:1px solid #e2e8f0;font-size:9px;color:#94a3b8;text-align:center;'>" +
+    "<p style='margin-top:22px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:9px;color:#94a3b8;text-align:center;'>" +
       "This is a system-generated document from " + esc(CFG.name) + ". No signature is required." +
     "</p>";
 
-  return "<html><body style='font-family:Arial,sans-serif;color:#1e293b;padding:12px 16px;'>" +
-    boxA +
-    boxB +
-    footerNote +
+  return "<html><head><meta charset='utf-8'></head><body style='font-family:Arial,sans-serif;color:#1e293b;padding:20px 24px;'>" +
+    header + progressCard + statsRow + sectionsA + overall + footerNote +
     "</body></html>";
 }
+
 
 // ── Plain-text version, ready to select-all + copy-paste into WhatsApp/group chat.
 //    Email HTML can't run a working "Copy" button in most clients (Gmail strips onclick),

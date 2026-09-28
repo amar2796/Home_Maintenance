@@ -1,4 +1,4 @@
-    window._retryExpenseAsIs = _retryExpenseAsIs;
+window._retryExpenseAsIs = _retryExpenseAsIs;
 
     /* ═══ EXPENSE RECEIPT ATTACHMENT ════════════════════════════════
  Opens a modal to manage multiple receipt photos for an expense.
@@ -185,7 +185,7 @@
         const e = expenses.find(function (x) { return String(x.Id) === String(expId); });
         const existingUrls = _getReceiptUrls(e);
 
-        const response = await fetch(API_URL, {
+        const response = await _fetchWithTimeout(API_URL, {
           method: "POST",
           body: JSON.stringify({
             action: "uploadExpenseReceipt",
@@ -671,4 +671,3 @@
  Uses global: data, expenses, expenseTypes, MONTHS
  New globals: _events (array), _eventExpenses (array)
  ═══════════════════════════════════════════════════════════════ */
-
