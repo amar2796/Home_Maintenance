@@ -236,6 +236,79 @@ function _verifySession(params, actionName) {
 }
 
 // ════════════════════════════════════════════════════════════════
+//  [SEC] SERVER-SIDE ADMIN-ROLE CHECK
+//  _verifySession() above only confirms the request carries a valid,
+//  currently-logged-in session — it does NOT check what ROLE that session
+//  belongs to. That was fine for actions any logged-in member should be
+//  able to do (change their own password, view their own contributions,
+//  submit a contribution request, etc.), but a set of actions are meant
+//  for admins only (deleting a member, changing email settings, sending
+//  a broadcast, reading the audit log, ...). Until now, the ONLY thing
+//  stopping a regular member from calling one of those directly was the
+//  admin panel's own UI not showing them the button — admin.html's role
+//  check happens entirely in the browser (see _checkAdminSession in
+//  js/admin-core.js), which a direct API call bypasses completely. This
+//  closes that gap: call AFTER _verifySession has already passed, for
+//  any action in _ADMIN_ONLY_ACTIONS below.
+// ════════════════════════════════════════════════════════════════
+function _requireAdminRole(params, actionName) {
+  const userId = sanitize(params.userId || params.UserId || params.AdminName || "", 30);
+  try {
+    // getSheetData() caches per-request — free if this action already read
+    // USERS this same request (e.g. getUsers, getAllData).
+    const users = getSheetData(SHEETS.USERS);
+    const user  = users.find(u => String(u.UserId || "").trim() === userId || String(u.Name || "").trim() === userId);
+    if (user && String(user.Role || "").toLowerCase() === "admin") return true;
+    logAction(userId || "Unknown", "ADMIN_ACTION_DENIED", "Action: " + actionName + " — caller is not an Admin (role: " + (user ? user.Role : "user not found") + ")", "", "", { severity:"CRITICAL", result:"BLOCKED" });
+    return false;
+  } catch (e) {
+    // Fail closed, same principle as _verifySession's catch block above.
+    logAction(userId || "Unknown", "ADMIN_ROLE_CHECK_ERROR", "Action: " + actionName + " — " + e.message, "", "", { severity:"CRITICAL", result:"BLOCKED" });
+    return false;
+  }
+}
+
+// The subset of _WRITE_ACTIONS (see doGet) that only an Admin should ever be
+// allowed to perform. Every action NOT in this list, but still in
+// _WRITE_ACTIONS, only requires a valid session belonging to ANY logged-in
+// user — checked deliberately against every frontend file that calls it
+// before being left out of this list (updateUser, changePassword,
+// submitContributionRequest, editContributionRequest,
+// deleteContributionRequest, getPhotoBase64, getAllData, getEventData,
+// getTodayBirthdays, sendBirthdayWish, getMyBirthdayWishes,
+// sendMobileChangeOTP, verifyMobileChangeOTP, getUserContributionRequests,
+// and sendContribReceiptEmail are all reachable from user.js and must stay
+// open to any logged-in member).
+const _ADMIN_ONLY_ACTIONS = [
+  "addContribution","updateContribution","deleteContribution",
+  "addExpense","updateExpense","deleteExpense",
+  "removeExpenseReceipt","removeOneExpenseReceipt","removeAllExpenseReceipts",
+  "addUser","deleteUser","restoreUser","approveUser","rejectUser",
+  "addType","deleteType","updateType",
+  "addOccasion","deleteOccasion","updateOccasion",
+  "addExpenseType","deleteExpenseType","updateExpenseType","updateSortOrder",
+  "addGoal","updateGoal","deleteGoal",
+  "addEvent","updateEvent","deleteEvent","addEventExpense",
+  "deleteGalleryPhoto",
+  "saveEmailSettings","saveAnnouncement","clearAnnouncement","toggleAnnouncementStatus",
+  "saveBroadcast","deleteBroadcast","toggleBroadcast","saveChatbotConfig",
+  "updateFeedbackStatus","deleteFeedback",
+  "resolveContributionRequest",
+  "triggerMonthlyReport","triggerMonthlyReminder","sendMonthlyReminders","sendBirthdayEmails","sendIndividualTrackerEmail",
+  "triggerAdminSummary","getAdminSummaryStatus",
+  "logAudit",
+  "getEmailLogoPreview",
+  "getContributions","getExpenses","getYearConfig",
+  "getUsers","getUsersByStatus","getPendingUsers","getPendingCount",
+  "getFeedback","getContributionRequests",
+  "getAuditLog","getAnnouncementHistory","getHealthCheck","getBroadcastsAdmin",
+  "getTrafficStats","resetTrafficStats",
+  "getEmailSettings","getEmailQuota","getYearlySummary",
+  "getPaymentDetails",
+  "getMonthlyReportStatus"
+];
+
+// ════════════════════════════════════════════════════════════════
 //  [SEC] DAILY SWEEP — CLEAR EXPIRED SESSION TOKENS
 //  Set up a Time-based trigger: Day timer (e.g. once daily) → cleanupExpiredSessions
 //
@@ -2393,6 +2466,14 @@ function doGet(e) {
   if (_WRITE_ACTIONS.indexOf(action) !== -1 && !_verifySession(e.parameter, action)) {
     return ContentService
       .createTextOutput(callback + "(" + JSON.stringify({status:"error",message:"Session expired. Please login again."}) + ")")
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+  // [SEC] Session is valid at this point (checked above) — but that only proves
+  // SOMEONE is logged in, not that they're an Admin. For the subset of actions
+  // that must be Admin-only, check the caller's actual role too.
+  if (_ADMIN_ONLY_ACTIONS.indexOf(action) !== -1 && !_requireAdminRole(e.parameter, action)) {
+    return ContentService
+      .createTextOutput(callback + "(" + JSON.stringify({status:"error",message:"Admins only."}) + ")")
       .setMimeType(ContentService.MimeType.JAVASCRIPT);
   }
 
