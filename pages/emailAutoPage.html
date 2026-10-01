@@ -210,8 +210,9 @@
               <code>sendBirthdayEmails</code> → <strong>Time-based → Day timer → 8 AM &ndash; 9 AM</strong>.
               <br/><br/>
               <i class="fa-solid fa-clipboard-list" style="color:#7c3aed;"></i>
-              Admin Monthly Summary requires its own trigger: Apps Script → Triggers → Add trigger →
-              <code>sendAdminMonthlySummary</code> → Month timer → day of your choice.
+              Admin Monthly Summary (sent on the last day of every month): in Apps Script, run
+              <code>setupAdminMonthlySummaryTrigger</code> <strong>once</strong>. It creates a daily trigger
+              (<code>sendAdminMonthlySummaryIfLastDay</code>, about 9 PM) that sends only on the last day of the month.
             </div>
           </div>
 

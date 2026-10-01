@@ -764,6 +764,141 @@ function _trCloseConfirmModal(result) {
   }
 }
 
+// ═══ SEND THIS MONTH'S ADMIN SUMMARY (PDF + PNG) ═══
+// On-demand twin of the month-end trigger: emails the summary (with the PDF and the image
+// attached) to every active admin. ALWAYS the current month — the summary's "All-Time"
+// cards always reflect today, so an older month would show mismatched numbers. The Month /
+// Year filters above are intentionally ignored. Reuses the existing backend action
+// triggerAdminSummary (no backend change). Same fire-then-poll approach as Email Automation,
+// because Apps Script can take longer than a browser keeps a request open.
+let _trSummaryBusy = false;
+
+async function sendTrackerAdminSummary() {
+  if (_trSummaryBusy) return;
+  const now = new Date();
+  const month = TRACKER_MONTH_NAMES[now.getMonth()];
+  const year = String(now.getFullYear());
+  const ok = await _trShowConfirm('Email the ' + month + ' ' + year + ' summary (PDF + image) to all active admins now?');
+  if (!ok) return;
+
+  const btn = document.getElementById('tr_send_summary_btn');
+  const label = document.getElementById('tr_send_summary_label');
+  _trSummaryBusy = true;
+  if (btn) btn.disabled = true;
+  if (label) label.textContent = 'Sending\u2026';
+  try {
+    const r = await _trRunAdminSummaryJob(month, year);
+    if (r && r.status === 'ok') {
+      toast('Summary sent to ' + (r.sent || 0) + ' admin(s)' + (r.skipped ? ' \u2014 ' + r.skipped + ' skipped (email quota)' : ''));
+    } else if (r && r.timedOut) {
+      toast('Still running in the background \u2014 the email may still arrive shortly.', 'warn');
+    } else {
+      toast('Failed: ' + ((r && r.message) || 'Unknown error. Check Apps Script logs.'), 'error');
+    }
+  } catch (err) {
+    toast('Failed: ' + (err && err.message ? err.message : 'Unknown error'), 'error');
+  } finally {
+    _trSummaryBusy = false;
+    if (btn) btn.disabled = false;
+    if (label) label.textContent = 'Send Summary';
+  }
+}
+
+// Fires triggerAdminSummary, then polls getAdminSummaryStatus every 5s (max 3 min).
+// Resolves with the backend result object, or { timedOut: true }.
+function _trRunAdminSummaryJob(month, year) {
+  return _trRunMailJob('triggerAdminSummary', 'getAdminSummaryStatus',
+    '&month=' + encodeURIComponent(month) + '&year=' + encodeURIComponent(year) + '&withPdf=1', 'admsum_');
+}
+
+// Shared by both buttons. fireAction/statusAction are the two backend actions, extraParams is
+// the action-specific query string, keyPrefix labels the job. Resolves with the backend result
+// object, or { timedOut: true }.
+function _trRunMailJob(fireAction, statusAction, extraParams, keyPrefix) {
+  return new Promise(resolve => {
+    const sess = JSON.parse(localStorage.getItem('session') || '{}');
+    const auth = '&sessionToken=' + encodeURIComponent(sess.sessionToken || '') +
+                 '&userId=' + encodeURIComponent(sess.userId || '');
+    const jobKey = keyPrefix + Date.now();
+    const MAX_POLLS = 36;
+    let polls = 0, done = false;
+
+    function finish(r) { if (done) return; done = true; resolve(r); }
+
+    // Tiny JSONP helper. timeoutMs = 0 means "no timeout" (used for the long-running fire call).
+    function jsonp(query, timeoutMs, onData, onFail) {
+      const cb = 'cb_trs_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+      const script = document.createElement('script');
+      let timer = null;
+      const cleanup = () => { clearTimeout(timer); try { delete window[cb]; script.remove(); } catch (e) { } };
+      window[cb] = r => { cleanup(); onData(r); };
+      script.onerror = () => { cleanup(); onFail(); };
+      if (timeoutMs) timer = setTimeout(() => { cleanup(); onFail(); }, timeoutMs);
+      script.src = API_URL + '?' + query + auth + '&callback=' + cb;
+      document.body.appendChild(script);
+    }
+
+    // Step 1 — fire the job. If the server answers before polling does, we use that answer.
+    jsonp('action=' + fireAction + extraParams + '&jobKey=' + encodeURIComponent(jobKey),
+      0,
+      r => {
+        if (r && (r.status === 'ok' || r.status === 'error')) {
+          finish(r);
+          // Read the stored result once so the backend can delete it (keeps Script Properties tidy).
+          jsonp('action=' + statusAction + '&jobKey=' + encodeURIComponent(jobKey), 15000, () => { }, () => { });
+        }
+      },
+      () => finish({ status: 'error', message: 'Could not reach the server. Check your connection / Apps Script deployment.' })
+    );
+
+    // Step 2 — poll for the stored result (covers the case where the fire request is cut off).
+    function poll() {
+      if (done) return;
+      polls++;
+      const next = () => { if (done) return; if (polls < MAX_POLLS) setTimeout(poll, 5000); else finish({ timedOut: true }); };
+      jsonp('action=' + statusAction + '&jobKey=' + encodeURIComponent(jobKey), 8000,
+        r => { if (r && (r.status === 'ok' || r.status === 'error')) finish(r); else next(); },
+        next);
+    }
+    setTimeout(poll, 8000);
+  });
+}
+
+// ═══ SEND THE PENDING REPORT (PDF + PNG) ═══
+// Separate email from the monthly summary: for every active member, WHICH months (with year)
+// are still unpaid, plus totals. Always "as of today" (lifetime pending — the same number as the
+// Pending column in the grid below), so the Month / Year / Type filters are intentionally ignored.
+// Calculated on the backend (action triggerPendingReport) and emailed to all active admins.
+let _trPendingReportBusy = false;
+
+async function sendTrackerPendingReport() {
+  if (_trPendingReportBusy) return;
+  const ok = await _trShowConfirm('Email the Pending Report (member-wise pending months, as of today) with PDF + image to all active admins now?');
+  if (!ok) return;
+
+  const btn = document.getElementById('tr_pending_report_btn');
+  const label = document.getElementById('tr_pending_report_label');
+  _trPendingReportBusy = true;
+  if (btn) btn.disabled = true;
+  if (label) label.textContent = 'Sending\u2026';
+  try {
+    const r = await _trRunMailJob('triggerPendingReport', 'getPendingReportStatus', '', 'pendrep_');
+    if (r && r.status === 'ok') {
+      toast('Pending report sent to ' + (r.sent || 0) + ' admin(s)' + (r.skipped ? ' \u2014 ' + r.skipped + ' skipped (email quota)' : ''));
+    } else if (r && r.timedOut) {
+      toast('Still running in the background \u2014 the email may still arrive shortly.', 'warn');
+    } else {
+      toast('Failed: ' + ((r && r.message) || 'Unknown error. Check Apps Script logs.'), 'error');
+    }
+  } catch (err) {
+    toast('Failed: ' + (err && err.message ? err.message : 'Unknown error'), 'error');
+  } finally {
+    _trPendingReportBusy = false;
+    if (btn) btn.disabled = false;
+    if (label) label.textContent = 'Pending Report';
+  }
+}
+
 async function sendTrackerIndividualEmails() {
   const selected = getTrackerIndividualSelections();
   if (selected.length === 0) {

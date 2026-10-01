@@ -303,6 +303,38 @@ html.dark-mode #trackerPage,
 
 .tr-reset-btn:hover .tr-reset-icon { transform: rotate(-70deg); }
 
+/* ─── "Send Summary" button (header, next to the title) ───────────── */
+.tr-summary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  background: var(--tr-accent);
+  color: var(--tr-on-accent);
+  border: none;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: Poppins, sans-serif;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(15, 118, 110, 0.25);
+  transition: all 0.2s ease;
+}
+.tr-summary-btn:hover { background: var(--tr-accent-hover); transform: translateY(-1px); }
+.tr-summary-btn:disabled { opacity: 0.7; cursor: wait; transform: none; }
+
+.tr-header-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+/* "Pending Report" — red-tinted twin of the teal Send Summary button */
+.tr-summary-btn-alt {
+  background: var(--tr-danger-bg);
+  color: var(--tr-danger);
+  border: 1.5px solid var(--tr-danger-bg2);
+  box-shadow: none;
+}
+.tr-summary-btn-alt:hover { background: var(--tr-danger); color: #ffffff; border-color: var(--tr-danger); }
+
 /* ─── 5. TABS ───────────────────────────────────────────────────── */
 /* Floating "browser tab" chips: each tab is its own rounded card, the
    active one lifts slightly and its accent color bleeds into a thin
@@ -812,6 +844,8 @@ html.dark-mode #trackerPage,
   .tr-select { padding-top: 11px; padding-bottom: 11px; }
   .tr-toggle-label { height: 38px; }
   .tr-reset-btn { width: 100%; min-height: 42px; justify-content: center; }
+  .tr-header-actions { width: 100%; flex-wrap: nowrap; }
+  .tr-header-actions .tr-summary-btn { flex: 1; min-height: 42px; justify-content: center; padding-left: 10px; padding-right: 10px; }
   .tr-reset-text { display: inline; }
 
   .tracker-tab-btn { min-height: 40px; }

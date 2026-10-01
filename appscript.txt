@@ -55,6 +55,10 @@ const CFG = {
   folderExpense: "1GPZQMwYRukg-Th60aReVFeju_l8wHmJv", // Drive > ExpenseReceipts/
   folderGallery: "1xIIFG2i3_DA7F2OXQUHPT1Gm1ToD95-i",   // Drive > GalleryPhotos/
   folderSlip:    "1SjbhXqzcwi0Ucvag8IxgVI4OQZVr_eds",   // Drive > PaymentSlips/
+  // ── ADMIN SUMMARY IMAGE (PNG copy of the monthly summary PDF)
+  // Leave "" → a folder called "Monthly Summary Images" is auto-created inside folderMain.
+  // Or paste the ID of an existing Drive folder here. Only the PNG is saved (not the PDF).
+  folderSummaryImage: "",
 
   // ── PAYMENT / BANK DETAILS (returned only to authenticated sessions via getPaymentDetails)
   // ⚠️  SECURITY: These values are NEVER sent to the public. They are stored here on the
@@ -295,7 +299,7 @@ const _ADMIN_ONLY_ACTIONS = [
   "updateFeedbackStatus","deleteFeedback",
   "resolveContributionRequest",
   "triggerMonthlyReport","triggerMonthlyReminder","sendMonthlyReminders","sendBirthdayEmails","sendIndividualTrackerEmail",
-  "triggerAdminSummary","getAdminSummaryStatus",
+  "triggerAdminSummary","getAdminSummaryStatus","triggerPendingReport","getPendingReportStatus",
   "logAudit",
   "getEmailLogoPreview",
   "getContributions","getExpenses","getYearConfig",
@@ -1179,7 +1183,8 @@ function _doSendMonthlyReports(overrideMonth, overrideYear) {
 
 // ════════════════════════════════════════════════════════════════
 //  #10 — ADMIN MONTHLY SUMMARY (who paid, who didn't, PDF attached)
-//  Set up a Time-based trigger: Last day of month → sendAdminMonthlySummary
+//  TRIGGER: run setupAdminMonthlySummaryTrigger() ONCE (see below) — it installs a daily
+//  9 PM IST trigger that sends only on the last day of the month.
 //  Sends ONE email per active admin with a paid/unpaid table + PDF.
 //  Multiple entries by the same member in a month are merged into ONE
 //  total (same reduce() pattern as _doSendMonthlyReports).
@@ -1198,6 +1203,48 @@ function sendAdminMonthlySummary(overrideMonth, overrideYear) {
     return { status: "ok", sent: 0, message: "Disabled" };
   }
   return _doSendAdminSummary(safeMonth, safeYear);
+}
+
+// ── LAST-DAY-OF-MONTH TRIGGER ──────────────────────────────────────────────
+// Apps Script has NO "last day of month" timer (its monthly timer only allows days
+// 1–28). So the schedule is: a DAILY trigger runs sendAdminMonthlySummaryIfLastDay()
+// every evening, and that function only sends when TODAY (India time) is the last
+// day of the month. Run setupAdminMonthlySummaryTrigger() ONCE to install it.
+const ADMIN_SUMMARY_TRIGGER_HOUR = 21;   // 9 PM India time (runs within that hour). Change, then re-run setup.
+
+// Pure helper — today's month/year in IST, and whether tomorrow is the 1st.
+function _admLastDayInfoIST(date) {
+  const IST = "GMT+5:30";
+  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const d = date || new Date();
+  const tomorrow = new Date(d.getTime() + 24 * 60 * 60 * 1000);   // India has no DST, so +24h is safe
+  return {
+    isLastDay: Utilities.formatDate(tomorrow, IST, "d") === "1",
+    month: MONTHS[Number(Utilities.formatDate(d, IST, "M")) - 1],
+    year:  Utilities.formatDate(d, IST, "yyyy")
+  };
+}
+
+// The function the daily trigger calls.
+function sendAdminMonthlySummaryIfLastDay() {
+  const info = _admLastDayInfoIST();
+  if (!info.isLastDay) return { status: "ok", sent: 0, message: "Not the last day of the month" };
+  return sendAdminMonthlySummary(info.month, info.year);   // still honours the admin_monthly_summary ON/OFF toggle
+}
+
+// Run this ONCE from the Apps Script editor (Run ▶ setupAdminMonthlySummaryTrigger).
+// Safe to re-run: it removes any older trigger for these two functions first, so you
+// never end up with duplicates. First run asks you to authorize trigger management.
+function setupAdminMonthlySummaryTrigger() {
+  const handlers = ["sendAdminMonthlySummaryIfLastDay", "sendAdminMonthlySummary"];
+  let removed = 0;
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (handlers.indexOf(t.getHandlerFunction()) !== -1) { ScriptApp.deleteTrigger(t); removed++; }
+  });
+  ScriptApp.newTrigger("sendAdminMonthlySummaryIfLastDay")
+    .timeBased().everyDays(1).atHour(ADMIN_SUMMARY_TRIGGER_HOUR).inTimezone("Asia/Kolkata").create();
+  logAction("System", "ADMIN_SUMMARY_TRIGGER_SET", "Daily at ~" + ADMIN_SUMMARY_TRIGGER_HOUR + ":00 IST — sends only on the last day of the month (old triggers removed: " + removed + ")");
+  return { status: "ok", removedOldTriggers: removed, hourIST: ADMIN_SUMMARY_TRIGGER_HOUR };
 }
 
 // Internal — also called by triggerAdminSummary (manual admin-panel button)
@@ -1232,6 +1279,23 @@ function _doSendAdminSummary(overrideMonth, overrideYear, withPdf) {
     }
   }
 
+  // [SUMMARY IMAGE] Build ONE PNG from the PDF and reuse it for every admin. Never blocks the email.
+  let pngBlob = null;
+  if (pdfBlob) {
+    try {
+      pngBlob = _buildAdminSummaryPng(pdfBlob, data);
+      try {
+        _saveSummaryImageToDrive(pngBlob);
+      } catch (e2) {
+        logAction("System", "ADMIN_SUMMARY_IMAGE_SAVE_ERROR", month + " " + year, e2.message, "", { severity:"WARN", result:"FAILURE", error:e2 });
+      }
+    } catch (e) {
+      pngBlob = null;
+      logAction("System", "ADMIN_SUMMARY_IMAGE_ERROR", month + " " + year, e.message, "", { severity:"WARN", result:"FAILURE", error:e });
+    }
+  }
+  data.hasImage = !!pngBlob;
+
   const htmlBody = _buildAdminSummaryEmail(data);
   let sent = 0, skipped = 0;
 
@@ -1243,7 +1307,10 @@ function _doSendAdminSummary(overrideMonth, overrideYear, withPdf) {
         subject:  CFG.name + " — " + month + " " + year + " Contribution Summary (Admin)",
         htmlBody: htmlBody
       };
-      if (pdfBlob) mailOpts.attachments = [pdfBlob];
+      const atts = [];
+      if (pdfBlob) atts.push(pdfBlob);
+      if (pngBlob) atts.push(pngBlob);
+      if (atts.length) mailOpts.attachments = atts;
       MailApp.sendEmail(mailOpts);
       sent++;
       Utilities.sleep(300);
@@ -1340,31 +1407,7 @@ function _admInactiveFreeze(u) {
 // through today (or their inactive-freeze point), across ALL years — same
 // rule the Tracker's "Total Pending" column uses.
 function _admLifetimePendingCount(u, allContribs) {
-  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-  const start = _admEffectiveStart(u, allContribs);
-  if (!start) return 0;
-  const freeze = _admInactiveFreeze(u);
-  const now = new Date();
-  const curYM = _admYM(now.getFullYear(), now.getMonth());
-  const startYM = _admYM(start.y, start.m);
-  const endYM = freeze ? Math.min(curYM, _admYM(freeze.y, freeze.m)) : curYM;
-  if (endYM < startYM) return 0;
-
-  const myAll = allContribs.filter(function(c) {
-    return String(c.UserId) === String(u.UserId) && String(c.UserId).indexOf("WALKIN_") !== 0;
-  });
-  const paidSet = {};
-  myAll.forEach(function(c) {
-    const mi = MONTHS.indexOf(String(c.ForMonth || "").trim());
-    const y  = Number(c.Year);
-    if (mi !== -1 && !isNaN(y)) paidSet[_admYM(y, mi)] = true;
-  });
-
-  let pending = 0;
-  for (let ym = startYM; ym <= endYM; ym++) {
-    if (!paidSet[ym]) pending++;
-  }
-  return pending;
+  return _admLifetimePendingList(u, allContribs).length;   // list version lives in the Pending Report section
 }
 
 // Indian digit-grouping (lakh/crore style: 2-2-3) — used only for the
@@ -1587,245 +1630,308 @@ function _buildAdminSummaryPdf(data) {
            .setName(CFG.name + "_" + data.month + "_" + data.year + "_Summary.pdf");
 }
 
+// ════════════════════════════════════════════════════════════════
+//  [SUMMARY IMAGE] PNG copy of the Admin Monthly Summary
+//  How: PDF → temporary Drive file → Drive's page-1 preview (PNG) → temp file trashed.
+//  Needs scope: script.external_request (UrlFetchApp) — approve once by running
+//  authorizeSummaryImage() from the editor.
+//  Limits: page 1 only, full A4 size (blank space at the bottom), and it relies on
+//  Drive's preview address which is not an officially documented feature.
+// ════════════════════════════════════════════════════════════════
+function _buildAdminSummaryPng(pdfBlob, data) {
+  var tmp = null;
+  try {
+    tmp = DriveApp.createFile(pdfBlob.copyBlob().setName("tmp_summary_" + Date.now() + ".pdf"));
+    var id = tmp.getId();
+    var url = "https://drive.google.com/thumbnail?id=" + id + "&sz=w1600";
+    var token = ScriptApp.getOAuthToken();
+    var lastMsg = "unknown";
+    for (var attempt = 1; attempt <= 4; attempt++) {
+      Utilities.sleep(attempt === 1 ? 1500 : 2500); // Drive needs a moment to render the preview
+      var res = UrlFetchApp.fetch(url, { headers: { Authorization: "Bearer " + token }, muteHttpExceptions: true, followRedirects: true });
+      var code = res.getResponseCode();
+      var bytes = res.getContent();
+      // Valid PNG starts with 89 50 4E 47 ; must be a real image, not a tiny placeholder or a sign-in page
+      var isPng = bytes.length > 4 && bytes[0] === -119 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71;
+      if (code === 200 && isPng && bytes.length > 15000) {
+        return Utilities.newBlob(bytes, "image/png", data.pngName || (CFG.name + "_" + data.month + "_" + data.year + "_Summary.png"));
+      }
+      lastMsg = "HTTP " + code + ", " + bytes.length + " bytes, png=" + isPng;
+    }
+    throw new Error("Drive preview not usable after 4 tries (" + lastMsg + ")");
+  } finally {
+    if (tmp) { try { tmp.setTrashed(true); } catch (e) {} }
+  }
+}
+
+// Folder for the PNG only: CFG.folderSummaryImage, else "Monthly Summary Images" inside CFG.folderMain
+function _getSummaryImageFolder() {
+  if (CFG.folderSummaryImage) return DriveApp.getFolderById(CFG.folderSummaryImage);
+  var name = "Monthly Summary Images";
+  var parent = CFG.folderMain ? DriveApp.getFolderById(CFG.folderMain) : DriveApp.getRootFolder();
+  var it = parent.getFoldersByName(name);
+  return it.hasNext() ? it.next() : parent.createFolder(name);
+}
+
+// Saves the PNG; re-running the same month replaces that month's file (no duplicates)
+function _saveSummaryImageToDrive(pngBlob) {
+  var folder = _getSummaryImageFolder();
+  var old = folder.getFilesByName(pngBlob.getName());
+  while (old.hasNext()) old.next().setTrashed(true);
+  return folder.createFile(pngBlob);
+}
+
+// Run ONCE from the editor and click Allow (asks for the external-request permission)
+function authorizeSummaryImage() {
+  UrlFetchApp.fetch("https://drive.google.com/thumbnail?id=authorize", { muteHttpExceptions: true });
+  _getSummaryImageFolder();
+  Logger.log("Authorized. Now run testAdminSummaryImage().");
+}
+
+// Test: builds THIS month's PDF + PNG, saves the PNG to Drive, emails both ONLY to you
+function testAdminSummaryImage() {
+  var MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  var now = new Date();
+  var data = _buildAdminSummaryData(MONTHS[now.getMonth()], String(now.getFullYear()));
+  var pdf = _buildAdminSummaryPdf(data);
+  var png = _buildAdminSummaryPng(pdf, data);
+  var file = _saveSummaryImageToDrive(png);
+  var me = Session.getEffectiveUser().getEmail();
+  MailApp.sendEmail({ to: me, subject: "TEST — " + CFG.name + " summary image", htmlBody: "Test of PDF + PNG attachments. Image saved in Drive: " + file.getUrl(), attachments: [pdf, png] });
+  Logger.log("Sent to " + me + " | Drive: " + file.getUrl() + " | PNG bytes: " + png.getBytes().length);
+}
+
 function _buildAdminSummaryPdfHtml(data) {
   function esc(s) { return _htmlEscape(String(s || "")); }
   const ACCENT = "#4f46e5";
+  const CUR = CFG.currencyText;
   const walkinList  = data.walkinList  || [];
   const expenseList = data.expenseList || [];
   const pendingList = data.pendingList || [];
   const hasWalkin   = walkinList.length > 0;
-  const dash = "<span style='color:#94a3b8;'>—</span>";
+  const dash = "<span style='color:#94a3b8;'>&mdash;</span>";
+
+  // ── HOW COLOURS SURVIVE THE PDF CONVERTER ──────────────────────────────
+  // Apps Script's HTML→PDF converter is a Chromium "print" render, and print mode
+  // DROPS background colours unless told otherwise. fill() therefore paints every
+  // coloured block THREE ways at once:
+  //   1) background            – normal fill
+  //   2) print-color-adjust    – tells Chromium "print this colour exactly"
+  //   3) inset box-shadow      – a shadow is never treated as a "background", so it
+  //                              prints even if 1) and 2) are ignored; it also follows
+  //                              border-radius, so rounded cards stay rounded.
+  // Because of 3), coloured blocks are <div>s (not <td>/<tr>): shadows do not paint on
+  // table cells. Tables are therefore built from flex-row <div>s with fixed column widths.
+  function fill(c) {
+    return "background:" + c + ";box-shadow:inset 0 0 0 999px " + c + ";" +
+           "-webkit-print-color-adjust:exact;print-color-adjust:exact;";
+  }
+  const BORDER = "1px solid #e2e8f0";
+
+  // One table cell (fixed width, single line, "…" if a long name doesn't fit)
+  function cell(w, padX, align, html, extra) {
+    return "<div style='width:" + w + "px;flex:none;box-sizing:border-box;padding:0 " + padX + "px;" +
+           "overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:" + align + ";" + (extra || "") + "'>" + html + "</div>";
+  }
+  // One table row
+  function row(h, bg, cells, extra) {
+    return "<div style='display:flex;align-items:center;height:" + h + "px;" + (bg ? fill(bg) : "") + (extra || "") + "'>" + cells + "</div>";
+  }
+  // Header row with the coloured underline
+  function headRow(h, lineColor, cells) {
+    return "<div style='display:flex;align-items:center;height:" + h + "px;box-sizing:border-box;padding-top:2px;border-bottom:2px solid " + lineColor + ";'>" + cells + "</div>";
+  }
+  function th(w, padX, align, label, color, size) {
+    return cell(w, padX, align, label, "font-size:" + size + "px;font-weight:700;color:" + color + ";");
+  }
 
   // ── Header ──
   const header =
-    "<div style='text-align:center;margin:0 0 16px;'>" +
-      "<div style='font-size:19px;font-weight:800;color:#1e1b4b;'>" + esc(CFG.name) + "</div>" +
-      "<div style='font-size:11px;color:#64748b;'>" + esc(data.month) + " " + esc(data.year) + " &middot; Contribution Summary</div>" +
-    "</div>";
+    "<div style='text-align:center;font-size:20px;font-weight:800;color:#1e1b4b;padding-bottom:6px;border-bottom:" + BORDER + ";'>" + esc(CFG.name) + "</div>" +
+    "<div style='text-align:center;font-size:11.5px;color:#64748b;margin:5px 0 0;'>" + esc(data.month) + " " + esc(data.year) + " &middot; Contribution Summary</div>";
 
-  // ── Collection-progress bar. NOTE: Google Apps Script's PDF converter
-  // (Utilities.newBlob(html).getAs("application/pdf")) strips CSS
-  // background/background-color entirely — confirmed by testing both.
-  // The only reliably-rendered way to get a solid fill in that converter is
-  // the legacy HTML "bgcolor" attribute on table cells, so every colored
-  // block below is a <table>/<td bgcolor=...> instead of a styled <div>.
-  // The progress bar itself is a 2-cell table: filled cell + empty cell.
+  // ── Collection progress card ──
   const totalMembers = data.paidList.length + data.unpaidList.length;
   const pct = totalMembers > 0 ? Math.round((data.paidList.length / totalMembers) * 100) : 0;
-  const barInner = pct > 0 && pct < 100
-    ? "<tr><td bgcolor='" + ACCENT + "' width='" + pct + "%' style='font-size:1px;line-height:10px;'>&nbsp;</td>" +
-        "<td bgcolor='#e0e7ff' style='font-size:1px;line-height:10px;'>&nbsp;</td></tr>"
-    : "<tr><td bgcolor='" + (pct >= 100 ? ACCENT : "#e0e7ff") + "' style='font-size:1px;line-height:10px;'>&nbsp;</td></tr>";
   const progressCard =
-    "<table width='100%' cellpadding='0' cellspacing='0' style='margin-bottom:16px;'><tr><td bgcolor='#f5f3ff' style='padding:14px 16px;'>" +
-      "<table width='100%' cellpadding='0' cellspacing='0'><tr>" +
-        "<td style='font-size:12.5px;font-weight:700;color:#1e1b4b;'>Collection Progress</td>" +
-        "<td style='font-size:14px;font-weight:800;color:" + ACCENT + ";text-align:right;'>" + pct + "% &middot; " + data.paidList.length + "/" + totalMembers + " paid</td>" +
-      "</tr></table>" +
-      "<table width='100%' cellpadding='0' cellspacing='0' style='margin-top:8px;'>" + barInner + "</table>" +
-    "</td></tr></table>";
+    "<div style='margin-top:13px;padding:14px 18px;border-radius:10px;" + fill("#f5f3ff") + "'>" +
+      "<div style='display:flex;justify-content:space-between;align-items:baseline;'>" +
+        "<div style='font-size:13px;font-weight:700;color:#1e1b4b;'>Collection Progress</div>" +
+        "<div style='font-size:14.5px;font-weight:800;color:" + ACCENT + ";'>" + pct + "% &middot; " + data.paidList.length + "/" + totalMembers + " paid</div>" +
+      "</div>" +
+      "<div style='margin-top:8px;height:14px;border-radius:7px;overflow:hidden;" + fill("#e0e7ff") + "'>" +
+        "<div style='width:" + pct + "%;height:14px;" + fill(ACCENT) + "'></div>" +
+      "</div>" +
+    "</div>";
 
-  // ── Top stat row: Collected / Expenses / Net Balance. No fill needed here
-  // (only a thin border, which the converter renders fine), so this stays a
-  // plain table with a border — no bgcolor required.
+  // ── Stat box: Collected / Expenses / Net Balance ──
   function miniStat(label, value, color) {
-    return "<td style='padding:10px 6px;text-align:center;'>" +
-      "<div style='font-size:9px;color:#94a3b8;font-weight:700;text-transform:uppercase;'>" + label + "</div>" +
-      "<div style='font-size:14px;font-weight:800;color:" + color + ";margin-top:2px;'>" + CFG.currencyText + " " + _admFormatINR(value||0) + "</div>" +
+    return "<td style='padding:8px 6px;text-align:center;'>" +
+      "<div style='font-size:9.5px;color:#94a3b8;font-weight:700;text-transform:uppercase;'>" + label + "</div>" +
+      "<div style='font-size:15px;font-weight:800;color:" + color + ";margin-top:3px;'>" + CUR + " " + _admFormatINR(value || 0) + "</div>" +
     "</td>";
   }
   const collectedForStat = hasWalkin ? (data.grandTotal != null ? data.grandTotal : data.totalCollected) : data.totalCollected;
   const netForStat = data.netBalance != null ? data.netBalance : collectedForStat;
   const statsRow =
-    "<table width='100%' cellpadding='0' cellspacing='0' style='border:1px solid #e2e8f0;margin-bottom:18px;'><tr>" +
-      miniStat("Collected", collectedForStat, "#16a34a") +
-      miniStat("Expenses", data.expenseTotal, "#dc2626") +
-      miniStat("Net Balance", netForStat, netForStat < 0 ? "#dc2626" : "#16a34a") +
-    "</tr></table>";
+    "<div style='margin-top:15px;border:" + BORDER + ";border-radius:10px;'>" +
+      "<table width='100%' cellpadding='0' cellspacing='0' style='border-collapse:separate;border-spacing:0;'><tr>" +
+        miniStat("Collected", collectedForStat, "#16a34a") +
+        miniStat("Expenses", data.expenseTotal, "#dc2626") +
+        miniStat("Net Balance", netForStat, netForStat < 0 ? "#dc2626" : "#16a34a") +
+      "</tr></table>" +
+    "</div>";
 
-  // ── Payment Status: single table, paid + not-yet-paid. Row highlight now
-  // uses bgcolor="..." (not style="background:...") for the same converter
-  // reason as above. "Entries" column only exists at all when at least one
-  // member has >1 entry this month — unchanged from before.
+  // ── Card wrapper used by the big sections ──
+  function card(inner, bg) {
+    return "<div style='margin-top:14px;padding:13px 18px;border:" + BORDER + ";border-radius:10px;break-inside:avoid;page-break-inside:avoid;" + (bg ? fill(bg) : "") + "'>" + inner + "</div>";
+  }
+  function cardTitle(html, color, mb) {
+    return "<div style='font-size:14px;font-weight:700;color:" + color + ";height:16px;line-height:16px;margin-bottom:" + mb + "px;'>" + html + "</div>";
+  }
+
+  // ── Payment Status ──
+  // Column widths (px) add up to 596 = card inner width. "Entries" column only appears
+  // when at least one member has more than one entry this month (unchanged behaviour).
   const anyMultiEntry = data.paidList.some(m => m.entries > 1);
+  const PC = anyMultiEntry ? [53, 235, 97, 62, 103, 46] : [53, 277, 97, 124, 45];
   let memberRows = "";
   let mi = 0;
   data.paidList.forEach(m => {
     mi++;
-    const bg = mi % 2 === 0 ? " bgcolor='#f8fafc'" : "";
-    memberRows += "<tr" + bg + ">" +
-      "<td style='padding:6px 8px;font-size:11px;color:#cbd5e1;'>" + mi + "</td>" +
-      "<td style='padding:6px 8px;font-size:12px;'>" + esc(m.name) + "</td>" +
-      "<td style='padding:6px 8px;font-size:11px;color:#64748b;text-align:center;'>" + esc(m.dateDisplay || "") + "</td>" +
-      (anyMultiEntry
-        ? (m.entries > 1
-            ? "<td style='padding:6px 8px;font-size:11px;color:#64748b;text-align:center;'>" + m.entries + "</td>" +
-              "<td style='padding:6px 8px;font-size:12px;text-align:right;font-weight:700;'>" + CFG.currencyText + " " + m.amount + "</td>"
-            : "<td style='padding:6px 8px;font-size:12px;text-align:right;font-weight:700;' colspan='2'>" + CFG.currencyText + " " + m.amount + "</td>"
-          )
-        : "<td style='padding:6px 8px;font-size:12px;text-align:right;font-weight:700;'>" + CFG.currencyText + " " + m.amount + "</td>"
-      ) +
-      "<td style='padding:6px 8px;text-align:center;'><span style='color:#16a34a;font-size:14px;'>&#9679;</span></td>" +
-    "</tr>";
+    const bg = mi % 2 === 0 ? "#f8fafc" : "";
+    let c = cell(PC[0], 8, "left", mi, "font-size:11.5px;color:#cbd5e1;") +
+            cell(PC[1], 8, "left", esc(m.name), "font-size:12.5px;") +
+            cell(PC[2], 8, "center", esc(m.dateDisplay || ""), "font-size:11.5px;color:#64748b;");
+    if (anyMultiEntry) {
+      c += cell(PC[3], 8, "center", m.entries > 1 ? m.entries : "", "font-size:11.5px;color:#64748b;");
+    }
+    c += cell(PC[anyMultiEntry ? 4 : 3], 8, "right", CUR + " " + m.amount, "font-size:12.5px;font-weight:700;") +
+         cell(PC[anyMultiEntry ? 5 : 4], 0, "center", "&#9679;", "font-size:14px;color:#16a34a;");
+    memberRows += row(26, bg, c);
   });
   data.unpaidList.forEach(m => {
     mi++;
-    memberRows += "<tr bgcolor='#fef2f2'>" +
-      "<td style='padding:6px 8px;font-size:11px;color:#f3b4b4;'>" + mi + "</td>" +
-      "<td style='padding:6px 8px;font-size:12px;color:#b91c1c;font-weight:600;'>" + esc(m.name) + "</td>" +
-      "<td style='padding:6px 8px;font-size:11px;color:#f3b4b4;text-align:center;'>—</td>" +
-      (anyMultiEntry
-        ? "<td style='padding:6px 8px;font-size:12px;text-align:right;color:#dc2626;font-weight:700;' colspan='2'>Not Paid</td>"
-        : "<td style='padding:6px 8px;font-size:12px;text-align:right;color:#dc2626;font-weight:700;'>Not Paid</td>"
-      ) +
-      "<td style='padding:6px 8px;text-align:center;'><span style='color:#dc2626;font-size:14px;'>&#9679;</span></td>" +
-    "</tr>";
+    let c = cell(PC[0], 8, "left", mi, "font-size:11.5px;color:#f3b4b4;") +
+            cell(PC[1], 8, "left", esc(m.name), "font-size:12.5px;color:#b91c1c;font-weight:700;") +
+            cell(PC[2], 8, "center", "&mdash;", "font-size:11.5px;color:#f3b4b4;");
+    if (anyMultiEntry) c += cell(PC[3], 8, "center", "", "");
+    c += cell(PC[anyMultiEntry ? 4 : 3], 8, "right", "Not Paid", "font-size:12.5px;color:#dc2626;font-weight:700;") +
+         cell(PC[anyMultiEntry ? 5 : 4], 0, "center", "&#9679;", "font-size:14px;color:#dc2626;");
+    memberRows += row(26, "#fef2f2", c);
   });
 
-  let sectionsA = "";
+  let sections = "";
   if (data.paidList.length > 0 || data.unpaidList.length > 0) {
-    sectionsA +=
-      "<div style='margin-bottom:20px;'>" +
-        "<div style='font-size:13px;font-weight:700;color:#1e1b4b;margin-bottom:8px;'>Payment Status</div>" +
-        "<table style='border-collapse:collapse;width:100%;'>" +
-          "<tr style='border-bottom:2px solid " + ACCENT + ";'>" +
-            "<th style='padding:6px 8px;text-align:left;font-size:9.5px;color:" + ACCENT + ";'>#</th>" +
-            "<th style='padding:6px 8px;text-align:left;font-size:9.5px;color:" + ACCENT + ";'>NAME</th>" +
-            "<th style='padding:6px 8px;text-align:center;font-size:9.5px;color:" + ACCENT + ";'>DATE</th>" +
-            (anyMultiEntry ? "<th style='padding:6px 8px;text-align:center;font-size:9.5px;color:" + ACCENT + ";'>ENTRIES</th>" : "") +
-            "<th style='padding:6px 8px;text-align:right;font-size:9.5px;color:" + ACCENT + ";'>AMOUNT</th>" +
-            "<th style='padding:6px 8px;text-align:center;font-size:9.5px;color:" + ACCENT + ";'>&nbsp;</th>" +
-          "</tr>" + memberRows +
-        "</table>" +
-        "<div style='margin-top:8px;font-size:11.5px;'><strong>Total Members Collected:</strong> " + CFG.currencyText + " " + _admFormatINR(data.totalCollected||0) + "</div>" +
-      "</div>";
+    const head = headRow(26, ACCENT,
+      th(PC[0], 8, "left", "#", ACCENT, 10) +
+      th(PC[1], 8, "left", "NAME", ACCENT, 10) +
+      th(PC[2], 8, "center", "DATE", ACCENT, 10) +
+      (anyMultiEntry ? th(PC[3], 8, "center", "ENTRIES", ACCENT, 10) : "") +
+      th(PC[anyMultiEntry ? 4 : 3], 8, "right", "AMOUNT", ACCENT, 10) +
+      th(PC[anyMultiEntry ? 5 : 4], 0, "center", "&nbsp;", ACCENT, 10));
+    sections += card(cardTitle("Payment Status", "#1e1b4b", 3) + head + memberRows);
   }
 
-  // ── Walk-in Contributions — same bgcolor-based zebra treatment, amber tint.
+  // ── Walk-in contributions (amber version of the same card) ──
   if (hasWalkin) {
-    const walkinRows = walkinList.map((m, i) => {
-      const bg = i % 2 === 1 ? " bgcolor='#fffbeb'" : "";
-      return "<tr" + bg + ">" +
-        "<td style='padding:6px 8px;font-size:11px;color:#cbd5e1;'>" + (i + 1) + "</td>" +
-        "<td style='padding:6px 8px;font-size:12px;'>" + esc(m.name) + "</td>" +
-        "<td style='padding:6px 8px;font-size:12px;text-align:right;font-weight:700;'>" + CFG.currencyText + " " + m.amount + "</td>" +
-      "</tr>";
-    }).join("");
-    sectionsA +=
-      "<div style='margin-bottom:20px;'>" +
-        "<div style='font-size:13px;font-weight:700;color:#92400e;margin-bottom:8px;'>🚶 Walk-in Contributions</div>" +
-        "<table style='border-collapse:collapse;width:100%;'>" +
-          "<tr style='border-bottom:2px solid #d97706;'>" +
-            "<th style='padding:6px 8px;text-align:left;font-size:9.5px;color:#92400e;'>#</th>" +
-            "<th style='padding:6px 8px;text-align:left;font-size:9.5px;color:#92400e;'>NAME</th>" +
-            "<th style='padding:6px 8px;text-align:right;font-size:9.5px;color:#92400e;'>AMOUNT</th>" +
-          "</tr>" + walkinRows +
-        "</table>" +
-      "</div>";
+    const WC = [32, 468, 96];
+    const wRows = walkinList.map((m, i) =>
+      row(24, i % 2 === 1 ? "#fffbeb" : "",
+        cell(WC[0], 8, "left", i + 1, "font-size:11.5px;color:#cbd5e1;") +
+        cell(WC[1], 8, "left", esc(m.name), "font-size:12.5px;") +
+        cell(WC[2], 8, "right", CUR + " " + m.amount, "font-size:12.5px;font-weight:700;"))
+    ).join("");
+    const wHead = headRow(24, "#d97706",
+      th(WC[0], 8, "left", "#", "#92400e", 10) +
+      th(WC[1], 8, "left", "NAME", "#92400e", 10) +
+      th(WC[2], 8, "right", "AMOUNT", "#92400e", 10));
+    sections += card(cardTitle("&#128694; Walk-in Contributions", "#92400e", 9) + wHead + wRows);
   }
 
-  // ── Expenses This Month — skipped entirely (no heading/table/totals) when
-  // there are no expenses, same as before.
+  // ── Expenses This Month (skipped entirely when there are none) ──
   if (expenseList.length > 0) {
-    const expenseRows = expenseList.map((x, i) => {
-      const bg = i % 2 === 1 ? " bgcolor='#f8fafc'" : "";
-      return "<tr" + bg + ">" +
-        "<td style='padding:6px 8px;font-size:11px;color:#cbd5e1;'>" + (i + 1) + "</td>" +
-        "<td style='padding:6px 8px;font-size:12px;'>" + esc(x.title) + "</td>" +
-        "<td style='padding:6px 8px;font-size:11px;color:#64748b;'>" + esc(x.date || "—") + "</td>" +
-        "<td style='padding:6px 8px;font-size:12px;text-align:right;'>" + CFG.currencyText + " " + x.amount + "</td>" +
-      "</tr>";
-    }).join("");
-    const netBalanceThisMonth = data.netBalance != null ? data.netBalance : data.grandTotal;
-    sectionsA +=
-      "<div style='margin-bottom:20px;'>" +
-        "<div style='font-size:13px;font-weight:700;color:#1e1b4b;margin-bottom:8px;'>💸 Expenses This Month</div>" +
-        "<table style='border-collapse:collapse;width:100%;'>" +
-          "<tr style='border-bottom:2px solid " + ACCENT + ";'>" +
-            "<th style='padding:6px 8px;text-align:left;font-size:9.5px;color:" + ACCENT + ";'>#</th>" +
-            "<th style='padding:6px 8px;text-align:left;font-size:9.5px;color:" + ACCENT + ";'>TITLE</th>" +
-            "<th style='padding:6px 8px;text-align:left;font-size:9.5px;color:" + ACCENT + ";'>DATE</th>" +
-            "<th style='padding:6px 8px;text-align:right;font-size:9.5px;color:" + ACCENT + ";'>AMOUNT</th>" +
-          "</tr>" + expenseRows +
-        "</table>" +
-        "<div style='margin-top:8px;font-size:11.5px;'><strong>Total Expenses:</strong> " + CFG.currencyText + " " + _admFormatINR(data.expenseTotal||0) +
-          " &nbsp;|&nbsp; <strong>Net Balance:</strong> <span style='color:" + (netBalanceThisMonth < 0 ? "#dc2626" : "#16a34a") + ";font-weight:800;'>" + CFG.currencyText + " " + _admFormatINR(netBalanceThisMonth||0) + "</span></div>" +
-      "</div>";
+    const EC = [32, 395, 75, 94];
+    const eRows = expenseList.map((x, i) =>
+      row(24, i % 2 === 1 ? "#f8fafc" : "",
+        cell(EC[0], 8, "left", i + 1, "font-size:11.5px;color:#cbd5e1;") +
+        cell(EC[1], 8, "left", esc(x.title), "font-size:12.5px;") +
+        cell(EC[2], 8, "left", esc(x.date || "—"), "font-size:11.5px;color:#64748b;") +
+        cell(EC[3], 8, "right", CUR + " " + x.amount, "font-size:12.5px;"))
+    ).join("");
+    const eHead = headRow(24, ACCENT,
+      th(EC[0], 8, "left", "#", ACCENT, 10) +
+      th(EC[1], 8, "left", "TITLE", ACCENT, 10) +
+      th(EC[2], 8, "left", "DATE", ACCENT, 10) +
+      th(EC[3], 8, "right", "AMOUNT", ACCENT, 10));
+    sections += card(cardTitle("&#128184; Expenses This Month", "#1e1b4b", 9) + eHead + eRows);
   }
 
-  // ── Overall Summary: All-Time Pending Summary + All-Time Fund Summary,
-  // side by side (flex layout already renders correctly in the converter —
-  // it's specifically backgrounds that don't, so the flex wrapper stays a
-  // div, but each card itself is now a bgcolor'd table).
-  let overall = "";
+  // ── Bottom row: All-Time Pending Summary + All-Time Fund Summary ──
   let pendingCard = "";
   if (pendingList.length > 0) {
+    const cardStyle = "width:294px;box-sizing:border-box;padding:16px 18px;border:" + BORDER + ";border-radius:10px;" + fill("#fffbeb");
     if (!data.pendingHasAnyTarget) {
       pendingCard =
-        "<div style='flex:1;'><table width='100%' cellpadding='0' cellspacing='0'><tr><td bgcolor='#fffbeb' style='padding:12px;'>" +
-          "<div style='font-size:12px;font-weight:700;color:#b45309;margin-bottom:8px;'>All-Time Pending Summary</div>" +
-          "<table width='100%' cellpadding='0' cellspacing='0'><tr><td bgcolor='#fef3c7' style='padding:8px 10px;border:1px solid #fde68a;color:#92400e;font-size:11px;'>" +
-            "⚠️ Monthly Target not set for these members — pending amount unavailable." +
-          "</td></tr></table>" +
-        "</td></tr></table></div>";
+        "<div style='" + cardStyle + "'>" +
+          "<div style='font-size:13px;font-weight:700;color:#b45309;margin-bottom:8px;'>All-Time Pending Summary</div>" +
+          "<div style='padding:8px 10px;border:1px solid #fde68a;border-radius:6px;color:#92400e;font-size:11.5px;" + fill("#fef3c7") + "'>" +
+            "Monthly Target not set for these members &mdash; pending amount unavailable." +
+          "</div>" +
+        "</div>";
     } else {
-      const pendingRows = pendingList.map((p, i) => {
-        const bg = i % 2 === 1 ? " bgcolor='#fef3c7'" : "";
-        return "<tr" + bg + ">" +
-          "<td style='padding:6px 6px;font-size:11px;'>" + esc(p.name) + "</td>" +
-          "<td style='padding:6px 6px;font-size:11px;text-align:center;color:#92400e;'>" + (p.amount !== null ? p.months : dash) + "</td>" +
-          "<td style='padding:6px 6px;font-size:11px;text-align:right;font-weight:700;color:#b45309;'>" + (p.amount !== null ? CFG.currencyText + " " + p.amount : dash) + "</td>" +
-        "</tr>";
-      }).join("");
+      const QC = [129, 57, 70];
+      const pRows = pendingList.map((p, i) =>
+        row(22, i % 2 === 1 ? "#fef3c7" : "",
+          cell(QC[0], 6, "left", esc(p.name), "font-size:11.5px;") +
+          cell(QC[1], 6, "center", p.amount !== null ? p.months : dash, "font-size:11.5px;color:#92400e;") +
+          cell(QC[2], 6, "right", p.amount !== null ? CUR + " " + p.amount : dash, "font-size:11.5px;font-weight:700;color:#b45309;"))
+      ).join("");
+      const pHead = headRow(22, "#d97706",
+        th(QC[0], 6, "left", "NAME", "#92400e", 9.5) +
+        th(QC[1], 6, "center", "MONTHS", "#92400e", 9.5) +
+        th(QC[2], 6, "right", "AMOUNT", "#92400e", 9.5));
       pendingCard =
-        "<div style='flex:1;'><table width='100%' cellpadding='0' cellspacing='0'><tr><td bgcolor='#fffbeb' style='padding:12px;'>" +
-          "<div style='font-size:12px;font-weight:700;color:#b45309;margin-bottom:8px;'>All-Time Pending Summary</div>" +
-          "<table style='border-collapse:collapse;width:100%;'>" +
-            "<tr style='border-bottom:2px solid #d97706;'>" +
-              "<th style='padding:4px 6px;text-align:left;font-size:9px;color:#92400e;'>NAME</th>" +
-              "<th style='padding:4px 6px;text-align:center;font-size:9px;color:#92400e;'>MONTHS</th>" +
-              "<th style='padding:4px 6px;text-align:right;font-size:9px;color:#92400e;'>AMOUNT</th>" +
-            "</tr>" + pendingRows +
-          "</table>" +
-          "<div style='margin-top:8px;padding-top:6px;border-top:1px dashed #f3d29e;font-size:12px;font-weight:800;color:#b45309;text-align:right;'>Total: " + CFG.currencyText + " " + _admFormatINR(data.totalPendingAmount||0) + "</div>" +
-        "</td></tr></table></div>";
+        "<div style='" + cardStyle + "'>" +
+          "<div style='font-size:13px;font-weight:700;color:#b45309;margin-bottom:8px;'>All-Time Pending Summary</div>" +
+          pHead + pRows +
+          "<div style='margin-top:10px;padding-top:7px;border-top:1px dashed #f3d29e;font-size:12.5px;font-weight:700;color:#b45309;text-align:right;'>Total: " + CUR + " " + _admFormatINR(data.totalPendingAmount || 0) + "</div>" +
+        "</div>";
     }
   }
 
-  const allTimeNet = data.allTimeNetBalance != null ? data.allTimeNetBalance : (data.allTimeCollected||0);
+  const allTimeNet = data.allTimeNetBalance != null ? data.allTimeNetBalance : (data.allTimeCollected || 0);
   const netPillColor = allTimeNet < 0 ? "#fee2e2" : "#dcfce7";
   const netTextColor = allTimeNet < 0 ? "#991b1b" : "#166534";
   const netValColor  = allTimeNet < 0 ? "#dc2626" : "#16a34a";
+  function fundRow(label, value) {
+    return "<div style='display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #e0e7ff;'>" +
+      "<div style='font-size:11.5px;color:#4c1d95;'>" + label + "</div>" +
+      "<div style='font-size:12px;font-weight:700;color:#1e1b4b;'>" + CUR + " " + _admFormatINR(value || 0) + "</div>" +
+    "</div>";
+  }
   const allTimeCard =
-    "<div style='flex:1;'><table width='100%' cellpadding='0' cellspacing='0'><tr><td bgcolor='#f5f3ff' style='padding:12px;'>" +
-      "<div style='font-size:12px;font-weight:700;color:#1e1b4b;margin-bottom:8px;'>All-Time Fund Summary</div>" +
-      "<table width='100%' cellpadding='0' cellspacing='0' style='border-bottom:1px solid #e0e7ff;'><tr>" +
-        "<td style='padding:5px 0;font-size:11px;color:#4c1d95;'>Total Collection</td>" +
-        "<td style='padding:5px 0;font-size:11.5px;font-weight:700;color:#1e1b4b;text-align:right;'>" + CFG.currencyText + " " + _admFormatINR(data.allTimeCollected||0) + "</td>" +
-      "</tr></table>" +
-      "<table width='100%' cellpadding='0' cellspacing='0' style='border-bottom:1px solid #e0e7ff;'><tr>" +
-        "<td style='padding:5px 0;font-size:11px;color:#4c1d95;'>Total Expenses</td>" +
-        "<td style='padding:5px 0;font-size:11.5px;font-weight:700;color:#1e1b4b;text-align:right;'>" + CFG.currencyText + " " + _admFormatINR(data.allTimeExpenses||0) + "</td>" +
-      "</tr></table>" +
-      "<table width='100%' cellpadding='0' cellspacing='0' style='margin-top:8px;'><tr><td bgcolor='" + netPillColor + "' style='padding:7px 10px;'>" +
-        "<table width='100%' cellpadding='0' cellspacing='0'><tr>" +
-          "<td style='font-size:11px;font-weight:700;color:" + netTextColor + ";'>Current Net Balance</td>" +
-          "<td style='font-size:14px;font-weight:800;color:" + netValColor + ";text-align:right;'>" + CFG.currencyText + " " + _admFormatINR(allTimeNet) + "</td>" +
-        "</tr></table>" +
-      "</td></tr></table>" +
-    "</td></tr></table></div>";
+    "<div style='" + (pendingCard ? "width:294px;" : "width:100%;") + "box-sizing:border-box;padding:16px 18px;border:" + BORDER + ";border-radius:10px;" + fill("#f5f3ff") + "'>" +
+      "<div style='font-size:13px;font-weight:700;color:#1e1b4b;margin-bottom:8px;'>All-Time Fund Summary</div>" +
+      fundRow("Total Collection", data.allTimeCollected) +
+      fundRow("Total Expenses", data.allTimeExpenses) +
+      "<div style='margin-top:6px;height:32px;padding:0 12px;border-radius:8px;display:flex;justify-content:space-between;align-items:center;" + fill(netPillColor) + "'>" +
+        "<div style='font-size:11.5px;font-weight:700;color:" + netTextColor + ";'>Current Net Balance</div>" +
+        "<div style='font-size:14.5px;font-weight:800;color:" + netValColor + ";'>" + CUR + " " + _admFormatINR(allTimeNet) + "</div>" +
+      "</div>" +
+    "</div>";
 
-  overall = pendingCard
-    ? "<div style='display:flex;gap:14px;'>" + pendingCard + allTimeCard + "</div>"
-    : allTimeCard;
+  const overall = "<div style='margin-top:14px;display:flex;justify-content:space-between;align-items:flex-start;break-inside:avoid;page-break-inside:avoid;'>" +
+    pendingCard + allTimeCard + "</div>";
 
   const footerNote =
-    "<p style='margin-top:22px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:9px;color:#94a3b8;text-align:center;'>" +
+    "<div style='margin-top:16px;padding-top:6px;border-top:" + BORDER + ";font-size:9px;color:#94a3b8;text-align:center;'>" +
       "This is a system-generated document from " + esc(CFG.name) + ". No signature is required." +
-    "</p>";
+    "</div>";
 
-  return "<html><head><meta charset='utf-8'></head><body style='font-family:Arial,sans-serif;color:#1e293b;padding:20px 24px;'>" +
-    header + progressCard + statsRow + sectionsA + overall + footerNote +
+  return "<html><head><meta charset='utf-8'></head>" +
+    "<body style='font-family:Arial,sans-serif;color:#1e293b;margin:0;padding:12px 32px;-webkit-print-color-adjust:exact;print-color-adjust:exact;'>" +
+    header + progressCard + statsRow + sections + overall + footerNote +
     "</body></html>";
 }
 
@@ -1936,157 +2042,554 @@ function _adminSummaryRow(num, name, value, textColor) {
   </tr>`;
 }
 
-// ── HTML email body — Paid → Walk-in → Not-Paid, each section skipped entirely
-//    (no heading, no empty table) when its list has zero entries. Every row is
-//    numbered, with real horizontal padding so text never touches the card edge.
+// ── HTML email body — same design as the PDF summary: progress card, stat row,
+//    Payment Status (paid + not-paid in ONE zebra table), Walk-in, Expenses, then
+//    All-Time Pending + All-Time Fund cards. Each section is skipped entirely when
+//    its list is empty. Built with email-safe HTML (tables + inline styles) —
+//    no flexbox, no <style> block — so Gmail / Outlook / Apple Mail all render it.
 function _buildAdminSummaryEmail(data) {
+  function esc(s) { return _htmlEscape(String(s === undefined || s === null ? "" : s)); }
+  const ACCENT = "#4f46e5";
+  const CUR = CFG.currencyText;
   const walkinList  = data.walkinList  || [];
   const expenseList = data.expenseList || [];
   const pendingList = data.pendingList || [];
   const hasWalkin   = walkinList.length > 0;
+  const dash = "<span style=\"color:#94a3b8;\">&mdash;</span>";
+  const BORDER = "1px solid #e2e8f0";
+  const NUM = "font-size:11px;color:#cbd5e1;";
 
-  let sectionsHtml = "";
+  // Coloured row background: bgcolor attribute (Outlook) + CSS background (everyone else)
+  function bgAttr(c) { return c ? " bgcolor=\"" + c + "\" style=\"background:" + c + ";\"" : ""; }
+  function td(style, html, extra) { return "<td style=\"" + style + "\"" + (extra || "") + ">" + html + "</td>"; }
 
-  if (data.paidList.length > 0) {
-    const paidRows = data.paidList.map((m, i) =>
-      _adminSummaryRow(
-        i + 1,
-        m.name + (m.dateDisplay ? " · " + m.dateDisplay : ""),
-        CFG.currencyText + " " + m.amount + (m.entries > 1 ? " (" + m.entries + " entries)" : ""),
-        "#166534"
-      )
-    ).join("");
-    sectionsHtml += `
-    <p style="color:#166534;font-size:13px;font-weight:600;margin:0 0 8px;">✅ Paid</p>
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;overflow:hidden;">${paidRows}</table>`;
+  // Section card (white, thin border, rounded)
+  function card(title, titleColor, tableHtml, bg) {
+    return "<div style=\"margin:14px 0 0;padding:14px 16px 10px;border:" + BORDER + ";border-radius:10px;" + (bg ? "background:" + bg + ";" : "") + "\">" +
+      "<div style=\"font-size:14px;font-weight:700;color:" + titleColor + ";margin:0 0 8px;\">" + title + "</div>" +
+      tableHtml +
+    "</div>";
+  }
+  function headCell(label, align, color, extraStyle) {
+    return "<td style=\"padding:6px 6px;font-size:10px;font-weight:700;color:" + color + ";text-align:" + align + ";border-bottom:2px solid " + color + ";" + (extraStyle || "") + "\">" + label + "</td>";
   }
 
+  // ── Sub-title under the branded header ──
+  const subtitle =
+    "<div style=\"text-align:center;font-size:13px;color:#64748b;padding:0 0 14px;border-bottom:" + BORDER + ";\">" +
+      esc(data.month) + " " + esc(data.year) + " &middot; Contribution Summary" +
+    "</div>";
+
+  // ── Collection progress card ──
+  const totalMembers = data.paidList.length + data.unpaidList.length;
+  const pct = totalMembers > 0 ? Math.round((data.paidList.length / totalMembers) * 100) : 0;
+  const barCells = pct <= 0
+    ? td("height:14px;line-height:14px;font-size:1px;background:#e0e7ff;", "&nbsp;", " bgcolor=\"#e0e7ff\"")
+    : pct >= 100
+      ? td("height:14px;line-height:14px;font-size:1px;background:" + ACCENT + ";", "&nbsp;", " bgcolor=\"" + ACCENT + "\"")
+      : td("height:14px;line-height:14px;font-size:1px;background:" + ACCENT + ";", "&nbsp;", " bgcolor=\"" + ACCENT + "\" width=\"" + pct + "%\"") +
+        td("height:14px;line-height:14px;font-size:1px;background:#e0e7ff;", "&nbsp;", " bgcolor=\"#e0e7ff\"");
+  const progressCard =
+    "<div style=\"margin:14px 0 0;padding:14px 18px;background:#f5f3ff;border-radius:10px;\">" +
+      "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr>" +
+        td("font-size:13px;font-weight:700;color:#1e1b4b;", "Collection Progress") +
+        td("font-size:14.5px;font-weight:700;color:" + ACCENT + ";text-align:right;", pct + "% &middot; " + data.paidList.length + "/" + totalMembers + " paid") +
+      "</tr></table>" +
+      "<div style=\"margin-top:8px;border-radius:7px;overflow:hidden;height:14px;background:#e0e7ff;\">" +
+        "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border-collapse:collapse;\"><tr>" + barCells + "</tr></table>" +
+      "</div>" +
+    "</div>";
+
+  // ── Stat box: Collected / Expenses / Net Balance ──
+  function miniStat(label, value, color) {
+    return "<td width=\"33%\" style=\"padding:9px 4px;text-align:center;\">" +
+      "<div style=\"font-size:9.5px;color:#94a3b8;font-weight:700;text-transform:uppercase;\">" + label + "</div>" +
+      "<div style=\"font-size:15px;font-weight:700;color:" + color + ";margin-top:3px;\">" + CUR + " " + _admFormatINR(value || 0) + "</div>" +
+    "</td>";
+  }
+  const collectedForStat = hasWalkin ? (data.grandTotal != null ? data.grandTotal : data.totalCollected) : data.totalCollected;
+  const netForStat = data.netBalance != null ? data.netBalance : collectedForStat;
+  const statsRow =
+    "<div style=\"margin:14px 0 0;border:" + BORDER + ";border-radius:10px;\">" +
+      "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr>" +
+        miniStat("Collected", collectedForStat, "#16a34a") +
+        miniStat("Expenses", data.expenseTotal, "#dc2626") +
+        miniStat("Net Balance", netForStat, netForStat < 0 ? "#dc2626" : "#16a34a") +
+      "</tr></table>" +
+    "</div>";
+
+  let sections = "";
+
+  // ── Payment Status — paid + not-yet-paid in one table ──
+  if (totalMembers > 0) {
+    let rows = "";
+    let mi = 0;
+    data.paidList.forEach(m => {
+      mi++;
+      rows += "<tr" + bgAttr(mi % 2 === 0 ? "#f8fafc" : "") + ">" +
+        td("padding:7px 6px;width:22px;" + NUM, mi) +
+        td("padding:7px 6px;font-size:12.5px;color:#1e293b;", esc(m.name)) +
+        td("padding:7px 6px;font-size:11px;color:#64748b;text-align:center;white-space:nowrap;", esc(m.dateDisplay || "")) +
+        td("padding:7px 6px;font-size:12.5px;font-weight:700;color:#1e293b;text-align:right;white-space:nowrap;",
+           CUR + " " + esc(m.amount) + (m.entries > 1 ? "<div style=\"font-size:10px;font-weight:400;color:#64748b;\">" + m.entries + " entries</div>" : "")) +
+        td("padding:7px 4px;width:18px;font-size:12px;color:#16a34a;text-align:center;", "&#9679;") +
+      "</tr>";
+    });
+    data.unpaidList.forEach(m => {
+      mi++;
+      rows += "<tr" + bgAttr("#fef2f2") + ">" +
+        td("padding:7px 6px;width:22px;font-size:11px;color:#f3b4b4;", mi) +
+        td("padding:7px 6px;font-size:12.5px;font-weight:700;color:#b91c1c;", esc(m.name)) +
+        td("padding:7px 6px;font-size:11px;color:#f3b4b4;text-align:center;", "&mdash;") +
+        td("padding:7px 6px;font-size:12.5px;font-weight:700;color:#dc2626;text-align:right;white-space:nowrap;", "Not Paid") +
+        td("padding:7px 4px;width:18px;font-size:12px;color:#dc2626;text-align:center;", "&#9679;") +
+      "</tr>";
+    });
+    const table = "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border-collapse:collapse;\">" +
+      "<tr>" + headCell("#", "left", ACCENT) + headCell("NAME", "left", ACCENT) + headCell("DATE", "center", ACCENT) +
+        headCell("AMOUNT", "right", ACCENT) + headCell("&nbsp;", "center", ACCENT) + "</tr>" + rows + "</table>";
+    sections += card("Payment Status", "#1e1b4b", table);
+  }
+
+  // ── Walk-in contributions (amber version of the same card) ──
   if (hasWalkin) {
-    const walkinRows = walkinList.map((m, i) =>
-      _adminSummaryRow(i + 1, m.name, CFG.currencyText + " " + m.amount, "#92400e")
-    ).join("");
-    sectionsHtml += `
-    <p style="color:#92400e;font-size:13px;font-weight:600;margin:20px 0 8px;">🚶 Walk-in Contributions</p>
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;overflow:hidden;">${walkinRows}</table>`;
+    const wRows = walkinList.map((m, i) =>
+      "<tr" + bgAttr(i % 2 === 1 ? "#fffbeb" : "") + ">" +
+        td("padding:7px 6px;width:22px;" + NUM, i + 1) +
+        td("padding:7px 6px;font-size:12.5px;color:#1e293b;", esc(m.name)) +
+        td("padding:7px 6px;font-size:12.5px;font-weight:700;color:#1e293b;text-align:right;white-space:nowrap;", CUR + " " + esc(m.amount)) +
+      "</tr>").join("");
+    const wTable = "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border-collapse:collapse;\">" +
+      "<tr>" + headCell("#", "left", "#d97706") + headCell("NAME", "left", "#d97706") + headCell("AMOUNT", "right", "#d97706") + "</tr>" + wRows + "</table>";
+    sections += card("&#128694; Walk-in Contributions", "#92400e", wTable);
   }
 
-  // [NEW] Expenses — neutral slate tint (money OUT, distinct from paid/walkin's
-  // green/amber and unpaid's red). Total Expenses / Net Balance sit directly
-  // below this table only — not mixed into the top income summary above,
-  // per request.
+  // ── Expenses This Month ──
   if (expenseList.length > 0) {
-    const expenseRows = expenseList.map((x, i) =>
-      _adminSummaryRow(i + 1, x.title + (x.date ? " · " + x.date : ""), CFG.currencyText + " " + x.amount, "#334155")
-    ).join("");
-    sectionsHtml += `
-    <p style="color:#334155;font-size:13px;font-weight:600;margin:20px 0 8px;">💸 Expenses This Month</p>
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;overflow:hidden;">${expenseRows}</table>
-    <p style="color:${_EM.ink};font-size:13px;margin:10px 0 2px;">
-      Total Expenses: ${CFG.currencyText} ${data.expenseTotal||0}
-    </p>
-    <p style="color:${_EM.ink};font-size:14px;font-weight:600;margin:0;">
-      Net Balance: ${CFG.currencyText} ${data.netBalance != null ? data.netBalance : data.grandTotal}
-      <span style="color:${_EM.sub};font-weight:400;font-size:11.5px;">(collected − expenses)</span>
-    </p>`;
+    const eRows = expenseList.map((x, i) =>
+      "<tr" + bgAttr(i % 2 === 1 ? "#f8fafc" : "") + ">" +
+        td("padding:7px 6px;width:22px;" + NUM, i + 1) +
+        td("padding:7px 6px;font-size:12.5px;color:#1e293b;", esc(x.title)) +
+        td("padding:7px 6px;font-size:11px;color:#64748b;white-space:nowrap;", esc(x.date || "—")) +
+        td("padding:7px 6px;font-size:12.5px;color:#1e293b;text-align:right;white-space:nowrap;", CUR + " " + esc(x.amount)) +
+      "</tr>").join("");
+    const eTable = "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border-collapse:collapse;\">" +
+      "<tr>" + headCell("#", "left", ACCENT) + headCell("TITLE", "left", ACCENT) + headCell("DATE", "left", ACCENT) + headCell("AMOUNT", "right", ACCENT) + "</tr>" + eRows + "</table>";
+    sections += card("&#128184; Expenses This Month", "#1e1b4b", eTable);
   }
 
-  // Not Yet Paid — plain name list, this-month status only. Lifetime pending
-  // figures live in the Overall Summary box below, not merged in here.
-  if (data.unpaidList.length > 0) {
-    const unpaidRows = data.unpaidList.map((m, i) =>
-      _adminSummaryRow(i + 1, m.name, undefined, "#991b1b")
-    ).join("");
-    sectionsHtml += `
-    <p style="color:#991b1b;font-size:13px;font-weight:700;margin:20px 0 8px;">⚠️ Not Yet Paid</p>
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:8px;overflow:hidden;">${unpaidRows}</table>`;
-  }
-
-  // Members collected / Grand total — Grand total shown only when it differs
-  // from Members collected (i.e. there's walk-in income on top of it).
-  const membersLineHtml = hasWalkin
-    ? `<p style="color:${_EM.ink};font-size:13px;margin:0 0 4px;">
-         Members: ${CFG.currencyText} ${data.totalCollected} &nbsp;+&nbsp; Walk-in: ${CFG.currencyText} ${data.walkinTotal}
-       </p>
-       <p style="color:${_EM.ink};font-size:15px;font-weight:600;margin:0 0 16px;">
-         Grand total: ${CFG.currencyText} ${data.grandTotal}
-       </p>`
-    : `<p style="color:${_EM.ink};font-size:14px;font-weight:600;margin:0 0 16px;">
-         Members collected: ${CFG.currencyText} ${data.totalCollected}
-       </p>`;
-
-  const boxA = `
-    <div style="border:1.5px solid #cbd5e1;border-radius:12px;padding:20px 22px;margin:0 0 16px;">
-      <p style="color:${_EM.ink};font-size:14px;margin:0 0 12px;">
-        ${data.month} ${data.year} contribution status — ${data.paidList.length} paid, ${data.unpaidList.length} pending${hasWalkin ? ", " + walkinList.length + " walk-in" : ""}.
-      </p>
-      ${membersLineHtml}
-      ${sectionsHtml}
-    </div>`;
-
-  // ── Overall Summary box — lifetime figures, not tied to this month.
-  //    1) Total Pending — Not Yet Paid Members (months × MonthlyTarget)
-  //    2) Overall Fund Summary (All-Time), Net Balance color-coded.
-  let pendingHtml = "";
+  // ── Bottom pair: All-Time Pending + All-Time Fund ──
+  // Two inline-block cards: side by side on wide screens, stacked on phones.
+  let pendingCard = "";
   if (pendingList.length > 0) {
+    let inner;
     if (!data.pendingHasAnyTarget) {
-      pendingHtml = `
-      <p style="color:#334155;font-size:13px;font-weight:700;margin:0 0 8px;">Total Pending — Not Yet Paid Members</p>
-      <p style="color:#92400e;font-size:12px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;margin:0 0 16px;">
-        ⚠️ Monthly Target not set for these members — pending amount unavailable.
-      </p>`;
+      inner = "<div style=\"padding:8px 10px;border:1px solid #fde68a;border-radius:6px;background:#fef3c7;color:#92400e;font-size:11.5px;\">" +
+        "&#9888;&#65039; Monthly Target not set for these members &mdash; pending amount unavailable.</div>";
     } else {
-      const dash = `<span style="color:#94a3b8;">—</span>`;
-      const pendingRows = pendingList.map((p, i) => `<tr>
-        <td style="padding:10px 4px 10px 14px;color:#991b1b;opacity:0.55;font-size:12px;font-weight:700;text-align:center;width:26px;border-bottom:1px solid rgba(0,0,0,0.06);">${i + 1}.</td>
-        <td style="padding:10px 8px;color:#991b1b;font-size:13px;font-weight:600;border-bottom:1px solid rgba(0,0,0,0.06);">${_htmlEscape(p.name)}</td>
-        <td style="padding:10px 8px;color:#991b1b;font-size:12px;text-align:center;border-bottom:1px solid rgba(0,0,0,0.06);">${p.amount !== null ? p.months : dash}</td>
-        <td style="padding:10px 8px;color:#991b1b;font-size:12px;text-align:right;border-bottom:1px solid rgba(0,0,0,0.06);">${p.amount !== null ? CFG.currencyText + " " + p.target : dash}</td>
-        <td style="padding:10px 14px 10px 8px;color:#991b1b;font-size:13px;font-weight:700;text-align:right;border-bottom:1px solid rgba(0,0,0,0.06);">${p.amount !== null ? CFG.currencyText + " " + p.amount : dash}</td>
-      </tr>`).join("");
-      pendingHtml = `
-      <p style="color:#334155;font-size:13px;font-weight:700;margin:0 0 8px;">Total Pending — Not Yet Paid Members</p>
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;overflow:hidden;">
-        <tr style="background:#fee2e2;">
-          <td style="padding:8px 4px 8px 14px;color:#991b1b;font-size:11px;font-weight:700;width:26px;">#</td>
-          <td style="padding:8px;color:#991b1b;font-size:11px;font-weight:700;">Name</td>
-          <td style="padding:8px;color:#991b1b;font-size:11px;font-weight:700;text-align:center;">Months</td>
-          <td style="padding:8px;color:#991b1b;font-size:11px;font-weight:700;text-align:right;">Target</td>
-          <td style="padding:8px 14px 8px 8px;color:#991b1b;font-size:11px;font-weight:700;text-align:right;">Pending</td>
-        </tr>
-        ${pendingRows}
-      </table>
-      <p style="color:${_EM.ink};font-size:13px;font-weight:700;margin:10px 0 16px;">Total Pending: ${CFG.currencyText} ${data.totalPendingAmount}</p>`;
+      const pRows = pendingList.map((p, i) =>
+        "<tr" + bgAttr(i % 2 === 1 ? "#fef3c7" : "") + ">" +
+          td("padding:6px 4px;font-size:11px;color:#1e293b;", esc(p.name)) +
+          td("padding:6px 4px;font-size:11px;color:#92400e;text-align:center;", p.amount !== null ? p.months : dash) +
+          td("padding:6px 4px;font-size:11px;font-weight:700;color:#b45309;text-align:right;white-space:nowrap;", p.amount !== null ? CUR + " " + esc(p.amount) : dash) +
+        "</tr>").join("");
+      inner = "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border-collapse:collapse;\">" +
+        "<tr>" + headCell("NAME", "left", "#d97706", "color:#92400e;") + headCell("MONTHS", "center", "#d97706", "color:#92400e;") + headCell("AMOUNT", "right", "#d97706", "color:#92400e;") + "</tr>" +
+        pRows + "</table>" +
+        "<div style=\"margin-top:8px;padding-top:7px;border-top:1px dashed #f3d29e;font-size:12.5px;font-weight:700;color:#b45309;text-align:right;\">Total: " + CUR + " " + _admFormatINR(data.totalPendingAmount || 0) + "</div>";
     }
+    pendingCard = "<div style=\"display:inline-block;vertical-align:top;width:51%;min-width:220px;box-sizing:border-box;margin:14px 1% 0 0;padding:14px 12px;border:" + BORDER + ";border-radius:10px;background:#fffbeb;\">" +
+      "<div style=\"font-size:13px;font-weight:700;color:#b45309;margin:0 0 8px;\">All-Time Pending Summary</div>" + inner + "</div>";
   }
 
-  const netBalanceColor = (data.allTimeNetBalance != null ? data.allTimeNetBalance : (data.allTimeCollected||0)) < 0 ? "#dc2626" : "#16a34a";
-  const allTimeHtml = `
-    <div style="padding:14px 16px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;">
-      <p style="color:#3730a3;font-size:13px;font-weight:700;margin:0 0 8px;">Overall Fund Summary (All-Time)</p>
-      <p style="color:${_EM.ink};font-size:13px;margin:0 0 4px;">Total Collection (all-time): ${CFG.currencyText} ${_admFormatINR(data.allTimeCollected||0)}</p>
-      <p style="color:${_EM.ink};font-size:13px;margin:0 0 4px;">Total Expenses (all-time): ${CFG.currencyText} ${_admFormatINR(data.allTimeExpenses||0)}</p>
-      <p style="color:${netBalanceColor};font-size:14.5px;font-weight:700;margin:0;">Current Net Balance: ${CFG.currencyText} ${_admFormatINR(data.allTimeNetBalance != null ? data.allTimeNetBalance : (data.allTimeCollected||0))}</p>
-    </div>`;
+  const allTimeNet = data.allTimeNetBalance != null ? data.allTimeNetBalance : (data.allTimeCollected || 0);
+  const netPillColor = allTimeNet < 0 ? "#fee2e2" : "#dcfce7";
+  const netTextColor = allTimeNet < 0 ? "#991b1b" : "#166534";
+  const netValColor  = allTimeNet < 0 ? "#dc2626" : "#16a34a";
+  function fundRow(label, value) {
+    return "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border-bottom:1px solid #e0e7ff;\"><tr>" +
+      td("padding:7px 0;font-size:11.5px;color:#4c1d95;", label) +
+      td("padding:7px 0;font-size:12px;font-weight:700;color:#1e1b4b;text-align:right;white-space:nowrap;", CUR + " " + _admFormatINR(value || 0)) +
+    "</tr></table>";
+  }
+  const fundCard =
+    "<div style=\"display:inline-block;vertical-align:top;width:" + (pendingCard ? "45%;min-width:220px;margin:14px 0 0 1%;" : "100%;margin:14px 0 0;") + "box-sizing:border-box;padding:14px 16px;border:" + BORDER + ";border-radius:10px;background:#f5f3ff;\">" +
+      "<div style=\"font-size:13px;font-weight:700;color:#1e1b4b;margin:0 0 8px;\">All-Time Fund Summary</div>" +
+      fundRow("Total Collection", data.allTimeCollected) +
+      fundRow("Total Expenses", data.allTimeExpenses) +
+      "<div style=\"margin-top:8px;padding:8px 10px;border-radius:8px;background:" + netPillColor + ";\">" +
+        "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr>" +
+          td("font-size:11px;font-weight:700;color:" + netTextColor + ";white-space:nowrap;", "Current Net Balance") +
+          td("font-size:14px;font-weight:700;color:" + netValColor + ";text-align:right;white-space:nowrap;", CUR + " " + _admFormatINR(allTimeNet)) +
+        "</tr></table>" +
+      "</div>" +
+    "</div>";
+  const overall = "<div>" + pendingCard + fundCard + "</div>";
 
-  const boxB = `
-    <div style="border:1.5px solid #cbd5e1;border-radius:12px;padding:20px 22px;margin:0 0 16px;">
-      <p style="color:${_EM.ink};font-size:15px;font-weight:700;margin:0 0 16px;">🏦 Overall Summary</p>
-      ${pendingHtml}
-      ${allTimeHtml}
-    </div>`;
+  const attachNote = data.hasImage
+    ? "A PDF copy and an image (PNG) of this summary are also attached &mdash; forward either to the group if needed."
+    : "A PDF copy of this summary is also attached &mdash; forward it to the group if needed.";
 
   const body = `
-  ${_emHeader("ADMIN MONTHLY SUMMARY")}
-  <tr><td style="padding:24px 28px;">
-    ${boxA}
-    ${boxB}
-
-    <p style="color:${_EM.sub};font-size:12px;margin:0;">
-      A PDF copy of this table is also attached — forward either to the group if needed.
-    </p>
+  ${_emHeader("ADMIN MONTHLY SUMMARY", null, ACCENT)}
+  <tr><td style="padding:22px 28px 24px;">
+    ${subtitle}
+    ${progressCard}
+    ${statsRow}
+    ${sections}
+    ${overall}
+    <p style="color:${_EM.sub};font-size:12px;margin:18px 0 0;text-align:center;">${attachNote}</p>
   </td></tr>
   ${_emFooter()}`;
   return _emShell(560, body);
+}
+
+// ════════════════════════════════════════════════════════════════
+//  ADMIN PENDING REPORT — separate on-demand email to all active admins
+//  Member-wise list of WHICH months (with year) are still unpaid, plus totals.
+//  Always "as of today" (lifetime pending, same rule as the Tracker's Pending
+//  column and the summary's All-Time Pending card). Sent by the Tracker's
+//  "Pending Report" button via the triggerPendingReport action.
+//  Email body carries the full details; the PDF and a PNG image are attached.
+// ════════════════════════════════════════════════════════════════
+
+// Which months are pending for one member — ascending list of year*12+month numbers.
+// Same rule as _admLifetimePendingCount (which now just counts this list).
+function _admLifetimePendingList(u, allContribs) {
+  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const start = _admEffectiveStart(u, allContribs);
+  if (!start) return [];
+  const freeze = _admInactiveFreeze(u);
+  const now = new Date();
+  const curYM = _admYM(now.getFullYear(), now.getMonth());
+  const startYM = _admYM(start.y, start.m);
+  const endYM = freeze ? Math.min(curYM, _admYM(freeze.y, freeze.m)) : curYM;
+  if (endYM < startYM) return [];
+
+  const paidSet = {};
+  allContribs.forEach(function(c) {
+    if (String(c.UserId) !== String(u.UserId) || String(c.UserId).indexOf("WALKIN_") === 0) return;
+    const mi = MONTHS.indexOf(String(c.ForMonth || "").trim());
+    const y  = Number(c.Year);
+    if (mi !== -1 && !isNaN(y)) paidSet[_admYM(y, mi)] = true;
+  });
+
+  const list = [];
+  for (let ym = startYM; ym <= endYM; ym++) {
+    if (!paidSet[ym]) list.push(ym);
+  }
+  return list;
+}
+
+// [ym, ym, …] → ["Oct 2025 – Sep 2026"] / ["Jan 2026", "Mar – May 2026"]  (consecutive months grouped)
+function _admMonthRanges(ymList) {
+  const SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const out = [];
+  let i = 0;
+  while (i < ymList.length) {
+    let j = i;
+    while (j + 1 < ymList.length && ymList[j + 1] === ymList[j] + 1) j++;
+    const a = ymList[i], b = ymList[j];
+    const ay = Math.floor(a / 12), am = a % 12, by = Math.floor(b / 12), bm = b % 12;
+    if (a === b)        out.push(SHORT[am] + " " + ay);
+    else if (ay === by) out.push(SHORT[am] + " \u2013 " + SHORT[bm] + " " + ay);
+    else                out.push(SHORT[am] + " " + ay + " \u2013 " + SHORT[bm] + " " + by);
+    i = j + 1;
+  }
+  return out;
+}
+
+function _buildAdminPendingReportData() {
+  const users         = getSheetData(SHEETS.USERS);
+  const contributions = getSheetData(SHEETS.CONTRIBUTIONS);
+  // Same member set as the summary: fully-approved, active, non-admin members only.
+  const activeMembers = users.filter(u =>
+    String(u.Role || "").toLowerCase() !== "admin" &&
+    String(u.Status || "").toLowerCase() === "active"
+  );
+
+  const rows = [];
+  let totalPendingMonths = 0, totalPendingAmount = 0, pendingHasAnyTarget = false, someMissingTarget = false;
+  activeMembers.forEach(m => {
+    const list = _admLifetimePendingList(m, contributions);
+    if (list.length === 0) return;
+    const target = Number(m.MonthlyTarget || 0);
+    const hasTarget = target > 0;
+    totalPendingMonths += list.length;
+    if (hasTarget) { pendingHasAnyTarget = true; totalPendingAmount += list.length * target; }
+    else someMissingTarget = true;
+    rows.push({ name: m.Name, months: list.length, ranges: _admMonthRanges(list), target: target, amount: hasTarget ? list.length * target : null });
+  });
+  // Highest pending first; members with no target (amount null) at the bottom.
+  rows.sort((a, b) => {
+    if (a.amount === null && b.amount === null) return b.months - a.months;
+    if (a.amount === null) return 1;
+    if (b.amount === null) return -1;
+    if (b.amount !== a.amount) return b.amount - a.amount;
+    return b.months - a.months;
+  });
+
+  const now = new Date();
+  return {
+    asOf:      Utilities.formatDate(now, "GMT+5:30", "d MMMM yyyy"),
+    asOfShort: Utilities.formatDate(now, "GMT+5:30", "yyyy-MM-dd"),
+    totalMembers: activeMembers.length,
+    rows: rows,
+    membersWithPending: rows.length,
+    fullyPaidCount: activeMembers.length - rows.length,
+    totalPendingMonths: totalPendingMonths,
+    totalPendingAmount: totalPendingAmount,
+    pendingHasAnyTarget: pendingHasAnyTarget,
+    someMissingTarget: someMissingTarget
+  };
+}
+
+// ── PDF ──────────────────────────────────────────────────────────
+function _buildAdminPendingReportPdf(data) {
+  return Utilities.newBlob(_buildAdminPendingReportPdfHtml(data), "text/html", "temp.html")
+           .getAs("application/pdf")
+           .setName(CFG.name + "_Pending_Report_" + data.asOfShort + ".pdf");
+}
+
+// Same print-colour technique as _buildAdminSummaryPdfHtml (see the explanation there):
+// every coloured block is painted via background + print-color-adjust + inset box-shadow.
+function _buildAdminPendingReportPdfHtml(data) {
+  function esc(s) { return _htmlEscape(String(s === undefined || s === null ? "" : s)); }
+  const ACCENT = "#4f46e5";
+  const CUR = CFG.currencyText;
+  const BORDER = "1px solid #e2e8f0";
+  const dash = "<span style='color:#94a3b8;'>&mdash;</span>";
+  function fill(c) {
+    return "background:" + c + ";box-shadow:inset 0 0 0 999px " + c + ";" +
+           "-webkit-print-color-adjust:exact;print-color-adjust:exact;";
+  }
+  function cell(w, align, html, extra) {
+    return "<div style='width:" + w + "px;flex:none;box-sizing:border-box;padding:0 8px;text-align:" + align + ";" + (extra || "") + "'>" + html + "</div>";
+  }
+
+  const header =
+    "<div style='text-align:center;font-size:20px;font-weight:800;color:#1e1b4b;padding-bottom:6px;border-bottom:" + BORDER + ";'>" + esc(CFG.name) + "</div>" +
+    "<div style='text-align:center;font-size:11.5px;color:#64748b;margin:5px 0 0;'>Pending Report &middot; as of " + esc(data.asOf) + "</div>";
+
+  function miniStat(label, value, color) {
+    return "<td style='padding:8px 6px;text-align:center;'>" +
+      "<div style='font-size:9.5px;color:#94a3b8;font-weight:700;text-transform:uppercase;'>" + label + "</div>" +
+      "<div style='font-size:15px;font-weight:800;color:" + color + ";margin-top:3px;'>" + value + "</div></td>";
+  }
+  const redOrGreen = data.membersWithPending > 0 ? "#dc2626" : "#16a34a";
+  const stats =
+    "<div style='margin-top:15px;border:" + BORDER + ";border-radius:10px;'>" +
+      "<table width='100%' cellpadding='0' cellspacing='0' style='border-collapse:separate;border-spacing:0;'><tr>" +
+        miniStat("Members with pending", data.membersWithPending + " of " + data.totalMembers, redOrGreen) +
+        miniStat("Pending months", data.totalPendingMonths, redOrGreen) +
+        miniStat("Pending amount", data.pendingHasAnyTarget ? CUR + " " + _admFormatINR(data.totalPendingAmount) : (data.rows.length === 0 ? CUR + " 0" : "&mdash;"), redOrGreen) +
+      "</tr></table></div>";
+
+  let body = "";
+  if (data.rows.length > 0) {
+    const C = [32, 190, 62, 218, 94];   // sums to 596 = card inner width
+    function th(w, align, label) {
+      return "<div style='width:" + w + "px;flex:none;box-sizing:border-box;padding:0 8px;text-align:" + align + ";font-size:10px;font-weight:700;color:" + ACCENT + ";'>" + label + "</div>";
+    }
+    const head = "<div style='display:flex;align-items:center;height:26px;box-sizing:border-box;padding-top:2px;border-bottom:2px solid " + ACCENT + ";'>" +
+      th(C[0], "left", "#") + th(C[1], "left", "MEMBER") + th(C[2], "center", "MONTHS") + th(C[3], "left", "WHICH MONTHS") + th(C[4], "right", "AMOUNT") + "</div>";
+    const chipStyle = "display:inline-block;margin:0 4px 3px 0;padding:2px 7px;border-radius:6px;font-size:11.5px;color:#b91c1c;" + fill("#fef2f2");
+    const rowsHtml = data.rows.map((r, i) =>
+      "<div style='display:flex;align-items:flex-start;padding:8px 0 5px;break-inside:avoid;page-break-inside:avoid;" + (i % 2 === 1 ? fill("#f8fafc") : "") + "'>" +
+        cell(C[0], "left", i + 1, "font-size:11.5px;color:#cbd5e1;padding-top:2px;") +
+        cell(C[1], "left", esc(r.name), "font-size:12.5px;padding-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;") +
+        cell(C[2], "center", r.months, "font-size:12.5px;font-weight:700;color:#92400e;padding-top:1px;") +
+        cell(C[3], "left", r.ranges.map(t => "<span style='" + chipStyle + "'>" + esc(t) + "</span>").join(""), "") +
+        cell(C[4], "right", r.amount !== null ? CUR + " " + r.amount : dash, "font-size:12.5px;font-weight:700;color:#b45309;padding-top:1px;") +
+      "</div>").join("");
+    const totalRow = data.pendingHasAnyTarget
+      ? "<div style='display:flex;align-items:center;margin-top:4px;padding-top:9px;border-top:1px dashed #f3d29e;'>" +
+          cell(C[0], "left", "&nbsp;", "") +
+          cell(C[1] + C[2] + C[3], "left", "Total", "font-size:12.5px;font-weight:700;color:#b45309;") +
+          cell(C[4], "right", CUR + " " + _admFormatINR(data.totalPendingAmount), "font-size:12.5px;font-weight:700;color:#b45309;") +
+        "</div>"
+      : "";
+    const partialNote = (data.pendingHasAnyTarget && data.someMissingTarget)
+      ? "<div style='margin-top:6px;font-size:10px;color:#92400e;'>Amount excludes members with no Monthly Target set.</div>" : "";
+    body += "<div style='margin-top:14px;padding:13px 18px 12px;border:" + BORDER + ";border-radius:10px;'>" +
+      "<div style='font-size:14px;font-weight:700;color:#1e1b4b;height:16px;line-height:16px;margin-bottom:3px;'>Member-wise Pending Months</div>" +
+      head + rowsHtml + totalRow + partialNote + "</div>";
+  }
+
+  const okText = data.rows.length === 0
+    ? "&#10003; All " + data.totalMembers + " member" + (data.totalMembers === 1 ? " is" : "s are") + " fully paid up &mdash; nothing pending."
+    : (data.fullyPaidCount > 0 ? "&#10003; " + data.fullyPaidCount + " member" + (data.fullyPaidCount === 1 ? " is" : "s are") + " fully paid up." : "");
+  const okNote = okText
+    ? "<div style='margin-top:14px;padding:10px 14px;border-radius:10px;color:#166534;font-size:12px;" + fill("#f0fdf4") + "'>" + okText + "</div>" : "";
+
+  const footerNote =
+    "<div style='margin-top:16px;padding-top:6px;border-top:" + BORDER + ";font-size:9px;color:#94a3b8;text-align:center;'>" +
+      "This is a system-generated document from " + esc(CFG.name) + ". No signature is required.</div>";
+
+  return "<html><head><meta charset='utf-8'></head>" +
+    "<body style='font-family:Arial,sans-serif;color:#1e293b;margin:0;padding:12px 32px;-webkit-print-color-adjust:exact;print-color-adjust:exact;'>" +
+    header + stats + body + okNote + footerNote + "</body></html>";
+}
+
+// ── Email body (same design; email-safe tables, no flexbox) ──────
+function _buildAdminPendingReportEmail(data) {
+  function esc(s) { return _htmlEscape(String(s === undefined || s === null ? "" : s)); }
+  const ACCENT = "#4f46e5";
+  const CUR = CFG.currencyText;
+  const BORDER = "1px solid #e2e8f0";
+  const dash = "<span style=\"color:#94a3b8;\">&mdash;</span>";
+  function td(style, html, extra) { return "<td style=\"" + style + "\"" + (extra || "") + ">" + html + "</td>"; }
+  function bgAttr(c) { return c ? " bgcolor=\"" + c + "\" style=\"background:" + c + ";\"" : ""; }
+
+  const subtitle =
+    "<div style=\"text-align:center;font-size:13px;color:#64748b;padding:0 0 14px;border-bottom:" + BORDER + ";\">" +
+      "Pending Report &middot; as of " + esc(data.asOf) + "</div>";
+
+  const redOrGreen = data.membersWithPending > 0 ? "#dc2626" : "#16a34a";
+  function miniStat(label, value) {
+    return "<td width=\"33%\" style=\"padding:9px 4px;text-align:center;\">" +
+      "<div style=\"font-size:9.5px;color:#94a3b8;font-weight:700;text-transform:uppercase;\">" + label + "</div>" +
+      "<div style=\"font-size:15px;font-weight:700;color:" + redOrGreen + ";margin-top:3px;\">" + value + "</div></td>";
+  }
+  const stats =
+    "<div style=\"margin:14px 0 0;border:" + BORDER + ";border-radius:10px;\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr>" +
+      miniStat("Members with pending", data.membersWithPending + " of " + data.totalMembers) +
+      miniStat("Pending months", data.totalPendingMonths) +
+      miniStat("Pending amount", data.pendingHasAnyTarget ? CUR + " " + _admFormatINR(data.totalPendingAmount) : (data.rows.length === 0 ? CUR + " 0" : "&mdash;")) +
+    "</tr></table></div>";
+
+  let table = "";
+  if (data.rows.length > 0) {
+    function headCell(label, align) {
+      return "<td style=\"padding:6px 6px;font-size:10px;font-weight:700;color:" + ACCENT + ";text-align:" + align + ";border-bottom:2px solid " + ACCENT + ";\">" + label + "</td>";
+    }
+    // Two lines per member: name / months / amount on top, the month chips underneath (reads well on phones).
+    const chip = "display:inline-block;margin:0 4px 4px 0;padding:2px 7px;border-radius:6px;background:#fef2f2;color:#b91c1c;font-size:11.5px;";
+    const rows = data.rows.map((r, i) => {
+      const bg = i % 2 === 1 ? "#f8fafc" : "";
+      return "<tr" + bgAttr(bg) + ">" +
+          td("padding:8px 6px 2px;width:22px;font-size:11px;color:#cbd5e1;", i + 1) +
+          td("padding:8px 6px 2px;font-size:12.5px;color:#1e293b;font-weight:700;", esc(r.name)) +
+          td("padding:8px 6px 2px;font-size:12.5px;font-weight:700;color:#92400e;text-align:center;white-space:nowrap;", r.months + (r.months === 1 ? " month" : " months")) +
+          td("padding:8px 6px 2px;font-size:12.5px;font-weight:700;color:#b45309;text-align:right;white-space:nowrap;", r.amount !== null ? CUR + " " + esc(r.amount) : dash) +
+        "</tr>" +
+        "<tr" + bgAttr(bg) + ">" + td("padding:0 6px 6px;", "&nbsp;") +
+          td("padding:0 6px 6px;", r.ranges.map(t => "<span style=\"" + chip + "\">" + esc(t) + "</span>").join(""), " colspan=\"3\"") +
+        "</tr>";
+    }).join("");
+    const totalRow = data.pendingHasAnyTarget
+      ? "<tr>" + td("padding:9px 6px 2px;border-top:1px dashed #f3d29e;", "&nbsp;") +
+          td("padding:9px 6px 2px;border-top:1px dashed #f3d29e;font-size:12.5px;font-weight:700;color:#b45309;", "Total", " colspan=\"2\"") +
+          td("padding:9px 6px 2px;border-top:1px dashed #f3d29e;font-size:12.5px;font-weight:700;color:#b45309;text-align:right;white-space:nowrap;", CUR + " " + _admFormatINR(data.totalPendingAmount)) +
+        "</tr>" : "";
+    const partialNote = (data.pendingHasAnyTarget && data.someMissingTarget)
+      ? "<div style=\"margin-top:6px;font-size:10px;color:#92400e;\">Amount excludes members with no Monthly Target set.</div>" : "";
+    table = "<div style=\"margin:14px 0 0;padding:14px 16px 10px;border:" + BORDER + ";border-radius:10px;\">" +
+      "<div style=\"font-size:14px;font-weight:700;color:#1e1b4b;margin:0 0 8px;\">Member-wise Pending Months</div>" +
+      "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border-collapse:collapse;\">" +
+        "<tr>" + headCell("#", "left") + headCell("MEMBER", "left") + headCell("MONTHS", "center") + headCell("AMOUNT", "right") + "</tr>" +
+        rows + totalRow + "</table>" + partialNote + "</div>";
+  }
+
+  const okText = data.rows.length === 0
+    ? "&#10003; All " + data.totalMembers + " member" + (data.totalMembers === 1 ? " is" : "s are") + " fully paid up &mdash; nothing pending."
+    : (data.fullyPaidCount > 0 ? "&#10003; " + data.fullyPaidCount + " member" + (data.fullyPaidCount === 1 ? " is" : "s are") + " fully paid up." : "");
+  const okNote = okText
+    ? "<div style=\"margin:14px 0 0;padding:10px 14px;border-radius:10px;background:#f0fdf4;color:#166534;font-size:12px;\">" + okText + "</div>" : "";
+
+  const attachNote = data.hasImage
+    ? "A PDF copy and an image (PNG) of this report are also attached &mdash; forward either to the group if needed."
+    : "A PDF copy of this report is also attached &mdash; forward it to the group if needed.";
+
+  const body = `
+  ${_emHeader("PENDING REPORT", null, ACCENT)}
+  <tr><td style="padding:22px 28px 24px;">
+    ${subtitle}
+    ${stats}
+    ${table}
+    ${okNote}
+    <p style="color:${_EM.sub};font-size:12px;margin:18px 0 0;text-align:center;">${attachNote}</p>
+  </td></tr>
+  ${_emFooter()}`;
+  return _emShell(560, body);
+}
+
+// ── Sender (used by the Tracker "Pending Report" button via triggerPendingReport) ──
+function _doSendAdminPendingReport() {
+  const data = _buildAdminPendingReportData();
+
+  const users  = getSheetData(SHEETS.USERS);
+  const admins = users.filter(u =>
+    String(u.Role || "").toLowerCase() === "admin" &&
+    String(u.Email || "").trim() !== "" &&
+    String(u.Status || "Active").toLowerCase() === "active"
+  );
+  if (admins.length === 0) {
+    logAction("System", "PENDING_REPORT_NO_ADMIN", data.asOf, "No active admin with email found", "", { severity:"WARN", result:"BLOCKED" });
+    return { status: "error", message: "No active admin with an email address found." };
+  }
+
+  // PDF and PNG never block the email: if either fails, the email still goes out without it.
+  let pdfBlob = null, pngBlob = null;
+  try { pdfBlob = _buildAdminPendingReportPdf(data); }
+  catch (e) { logAction("System", "PENDING_REPORT_PDF_ERROR", data.asOf, e.message, "", { severity:"WARN", result:"FAILURE", error:e }); }
+  if (pdfBlob) {
+    try {
+      data.pngName = CFG.name + "_Pending_Report_" + data.asOfShort + ".png";
+      pngBlob = _buildAdminSummaryPng(pdfBlob, data);
+      try { _saveSummaryImageToDrive(pngBlob); }
+      catch (e2) { logAction("System", "PENDING_REPORT_IMAGE_SAVE_ERROR", data.asOf, e2.message, "", { severity:"WARN", result:"FAILURE", error:e2 }); }
+    } catch (e) {
+      pngBlob = null;
+      logAction("System", "PENDING_REPORT_IMAGE_ERROR", data.asOf, e.message, "", { severity:"WARN", result:"FAILURE", error:e });
+    }
+  }
+  data.hasImage = !!pngBlob;
+
+  const htmlBody = _buildAdminPendingReportEmail(data);
+  let sent = 0, skipped = 0;
+  admins.forEach(admin => {
+    try {
+      if (!tryConsumeEmailQuota()) { skipped++; return; }
+      const mailOpts = {
+        to:       String(admin.Email).trim(),
+        subject:  CFG.name + " \u2014 Pending Report (" + data.asOf + ")",
+        htmlBody: htmlBody
+      };
+      const atts = [];
+      if (pdfBlob) atts.push(pdfBlob);
+      if (pngBlob) atts.push(pngBlob);
+      if (atts.length) mailOpts.attachments = atts;
+      MailApp.sendEmail(mailOpts);
+      sent++;
+      Utilities.sleep(300);
+    } catch (e) {
+      logAction("System", "PENDING_REPORT_SEND_ERROR", "To: " + admin.Email, e.message, "", { severity:"WARN", result:"FAILURE", error:e });
+      skipped++;
+    }
+  });
+
+  logAction("System", "Admin Pending Report Sent", data.asOf + " \u2014 sent:" + sent + ", skipped:" + skipped + ", members:" + data.membersWithPending + ", months:" + data.totalPendingMonths);
+  const quota = getEmailQuotaStatus();
+  return {
+    status: "ok", sent: sent, skipped: skipped,
+    membersWithPending: data.membersWithPending, totalMembers: data.totalMembers,
+    totalPendingMonths: data.totalPendingMonths, totalPendingAmount: data.totalPendingAmount,
+    quotaRemaining: quota.remaining
+  };
+}
+
+// Test from the editor: builds the report and emails PDF + PNG ONLY to you.
+function testPendingReport() {
+  var data = _buildAdminPendingReportData();
+  var pdf = _buildAdminPendingReportPdf(data);
+  data.pngName = CFG.name + "_Pending_Report_" + data.asOfShort + ".png";
+  var png = _buildAdminSummaryPng(pdf, data);
+  data.hasImage = true;
+  var me = Session.getEffectiveUser().getEmail();
+  MailApp.sendEmail({ to: me, subject: "TEST \u2014 " + CFG.name + " Pending Report (" + data.asOf + ")",
+    htmlBody: _buildAdminPendingReportEmail(data), attachments: [pdf, png] });
+  Logger.log("Sent to " + me + " | members with pending: " + data.membersWithPending + " | PDF bytes: " + pdf.getBytes().length + " | PNG bytes: " + png.getBytes().length);
 }
 
 // ── Logo URL helper — used by ALL email types
@@ -2442,7 +2945,7 @@ function doGet(e) {
     // Email blast actions — must require auth to prevent spam abuse
     "triggerMonthlyReport","triggerMonthlyReminder","sendMonthlyReminders","sendBirthdayEmails","sendIndividualTrackerEmail",
     "sendContribReceiptEmail",
-    "triggerAdminSummary","getAdminSummaryStatus",
+    "triggerAdminSummary","getAdminSummaryStatus","triggerPendingReport","getPendingReportStatus",
     // Mobile number change — requires active session
     "sendMobileChangeOTP","verifyMobileChangeOTP",
     // Audit log write — prevent unauthenticated fake entries
@@ -3025,6 +3528,47 @@ function doGet(e) {
           result = JSON.parse(raw);
           if (result.status !== "pending") {
             try { PropertiesService.getScriptProperties().deleteProperty("ADMSUM_" + jobKey); } catch(e) {}
+          }
+        }
+      } catch(e) {
+        result = { status: "pending" };
+      }
+    }
+  }
+
+  // ── #10c: MANUAL TRIGGER — Admin Pending Report (same fire-and-store pattern as #10)
+  else if (action === "triggerPendingReport") {
+    const jobKey = sanitize(e.parameter.jobKey, 50) || ("job_" + Date.now());
+    try {
+      PropertiesService.getScriptProperties().setProperty("PENDREP_" + jobKey, JSON.stringify({ status: "pending" }));
+    } catch(e) {}
+    let jobResult;
+    try {
+      jobResult = _doSendAdminPendingReport();
+    } catch(err) {
+      logAction("System", "PENDING_REPORT_ERROR", "Manual trigger", err.message, "", { severity:"ERROR", result:"FAILURE", error:err });
+      jobResult = { status: "error", message: err.message };
+    }
+    try {
+      PropertiesService.getScriptProperties().setProperty("PENDREP_" + jobKey, JSON.stringify(jobResult));
+    } catch(e) {}
+    result = jobResult;
+  }
+
+  // ── #10d: POLL for pending report result
+  else if (action === "getPendingReportStatus") {
+    const jobKey = sanitize(e.parameter.jobKey, 50);
+    if (!jobKey) {
+      result = { status: "error", message: "Missing jobKey" };
+    } else {
+      try {
+        const raw = PropertiesService.getScriptProperties().getProperty("PENDREP_" + jobKey);
+        if (!raw) {
+          result = { status: "pending" };
+        } else {
+          result = JSON.parse(raw);
+          if (result.status !== "pending") {
+            try { PropertiesService.getScriptProperties().deleteProperty("PENDREP_" + jobKey); } catch(e) {}
           }
         }
       } catch(e) {

@@ -10,6 +10,19 @@
 
     <div class="tr-header-row">
       <h3><i class="fa-solid fa-chart-pie" style="color:var(--tr-accent);"></i> Contribution Tracker</h3>
+      <!-- Header actions (both email all active admins, with PDF + PNG attached):
+           • Pending Report — member-wise pending months, as of today (see sendTrackerPendingReport)
+           • Send Summary   — THIS month's contribution summary (see sendTrackerAdminSummary) -->
+      <div class="tr-header-actions">
+        <button id="tr_pending_report_btn" class="tr-summary-btn tr-summary-btn-alt" onclick="sendTrackerPendingReport()"
+                title="Email the member-wise Pending Report (PDF + image) to all active admins" aria-label="Send pending report to admins">
+          <i class="fa-solid fa-hourglass-half"></i><span id="tr_pending_report_label">Pending Report</span>
+        </button>
+        <button id="tr_send_summary_btn" class="tr-summary-btn" onclick="sendTrackerAdminSummary()"
+                title="Email this month's summary (PDF + image) to all active admins" aria-label="Send this month's summary to admins">
+          <i class="fa-solid fa-paper-plane"></i><span id="tr_send_summary_label">Send Summary</span>
+        </button>
+      </div>
     </div>
 
     <!-- GLOBAL FILTERS -->
