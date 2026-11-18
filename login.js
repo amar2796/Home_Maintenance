@@ -232,6 +232,34 @@ function _attemptLogin(mobile,hashedPwd,sessionToken,rememberMeChecked,n){
   });
 }
 
+// [FB] Fast login with Firebase (members only). Any problem at all -> returns null and the
+// normal Apps Script login below runs exactly as before.
+const _FB_BASE="https://www.gstatic.com/firebasejs/10.12.2/";
+const _fbImp=(u)=>import(u);
+let _fbSdkP=null;
+function _fbSdk(){
+  if(_fbSdkP)return _fbSdkP;
+  if(typeof FIREBASE_CONFIG==="undefined"||!FIREBASE_CONFIG||!FIREBASE_CONFIG.apiKey)return Promise.reject(new Error("no firebase config"));
+  _fbSdkP=Promise.all([_fbImp(_FB_BASE+"firebase-app.js"),_fbImp(_FB_BASE+"firebase-auth.js")]).then(m=>{const app=m[0].initializeApp(FIREBASE_CONFIG);return{auth:m[1].getAuth(app),A:m[1]};});
+  _fbSdkP.catch(()=>{_fbSdkP=null;});
+  return _fbSdkP;
+}
+setTimeout(()=>{_fbSdk().catch(()=>{});},0); // load the Firebase code while the member types
+function _fbLimit(p,ms,msg){return Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error(msg)),ms))]);}
+function _fbWhy(m){try{console.warn("[firebase login] using the normal login because:",m);}catch(e){}}
+async function _fbTryLogin(mobile,password){
+  try{
+    const off=Number(localStorage.getItem("fb_off")||0); if(off>Date.now()){_fbWhy("Firebase login is paused until "+new Date(off).toLocaleTimeString()+" (earlier problem)");return null;}
+    const digits=String(mobile).replace(/\D/g,""); if(!/^[6-9]\d{9}$/.test(digits)){_fbWhy("mobile number format");return null;}
+    const sdk=await _fbLimit(_fbSdk(),8000,"Firebase code did not load");
+    const cred=await _fbLimit(sdk.A.signInWithEmailAndPassword(sdk.auth,digits+"@mandir.app",password),10000,"sign-in took too long");
+    const tr=await cred.user.getIdTokenResult();
+    const _r=String(tr.claims.role||"").toLowerCase();
+    if(_r!=="user"&&_r!=="admin"){_fbWhy("account role is '"+(tr.claims.role||"none")+"'");try{await sdk.A.signOut(sdk.auth);}catch(e){} return null;}
+    return{uid:cred.user.uid,name:cred.user.displayName||"",idToken:tr.token,role:_r==="admin"?"Admin":"User"};
+  }catch(e){_fbWhy((e&&e.code)||(e&&e.message)||String(e));return null;}
+}
+
 async function doLogin(){
   document.getElementById("retryBtn").style.display="none";
   if(!_loginGuard())return;
@@ -248,6 +276,20 @@ async function doLogin(){
     // random value, safe to generate before we know the outcome.
     const sessionToken=Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b=>b.toString(16).padStart(2,"0")).join("");
     const rememberMeChecked=document.getElementById("rememberMe").checked;
+    // [FB] Fast path: Firebase checked the password. The session token is registered with the
+    // server by app.js on the next page, in the background (so the member is not kept waiting).
+    const fb=await _fbTryLogin(mobile,password);
+    if(fb){
+      try{console.info("[firebase login] fast login worked");}catch(e){}
+      const ttl0=rememberMeChecked?24*60*60*1000:30*60*1000;
+      localStorage.setItem("session",JSON.stringify({userId:fb.uid,name:fb.name,role:fb.role,email:"",photoURL:"",expiry:Date.now()+ttl0,sessionToken,ttlMs:ttl0,fbIdToken:fb.idToken,fbPending:true,fbRemember:!!rememberMeChecked}));
+      if(rememberMeChecked){saveRememberToken(fb.uid,fb.name,fb.role,"",sessionToken);}
+      try{const bc=new BroadcastChannel("mandir_session");bc.postMessage({type:"SESSION_REVOKED",userId:String(fb.uid)});setTimeout(()=>bc.close(),500);}catch(e){}
+      setMsg("loginMsg","Login successful! Redirecting...","success");
+      _loginSuccess();
+      location.href=(fb.role==="Admin"?"admin.html":"user.html");
+      return;
+    }
     const res=await _attemptLogin(mobile,hashedPwd,sessionToken,rememberMeChecked,1);
     if(res.status==="success"){
       const user=res.user;delete user.Password;

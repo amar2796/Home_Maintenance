@@ -147,7 +147,92 @@ async function sha256(str) {
 }
 
 /* ═══ JSONP GET ═══ */
-function getData(action) {
+// ── [FB] Fast Firebase login: register this browser's session token with the server ONCE, in the
+//    background, before the first Apps Script call. If it cannot be done, the member is sent back
+//    to the login page and the normal (Apps Script) login is used instead. ──
+window._fbPendingNow=false;
+function _fbFail(res){
+  try{localStorage.setItem("fb_last_error",JSON.stringify({at:new Date().toISOString(),result:res||"no answer (timeout)"}));console.warn("[firebase login] session registration failed:",res||"no answer (timeout)");}catch(e){}
+}
+function _fbRegisterOnce(s){
+  return new Promise(function(resolve){
+    var tries=0;
+    (function attempt(){
+      tries++;
+      var cb="cb_fb_"+Date.now()+"_"+tries, sc=document.createElement("script"), done=false;
+      var timer=setTimeout(function(){fin(null);},40000);
+      function fin(res){
+        if(done)return; done=true; clearTimeout(timer);
+        try{delete window[cb];}catch(e){} try{sc.remove();}catch(e){}
+        if(res&&res.status==="success")return resolve(true);
+        if(res&&res.status==="error"&&res.errorCode!=="server"){_fbFail(res);return resolve(false);} // a clear "no": do not retry
+        if(tries<3)return setTimeout(attempt,1500*tries);
+        _fbFail(res);resolve(false);
+      }
+      window[cb]=fin; sc.onerror=function(){fin(null);};
+      sc.src=API_URL+"?action=firebaseSession&userId="+encodeURIComponent(s.userId)+"&token="+encodeURIComponent(s.sessionToken)+"&rememberMe="+(s.fbRemember?"true":"false")+"&idToken="+encodeURIComponent(s.fbIdToken)+"&callback="+cb;
+      (document.body||document.head).appendChild(sc);
+    })();
+  });
+}
+window._fbReady=(function(){
+  try{
+    var s=JSON.parse(localStorage.getItem("session")||"null");
+    if(!s||!s.fbIdToken||!s.sessionToken)return Promise.resolve();
+    window._fbPendingNow=true;
+    return _fbRegisterOnce(s).then(function(ok){
+      window._fbPendingNow=false;
+      try{
+        var cur=JSON.parse(localStorage.getItem("session")||"null");
+        if(ok){
+          if(cur&&cur.sessionToken===s.sessionToken){delete cur.fbIdToken;delete cur.fbPending;delete cur.fbRemember;localStorage.setItem("session",JSON.stringify(cur));}
+        }else{
+          localStorage.setItem("fb_off",String(Date.now()+30*60*1000)); // use the normal login for the next 30 min
+          localStorage.removeItem("session");
+          location.replace("login.html");
+        }
+      }catch(e){}
+    });
+  }catch(e){return Promise.resolve();}
+})();
+// Reads: if firebase-member.js can answer this action from Firestore (no Apps Script, no waiting for the
+// session registration) it does; if it returns nothing or fails, the normal Apps Script call runs.
+// Identical heavy reads asked for at the same moment (e.g. the health check) share ONE request to the server.
+var _FB_SHARED_TTL={getHealthCheck:90000};
+var _fbSharedCalls={};
+function getData(action,_sAttempt,_nAttempt){
+  var ttl=(!_sAttempt&&!_nAttempt)?_FB_SHARED_TTL[action]:0;
+  if(ttl){var c=_fbSharedCalls[action];if(c&&Date.now()-c.at<ttl)return c.p;}
+  var p=_getDataFB(action,_sAttempt,_nAttempt);
+  if(ttl){_fbSharedCalls[action]={p:p,at:Date.now()};p.then(null,function(){if(_fbSharedCalls[action]&&_fbSharedCalls[action].p===p)delete _fbSharedCalls[action];});}
+  return p;
+}
+function _getDataFB(action,_sAttempt,_nAttempt){
+  var h=null;
+  try{if(!_sAttempt&&!_nAttempt&&window.mandirFirebaseFetch)h=window.mandirFirebaseFetch(action);}catch(e){h=null;}
+  var slow=function(){return window._fbReady.then(function(){return _getDataRaw(action,_sAttempt,_nAttempt);});};
+  if(h)return h.then(function(r){return(r===undefined||r===null)?slow():r;},slow);
+  return slow();
+}
+// Writes: remember "data just changed" so reads use the live sheet for 3 minutes (Firestore catches up within ~1-2 min).
+var _FB_WRITE_RE=/^(add|update|delete|approve|reject|restore|reset|change|resolve|register|verify|submit|edit|save|remove|upload|clear|toggle|send)/i;
+function postData(data){
+  try{if(data&&_FB_WRITE_RE.test(String(data.action||""))){localStorage.setItem("fb_stale_until",String(Date.now()+3*60*1000));if(window.mandirFbInvalidate)window.mandirFbInvalidate();}}catch(e){}
+  return window._fbReady.then(function(){return _postDataRaw(data);});
+}
+// Photos: keep each avatar on this device for 7 days so it is fetched through Apps Script only once.
+window.mandirPhotoStore={
+  get:function(id){try{var r=localStorage.getItem("mph_"+id);if(!r)return null;var o=JSON.parse(r);if(!o||Date.now()-o.t>7*864e5){localStorage.removeItem("mph_"+id);return null;}return o.v;}catch(e){return null;}},
+  set:function(id,v){
+    if(!id||!v||v.length>180000)return;
+    var rec=JSON.stringify({t:Date.now(),v:v});
+    try{localStorage.setItem("mph_"+id,rec);}catch(e){try{this._evict();localStorage.setItem("mph_"+id,rec);}catch(e2){}}
+  },
+  _evict:function(){var a=[],i,k;for(i=0;i<localStorage.length;i++){k=localStorage.key(i);if(k&&k.indexOf("mph_")===0){try{a.push([k,JSON.parse(localStorage.getItem(k)).t||0]);}catch(e){a.push([k,0]);}}}
+    a.sort(function(x,y){return x[1]-y[1];});for(i=0;i<Math.min(6,a.length);i++)localStorage.removeItem(a[i][0]);}
+};
+
+function _getDataRaw(action, _sAttempt, _nAttempt) {
   return new Promise((resolve,reject)=>{
     _cbId++; const cb="cb_"+_cbId+"_"+Date.now(); const script=document.createElement("script"); let done=false;
     window._activeJsonpCount = (window._activeJsonpCount||0) + 1;
@@ -178,7 +263,7 @@ function getData(action) {
    Either way the client gets a real answer, and duplicates are impossible
    because the key — not a timing guess — is what the server checks.
    ═══════════════════════════════════════════════════════════════ */
-function postData(data) {
+function _postDataRaw(data) {
   // Generate the idempotency key ONCE per logical submit attempt.
   // Mutating `data` in place means callers that stash the same payload
   // object for a manual "Retry" button (admin.js: _contribFailedPayload,
@@ -271,6 +356,7 @@ function endSessionAndRedirect(reason, options) {
   options = options || {};
   window._navFlag = true; // beforeunload handlers check this to avoid double-firing
   sendLogoutBeacon(reason);
+  try { if (window.fbSignOut) window.fbSignOut(); } catch (e) {}
 
   if (options.clearAll) {
     try { localStorage.clear(); } catch (e) {}
@@ -465,6 +551,7 @@ function getCached(action) {
    Already called automatically by postData wrapping below.
    ═══════════════════════════════════════════════════════════ */
 function mandirCacheBust(action) {
+  try { if (!action || action === "getAllData") { localStorage.setItem("fb_stale_until", String(Date.now() + 3*60*1000)); if (window.mandirFbInvalidate) window.mandirFbInvalidate(); } } catch (e) {} // data just changed: read the live sheet for 3 min and forget the saved Firestore copies
   if (action) {
     delete window._mandirCache[action];
     delete window._mandirPending[action];
@@ -722,6 +809,7 @@ function broadcastSessionRevoke(userId){
   const POLL_MS     = _isAdmin ? 60000 : 600000; // 60s for Admin, 10min for User
 
   function _poll(){
+    if(window._fbPendingNow) return; // still registering a fast-login session
     try {
       const s = JSON.parse(localStorage.getItem("session") || "null");
       // Skip poll entirely if session has no token (old session before redeployment,

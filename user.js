@@ -234,11 +234,13 @@ const _U_NOTIF_DISMISSED = _U_PREFIX + "_notif_dismissed_ids"; // notification b
   // Max 10 entries — FIFO eviction to prevent unbounded heap growth
   window._photoB64Cache = {};
   window._photoB64CacheKeys = [];
-  async function _fetchPhotoBase64(photoURL) {
+  async function _fetchPhotoBase64(photoURL, full) {
     if (!photoURL) return null;
     if (window._photoB64Cache[photoURL]) return window._photoB64Cache[photoURL];
     const fileId = _extractDriveFileId(photoURL);
     if (!fileId) return null;
+    if (!full) { try { var _th = window.mandirThumb && window.mandirThumb(fileId); if (_th) return _th; } catch (e) {} }   // tiny photo that came with the profile
+    try { var _st = window.mandirPhotoStore && window.mandirPhotoStore.get(fileId); if (_st) { window._photoB64Cache[photoURL] = _st; return _st; } } catch (e) {}   // saved on this device
     try {
       const _s = JSON.parse(localStorage.getItem("session") || "null");
       const res = await postData({ action: "getPhotoBase64", fileId: fileId, userId: _s?.userId || "", sessionToken: _s?.sessionToken || "" });
@@ -250,6 +252,7 @@ const _U_NOTIF_DISMISSED = _U_PREFIX + "_notif_dismissed_ids"; // notification b
         }
         window._photoB64Cache[photoURL] = res.base64;
         window._photoB64CacheKeys.push(photoURL);
+        try { if (window.mandirPhotoStore) window.mandirPhotoStore.set(fileId, res.base64); } catch (e) {}
         return res.base64;
       }
     } catch (e) { /* fall through — initials will show */ }
@@ -906,7 +909,7 @@ const _U_NOTIF_DISMISSED = _U_PREFIX + "_notif_dismissed_ids"; // notification b
       } else {
         // Record not found locally — full re-fetch as fallback
         if (typeof mandirCacheBust === "function") mandirCacheBust("getAllData");
-        const fresh = (await getCached("getAllData")) || {};
+        const fresh = (await (typeof mandirLoadAllData === "function" ? mandirLoadAllData(true) : getCached("getAllData"))) || {};
         users            = fresh.users            || users;
         allContributions = fresh.contributions    || allContributions;
         allGoals         = fresh.goals            || allGoals;
@@ -1610,7 +1613,7 @@ existing updateUser action. No new Apps Script action needed.
     // _showUserLoadingOverlay() is called by caller (_doUserRetry / initial load), not here
     try {
       _uloStep(0); // Connecting to server…
-      let allData = (await getCached("getAllData")) || {};
+      let allData = (await (typeof mandirLoadAllData === "function" ? mandirLoadAllData() : getCached("getAllData"))) || {};
 
       // ── Guard: treat missing or structurally empty response as an error
       //    so the retry overlay is shown instead of a blank/zero dashboard.
@@ -2994,7 +2997,7 @@ Uses jsPDF already loaded. No server call needed.
       let PHOTO = null;
       if (myProfile.PhotoURL) {
         try {
-          PHOTO = await _fetchPhotoBase64(myProfile.PhotoURL);
+          PHOTO = await _fetchPhotoBase64(myProfile.PhotoURL, true);   // the PDF keeps the full-size photo
         } catch (e) { PHOTO = null; }
       }
 

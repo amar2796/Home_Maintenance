@@ -1,4 +1,4 @@
-    var _hmMemberFilter = "all";
+var _hmMemberFilter = "all";
 
     /* ══════════════════════════════════════════════════
        VIEWING PERIOD BAR — fully interactive
@@ -867,7 +867,7 @@
       _resetLoadingOverlay();
       setLoading(true);
       try {
-        let allData = (await getCached("getAllData")) || {};
+        let allData = (await (typeof mandirLoadAllData === "function" ? mandirLoadAllData() : getCached("getAllData"))) || {};
         users = allData.users || [];
         types = allData.types || [];
         expenseTypes = allData.expenseTypes || [];
@@ -924,7 +924,8 @@
         // heartbeat dot shows the correct status colour from login
         if (!window._hcRanOnce && typeof runHealthCheck === "function") {
           window._hcRanOnce = true;
-          setTimeout(runHealthCheck, 1500);
+          var _hcLast = 0; try { _hcLast = Number(localStorage.getItem("hc_last") || 0); } catch (e) {}
+          if (Date.now() - _hcLast > 30 * 60 * 1000) setTimeout(function () { try { localStorage.setItem("hc_last", String(Date.now())); } catch (e) {} runHealthCheck(); }, 13000); // at most once per 30 min
         }
         // Today's birthdays — lets admin send a wish too, same as members
         _loadAdminBirthdayWidget();
@@ -1236,4 +1237,4 @@
     /* ══ PAGINATION UTILITY ══════════════════════════════════════════
        _renderPagination(containerId, totalPages, currentPage, onPageFn)
        Renders Previous / numbered / Next buttons into the given container.
-    ═══════════════════════════════════════════════════════════════════ */
+    ═══════════════════════════════════════════════════════════════════ */
